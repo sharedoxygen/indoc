@@ -1,0 +1,44 @@
+app:
+  name: inDoc
+  version: 1.0.0
+server:
+  host: 0.0.0.0
+  port: 8000
+api:
+  prefix: /api/v1
+storage:
+  temp_path: ./tmp/indoc_temp
+  storage_path: ./data/storage
+security:
+  jwt_algorithm: HS256
+  jwt_expiration_minutes: 1440
+  # jwt_secret_key is intentionally not committed; set via env or config/local.yaml
+postgres:
+  host: localhost
+  port: 5432
+  db: indoc
+  user: indoc_user
+  # password should come from env or local.yaml
+redis:
+  url: redis://localhost:6379
+celery:
+  broker_url: redis://localhost:6379/0
+  result_backend: redis://localhost:6379/0
+search:
+  elasticsearch_url: http://localhost:9200
+  elasticsearch_index: indoc_documents
+  qdrant_url: http://localhost:6333
+  qdrant_collection: documents
+  qdrant_vector_size: 384  # MiniLM-L6 embedding dimension
+  qdrant_distance: Cosine
+ollama:
+  base_url: http://localhost:11434
+  model: gpt-oss:20b
+cors:
+  origins:
+    - http://localhost:5173
+    - http://localhost:3000
+telemetry:
+  enabled: true
+  otlp_endpoint: http://localhost:4317
+
