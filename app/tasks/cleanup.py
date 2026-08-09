@@ -73,7 +73,7 @@ def cleanup_orphaned_documents():
         db.close()
 
 
-     def cleanup_failed_uploads():
+def cleanup_failed_uploads():
     """
     Remove document records for files that failed to upload properly.
     """
@@ -115,7 +115,7 @@ def cleanup_orphaned_documents():
         db.close()
 
 
-     def cleanup_temp_files():
+def cleanup_temp_files():
     """
     Remove temporary files older than 1 hour.
     """
