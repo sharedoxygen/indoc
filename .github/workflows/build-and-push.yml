@@ -1,13 +1,10 @@
 # .github/workflows/build-and-push.yml
 name: Build and Push Docker Images
 
+# Manual only — publishing images needs registry credentials. Enable push
+# triggers here once secrets are configured.
 on:
-  push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
+  workflow_dispatch:
 
 jobs:
   build:

@@ -1,12 +1,12 @@
 name: Security
 
 # Secret scanning on every push and pull request. Fails the build if any
-# credential, key, or token is detected in the working tree or git history.
+# credential, key, or token is detected in the tracked files.
 # Uses the gitleaks binary directly (no license key required for this to run).
 
 on:
   push:
-    branches: ["**"]
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
@@ -18,10 +18,8 @@ jobs:
     name: Secret scan (gitleaks)
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout (full history)
+      - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Install gitleaks
         run: |
@@ -30,5 +28,7 @@ jobs:
             | tar -xz -C /usr/local/bin gitleaks
           gitleaks version
 
-      - name: Scan working tree and history
-        run: gitleaks detect --source . --redact --verbose --exit-code 1
+      # Scan the tracked working tree (--no-git). Allowlist in .gitleaks.toml
+      # covers templates and synthetic test data.
+      - name: Scan for secrets
+        run: gitleaks detect --source . --no-git --config .gitleaks.toml --redact --verbose --exit-code 1

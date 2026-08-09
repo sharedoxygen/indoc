@@ -294,7 +294,7 @@ class ChatDiagnosticsService:
         return recommendations
 
 
-     async def diagnose_chat_system(db: AsyncSession, user_id: int) -> Dict[str, Any]:
+async def diagnose_chat_system(db: AsyncSession, user_id: int) -> Dict[str, Any]:
     """
     Main diagnostic function for chat system health checking
     
