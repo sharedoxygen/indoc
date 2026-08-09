@@ -1,0 +1,17 @@
+{
+  "name": "inDoc - Intelligent Document Management",
+  "short_name": "inDoc",
+  "description": "Modern document management system with AI-powered search and collaboration features",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any"
+    }
+  ],
+  "theme_color": "#1976d2",
+  "background_color": "#ffffff",
+  "display": "standalone",
+  "start_url": "/",
+  "scope": "/"
+}

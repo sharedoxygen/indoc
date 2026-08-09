@@ -1,0 +1,287 @@
+# Production Monitoring Configuration for inDoc
+# This file contains monitoring, logging, and alerting configurations for production deployment
+
+# Application Metrics Configuration
+metrics:
+  enabled: true
+  port: 9090
+  path: "/metrics"
+
+  # Custom metrics to collect
+  custom_metrics:
+    - name: "indoc_documents_processed_total"
+      type: "counter"
+      description: "Total number of documents processed"
+      labels: ["status", "document_type"]
+
+    - name: "indoc_chat_requests_total"
+      type: "counter"
+      description: "Total number of chat requests"
+      labels: ["status", "user_role"]
+
+    - name: "indoc_search_requests_total"
+      type: "counter"
+      description: "Total number of search requests"
+      labels: ["status", "search_type"]
+
+    - name: "indoc_response_time_seconds"
+      type: "histogram"
+      description: "Response time in seconds"
+      buckets: [0.1, 0.5, 1.0, 2.0, 5.0, 10.0]
+
+# Logging Configuration
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR, CRITICAL
+
+  # Structured logging for better parsing
+  structured:
+    enabled: true
+    format: "json"
+
+  # Log rotation
+  rotation:
+    max_size: "100MB"
+    backup_count: 30
+    compression: true
+
+  # Sensitive data filtering
+  filters:
+    - pattern: "(password|secret|token|key)"
+      replacement: "[REDACTED]"
+
+  # Log destinations
+  outputs:
+    - type: "file"
+      path: "/var/log/indoc/app.log"
+      level: "INFO"
+
+    - type: "file"
+      path: "/var/log/indoc/errors.log"
+      level: "ERROR"
+      include_extra: true
+
+    - type: "syslog"
+      facility: "local0"
+      level: "WARNING"
+
+# Health Checks Configuration
+health_checks:
+  # Basic health check
+  basic:
+    path: "/health"
+    interval: "30s"
+    timeout: "10s"
+
+  # Detailed health check
+  detailed:
+    path: "/health/detailed"
+    interval: "60s"
+    timeout: "15s"
+
+  # Readiness probe (for Kubernetes)
+  readiness:
+    path: "/health"
+    initial_delay: "30s"
+    period: "10s"
+    failure_threshold: 3
+
+  # Liveness probe (for Kubernetes)
+  liveness:
+    path: "/health"
+    initial_delay: "60s"
+    period: "20s"
+    failure_threshold: 3
+
+# Alerting Configuration
+alerts:
+  # Alert thresholds
+  thresholds:
+    error_rate: 0.05  # 5% error rate threshold
+    response_time_p95: 5.0  # 95th percentile response time in seconds
+    memory_usage: 0.8  # 80% memory usage threshold
+    cpu_usage: 0.7  # 70% CPU usage threshold
+
+  # Alert rules
+  rules:
+    - name: "high_error_rate"
+      condition: "error_rate > 0.05"
+      duration: "5m"
+      severity: "warning"
+      description: "Error rate is above 5%"
+
+    - name: "slow_response_time"
+      condition: "response_time_p95 > 5.0"
+      duration: "3m"
+      severity: "warning"
+      description: "Response time P95 is above 5 seconds"
+
+    - name: "high_memory_usage"
+      condition: "memory_usage > 0.8"
+      duration: "2m"
+      severity: "critical"
+      description: "Memory usage is above 80%"
+
+    - name: "high_cpu_usage"
+      condition: "cpu_usage > 0.7"
+      duration: "2m"
+      severity: "critical"
+      description: "CPU usage is above 70%"
+
+    - name: "database_unavailable"
+      condition: "database_health != 'healthy'"
+      duration: "1m"
+      severity: "critical"
+      description: "Database is unavailable"
+
+  # Alert destinations
+  destinations:
+    - type: "email"
+      recipients: ["ops@company.com", "devops@company.com"]
+      severity: ["warning", "critical"]
+
+    - type: "slack"
+      webhook_url: "${SLACK_WEBHOOK_URL}"
+      channel: "#alerts"
+      severity: ["warning", "critical"]
+
+    - type: "pagerduty"
+      integration_key: "${PAGERDUTY_INTEGRATION_KEY}"
+      severity: ["critical"]
+
+# Database Monitoring
+database:
+  # Connection pool monitoring
+  connection_pool:
+    enabled: true
+    max_connections: 20
+    min_connections: 5
+
+  # Query performance monitoring
+  query_monitoring:
+    enabled: true
+    slow_query_threshold: "1s"
+    log_slow_queries: true
+
+  # Connection health monitoring
+  connection_health:
+    enabled: true
+    check_interval: "30s"
+
+# External Service Monitoring
+external_services:
+  - name: "elasticsearch"
+    type: "http"
+    url: "http://elasticsearch:9200/_cluster/health"
+    expected_status: 200
+    timeout: "10s"
+    retry_count: 3
+
+  - name: "weaviate"
+    type: "http"
+    url: "http://weaviate:8060/v1/meta"
+    expected_status: 200
+    timeout: "10s"
+    retry_count: 3
+
+  - name: "redis"
+    type: "redis"
+    host: "redis"
+    port: 6379
+    password: "${REDIS_PASSWORD}"
+    timeout: "5s"
+
+  - name: "ollama"
+    type: "http"
+    url: "http://ollama:11434/api/tags"
+    expected_status: 200
+    timeout: "10s"
+    retry_count: 3
+
+# Security Monitoring
+security:
+  # Authentication monitoring
+  authentication:
+    enabled: true
+    log_failed_attempts: true
+    alert_on_brute_force: true
+    brute_force_threshold: 5  # attempts per minute
+
+  # Audit logging
+  audit:
+    enabled: true
+    log_level: "INFO"
+    include_request_body: false
+    include_response_body: false
+
+  # Secret access monitoring
+  secrets:
+    enabled: true
+    log_access: true
+    alert_on_unusual_access: true
+
+# Performance Monitoring
+performance:
+  # Request tracing
+  tracing:
+    enabled: true
+    provider: "jaeger"  # jaeger, zipkin, datadog
+    sample_rate: 0.1  # 10% of requests
+
+  # Profiling
+  profiling:
+    enabled: false  # Enable only for debugging
+    provider: "py-spy"
+
+# Backup Monitoring
+backups:
+  # Database backups
+  database:
+    enabled: true
+    schedule: "0 2 * * *"  # Daily at 2 AM
+    retention_days: 30
+    alert_on_failure: true
+
+  # Document storage backups
+  documents:
+    enabled: true
+    schedule: "0 3 * * *"  # Daily at 3 AM
+    retention_days: 90
+    alert_on_failure: true
+
+# Deployment Monitoring
+deployment:
+  # Version tracking
+  version_tracking:
+    enabled: true
+    current_version: "1.0.0"
+    deployment_timestamp: ""
+
+  # Rollback monitoring
+  rollback:
+    enabled: true
+    alert_on_rollback: true
+    rollback_window: "24h"  # Alert if rollback occurs within 24 hours
+
+# Compliance Monitoring
+compliance:
+  # GDPR compliance
+  gdpr:
+    enabled: true
+    data_retention_days: 2555  # 7 years
+    consent_tracking: true
+    data_deletion_tracking: true
+
+  # SOC 2 compliance
+  soc2:
+    enabled: true
+    access_logging: true
+    change_management: true
+    incident_response: true
+
+  # HIPAA compliance (if handling healthcare data)
+  hipaa:
+    enabled: false
+    encryption_at_rest: true
+    encryption_in_transit: true
+    audit_trails: true
+

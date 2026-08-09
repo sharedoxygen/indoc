@@ -1,0 +1,28 @@
+{
+  "projectName": "inDoc",
+  "defaultSectionPath": [
+    "Docs",
+    "inDoc"
+  ],
+  "skipSourceRootInPath": true,
+  "pathSegmentMap": {
+    "engineering": "Engineering",
+    "gtm": "GTM",
+    "inbox": "Inbox",
+    "fundraising": "Fundraising",
+    "series-a": "Series-A",
+    "series-b": "Series-B"
+  },
+  "sourceRoots": [
+    {
+      "label": "private-docs",
+      "path": "private-docs",
+      "recursive": true
+    }
+  ],
+  "workspaceId": "eddd5bce-08d0-4928-ae47-07387e5f1f45",
+  "workspaceNames": [
+    "inDoc",
+    "indoc"
+  ]
+}
