@@ -1,0 +1,42 @@
+---
+description: PrivateAppFlowy paf verbs and canonical document paths (Cursor IDE + CLI; global policy in user rules).
+alwaysApply: true
+---
+
+# PrivateAppFlowy Commands
+
+Self-hosted local `PrivateAppFlowy` only. Canonical paths: `~/.cursor/skills/privateappflowy/canonical-map.json`.
+
+**Cursor IDE + CLI only** — Agent chat, `agent` / `cursor agent`, or `paf` on PATH. No standalone web publisher UI. **`/paf sync`** in chat means run `paf sync`.
+
+## Verbs
+
+| Verb | Purpose |
+|------|---------|
+| `paf help` | Print cheat sheet |
+| `paf drop "<title>"` | Session artifact → `private-docs/inbox/` |
+| `paf new "<title>"` | Same as drop (title-only defaults to inbox) |
+| `paf new <domain> "<title>"` | Explicit domain under `Docs/<Project>/…` |
+| `paf publish` | Publish file(s) or `--source-root private-docs` |
+| `paf sync` | Sync all `private-docs` |
+| `paf find` | Search manifest |
+| `paf open` | Open app / resolve page |
+| `paf status` | Stack + auth + mapping |
+| `paf guard` | Find docs outside `private-docs/` |
+| `paf seed-templates` | Publish global templates to `Docs/Templates` |
+| `paf baseline` | One-project migrate to canonical layout |
+| `paf purge-legacy` | Remove old General/Wiki trees |
+| `paf init` | Bootstrap repo for PAF (**required for new projects**) |
+
+Domains: `engineering`, `gtm`, `inbox`, `series-a`, `series-b`.
+
+```bash
+python3 "$HOME/.cursor/skills/privateappflowy/scripts/publish_to_paf.py" <verb> --project-path "$(git rev-parse --show-toplevel)"
+```
+
+## Rules
+
+- Never publish into AppFlowy `General` or numbered wiki trees.
+- Ambiguous session artifacts: `paf new inbox "<title>"` (classify later).
+- After doc edits: agent runs `paf publish` or `paf sync` before finishing.
+- `patpat` is not a PAF command.

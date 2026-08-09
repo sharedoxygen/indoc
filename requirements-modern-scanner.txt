@@ -1,0 +1,13 @@
+# Modern virus scanning requirements
+# Add these to your requirements.txt for enhanced scanning
+
+# YARA - Fast pattern-based malware detection
+yara-python==4.5.1
+
+# VirusTotal API client (optional)
+vt-py==0.18.0
+
+# Alternative cloud scanning APIs (optional)
+# metadefender==1.0.0  # MetaDefender Cloud API
+# hybrid-analysis-client==1.0.0  # Hybrid Analysis API
+

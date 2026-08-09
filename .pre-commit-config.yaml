@@ -1,0 +1,105 @@
+# Pre-commit hooks for inDoc
+# Install: pre-commit install
+# Run manually: pre-commit run --all-files
+#
+# Enforces AI Prompt Engineering Guide standards:
+# - §3.4: No fabricated APIs/files
+# - §5: Data integrity checks
+# - §8: UI theme compliance (no hardcoded colors)
+# - §11: Full-scope verification
+
+repos:
+  # Python formatting and linting
+  - repo: https://github.com/psf/black
+    rev: 24.1.1
+    hooks:
+      - id: black
+        language_version: python3.11
+        files: ^(app|backend|tests|tools)/.*\.py$
+
+  - repo: https://github.com/pycqa/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        args: ["--profile", "black"]
+        files: ^(app|backend|tests|tools)/.*\.py$
+
+  - repo: https://github.com/pycqa/flake8
+    rev: 7.0.0
+    hooks:
+      - id: flake8
+        args: ["--max-line-length=120", "--extend-ignore=E203,W503"]
+        files: ^(app|backend|tests|tools)/.*\.py$
+
+  # TypeScript/JavaScript formatting
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: v4.0.0-alpha.8
+    hooks:
+      - id: prettier
+        types_or: [javascript, jsx, ts, tsx, json, yaml, markdown]
+        files: ^frontend/src/.*\.(ts|tsx|js|jsx|json)$
+        exclude: ^frontend/node_modules/
+
+  # General file checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+        exclude: ^(frontend/node_modules/|\.github/)
+      - id: check-json
+      - id: check-added-large-files
+        args: ['--maxkb=10000']  # 10MB max
+      - id: check-merge-conflict
+      - id: detect-private-key
+
+  # Custom inDoc-specific checks (AI Prompt Engineering Guide enforcement)
+  - repo: local
+    hooks:
+      # Check for hardcoded colors in UI components (Guide §8)
+      - id: no-hardcoded-colors
+        name: No Hardcoded Colors (Theme tokens only)
+        entry: bash -c 'if grep -rn --include="*.tsx" --include="*.ts" -E "(color:\s*['\''\"](#[0-9a-fA-F]{3,8}|rgb\(|rgba\())" frontend/src/components frontend/src/pages 2>/dev/null; then echo "❌ Hardcoded colors found! Use theme tokens from theme.ts"; exit 1; fi'
+        language: system
+        pass_filenames: false
+        files: ^frontend/src/(components|pages)/.*\.(tsx|ts)$
+
+      # Check for hallucinated module imports (Guide §3.4, §11)
+      - id: verify-module-imports
+        name: Verify Module Imports Exist
+        entry: tools/hooks/verify_imports.py
+        language: python
+        files: ^(app|backend)/.*\.py$
+        additional_dependencies: []
+
+      # Check hybrid search concurrency (Guide §4)
+      - id: verify-hybrid-search-concurrent
+        name: Verify Hybrid Search Stays Concurrent
+        entry: bash -c 'if git diff --cached --name-only | grep -q "search.*\.py"; then if git diff --cached | grep -q "await.*asyncio.gather"; then echo "✅ Hybrid search concurrency verified"; else echo "⚠️  Warning: Search changes detected. Verify ES+Weaviate run concurrently"; fi; fi'
+        language: system
+        pass_filenames: false
+        files: search.*\.py$
+
+      # Verify migrations are additive only (Guide §5)
+      - id: check-migrations-additive
+        name: Migrations Must Be Additive Only
+        entry: bash -c 'if git diff --cached | grep -E "^\+.*(DROP|ALTER.*DROP)" | grep -v "DROP INDEX"; then echo "❌ Destructive migration detected! Migrations must be additive per Guide §5"; exit 1; fi'
+        language: system
+        pass_filenames: false
+        files: ^alembic/versions/.*\.py$
+
+      # Check for test coverage on new endpoints (Guide §10)
+      - id: test-coverage-check
+        name: Tests Required for New Endpoints
+        entry: bash -c 'NEW_ENDPOINTS=$(git diff --cached --name-only | grep "api/v1/endpoints.*\.py$" | wc -l | tr -d " "); if [ "$NEW_ENDPOINTS" -gt 0 ]; then NEW_TESTS=$(git diff --cached --name-only | grep "tests/.*\.py$" | wc -l | tr -d " "); if [ "$NEW_TESTS" -eq 0 ]; then echo "⚠️  Warning: New API endpoints added but no tests updated. See Guide §10"; fi; fi'
+        language: system
+        pass_filenames: false
+
+      # Verify private-docs not accidentally committed (unless forced)
+        - id: prevent-private-docs-leak
+        name: Prevent Private Docs from Leaking
+        entry: bash -c 'if git diff --cached --name-only | grep "^private-docs/" | grep -v ".gitignore" >/dev/null; then if [ "$ALLOW_PRIVATE_DOCS" != "1" ]; then echo "⚠️  Warning: private-docs/ contains sensitive info. Use git add -f if intentional, or set ALLOW_PRIVATE_DOCS=1"; exit 1; fi; fi'
+        language: system
+        pass_filenames: false
+

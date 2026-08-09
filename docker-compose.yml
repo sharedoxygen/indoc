@@ -1,0 +1,163 @@
+services:
+  # REMOVED PostgreSQL - Using existing localhost:5432 instance
+  # Make sure your existing PostgreSQL has:
+  # - Database: indoc
+  # - User: indoc_user (or update .env with your credentials)
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: indoc-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test:
+        ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  qdrant:
+    image: qdrant/qdrant:v1.7.4
+    container_name: indoc-qdrant
+    ports:
+      - "6333:6333" # REST API
+      - "6334:6334" # gRPC API
+    volumes:
+      - qdrant_data:/qdrant/storage
+    environment:
+      - QDRANT__SERVICE__GRPC_PORT=6334
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6333/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: indoc-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  celery_worker:
+    build: ./backend
+    container_name: indoc-celery-worker
+    command: celery -A app.core.celery_app worker --loglevel=info --concurrency=4
+    environment:
+      # Using host.docker.internal to connect to localhost PostgreSQL from Docker
+      - DATABASE_URL=postgresql://indoc_user:${POSTGRES_PASSWORD:-indoc_dev_password}@host.docker.internal:5432/indoc
+      - POSTGRES_HOST=host.docker.internal
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - OLLAMA_BASE_URL=http://host.docker.internal:11434
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - redis
+    volumes:
+      - ./backend:/app
+      - ./data/uploads:/app/uploads
+
+  celery_beat:
+    build: ./backend
+    container_name: indoc-celery-beat
+    command: celery -A app.core.celery_app beat --loglevel=info
+    environment:
+      - DATABASE_URL=postgresql://indoc_user:${POSTGRES_PASSWORD:-indoc_dev_password}@host.docker.internal:5432/indoc
+      - POSTGRES_HOST=host.docker.internal
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - OLLAMA_BASE_URL=http://host.docker.internal:11434
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - redis
+    volumes:
+      - ./backend:/app
+
+  flower:
+    image: mher/flower:2.0
+    container_name: indoc-flower
+    command: celery --broker=redis://redis:6379/0 flower --port=5555
+    ports:
+      - "5555:5555"
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    depends_on:
+      - redis
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: indoc-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: indoc-grafana
+    ports:
+      - "3030:3000" # Changed from 3000:3000 to avoid conflict
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_INSTALL_PLUGINS=redis-datasource
+    volumes:
+      - grafana_data:/var/lib/grafana
+      # If provisioning folders exist, mount them; otherwise Grafana UI can be used to add
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    depends_on:
+      - prometheus
+
+  # Backend API (optional - can run locally instead)
+  # Uncomment if you want to run backend in Docker
+  # backend:
+  #   build: ./backend
+  #   container_name: indoc-backend
+  #   ports:
+  #     - "8000:8000"
+  #   environment:
+  #     - DATABASE_URL=postgresql://indoc_user:${POSTGRES_PASSWORD:-indoc_dev_password}@host.docker.internal:5432/indoc
+  #     - POSTGRES_HOST=host.docker.internal
+  #     - REDIS_URL=redis://redis:6379/0
+  #     - ELASTICSEARCH_URL=http://elasticsearch:9200
+  #     - WEAVIATE_URL=http://weaviate:8080
+  #     - OLLAMA_BASE_URL=http://host.docker.internal:11434
+  #   extra_hosts:
+  #     - "host.docker.internal:host-gateway"
+  #   depends_on:
+  #     - elasticsearch
+  #     - weaviate
+  #     - redis
+  #   volumes:
+  #     - ./backend:/app
+  #     - ./data/uploads:/app/uploads
+
+volumes:
+  # Removed postgres_data as we're using existing PostgreSQL
+  elasticsearch_data:
+  qdrant_data:
+  redis_data:
+  prometheus_data:
+  grafana_data:

@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Shell(paf)",
+      "Write(private-docs/**)",
+      "Read(private-docs/**)",
+      "Read(.pafpublish.json)",
+      "Write(.pafpublish.json)",
+      "WebFetch(shaoxy-studio.local)"
+    ],
+    "deny": []
+  }
+}

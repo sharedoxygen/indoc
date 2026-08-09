@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Clear Storage</title>
+</head>
+<body>
+    <h1>Clearing browser storage...</h1>
+    <script>
+        localStorage.clear();
+        sessionStorage.clear();
+        document.cookie.split(";").forEach(function(c) { 
+            document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
+        });
+        setTimeout(() => {
+            window.location.href = '/login';
+        }, 500);
+    </script>
+</body>
+</html>
+

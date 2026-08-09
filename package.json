@@ -1,0 +1,26 @@
+{
+  "name": "indoc-e2e",
+  "version": "1.1.0",
+  "description": "End-to-end testing for inDoc enterprise platform",
+  "author": "Shared Oxygen, LLC <info@sharedoxygen.com>",
+  "license": "MIT",
+  "homepage": "https://www.sharedoxygen.com",
+  "private": true,
+  "scripts": {
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:debug": "playwright test --debug",
+    "test:smoke": "playwright test tests/e2e/quick-smoke-test.spec.ts",
+    "test:production": "playwright test tests/e2e/indoc-production-validation.spec.ts",
+    "test:report": "playwright show-report",
+    "playwright:install": "playwright install --with-deps chromium"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.40.1",
+    "@types/node": "^20.10.5"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
