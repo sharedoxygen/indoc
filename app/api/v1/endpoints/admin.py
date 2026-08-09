@@ -31,7 +31,7 @@ async def cleanup_orphaned_documents_endpoint(
         raise HTTPException(status_code=500, detail=f"Cleanup failed: {str(e)}")
 
 
-     @router.post("/cleanup/failed-uploads")
+@router.post("/cleanup/failed-uploads")
 async def cleanup_failed_uploads_endpoint(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -49,7 +49,7 @@ async def cleanup_failed_uploads_endpoint(
         raise HTTPException(status_code=500, detail=f"Cleanup failed: {str(e)}")
 
 
-     @router.post("/cleanup/temp-files")
+@router.post("/cleanup/temp-files")
 async def cleanup_temp_files_endpoint(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -67,7 +67,7 @@ async def cleanup_temp_files_endpoint(
         raise HTTPException(status_code=500, detail=f"Cleanup failed: {str(e)}")
 
 
-     @router.post("/cleanup/all")
+@router.post("/cleanup/all")
 async def cleanup_all_endpoint(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
