@@ -1,0 +1,17 @@
+# gitleaks configuration for inDoc
+# Extends the default ruleset and allowlists known non-secrets:
+# template files and a synthetic test-data generator (no real credentials).
+
+title = "inDoc gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Templates and synthetic data — not real secrets"
+paths = [
+  '''\.env\.example$''',
+  '''tools/env\.template$''',
+  '''tools/realistic_seed_generator\.py$''',
+  '''docs/index\.html$''',
+]
