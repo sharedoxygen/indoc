@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Page</title>
+    <style>
+        body { font-family: Arial; padding: 40px; }
+        .box { background: #e3f2fd; padding: 20px; margin: 10px 0; border-radius: 8px; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>🔧 inDoc Debug Page</h1>
+    
+    <div class="box">
+        <h3>Current Status:</h3>
+        <div id="status">Loading...</div>
+    </div>
+    
+    <div class="box">
+        <h3>Actions:</h3>
+        <button onclick="clearStorage()">Clear All Storage</button>
+        <button onclick="testBackend()">Test Backend</button>
+        <button onclick="goToLogin()">Go to Login</button>
+        <button onclick="testRoot()">Test Root (/)</button>
+    </div>
+    
+    <div class="box">
+        <h3>Logs:</h3>
+        <pre id="logs" style="background: #fff; padding: 10px; max-height: 300px; overflow-y: auto;"></pre>
+    </div>
+    
+    <script>
+        function log(msg) {
+            const logs = document.getElementById('logs');
+            logs.textContent += new Date().toLocaleTimeString() + ': ' + msg + '\n';
+        }
+        
+        function clearStorage() {
+            localStorage.clear();
+            sessionStorage.clear();
+            log('✅ Storage cleared');
+            updateStatus();
+        }
+        
+        async function testBackend() {
+            try {
+                const response = await fetch('/api/v1/auth/me', {
+                    headers: {
+                        'Authorization': 'Bearer ' + (localStorage.getItem('token') || 'none')
+                    }
+                });
+                log('Backend /auth/me: ' + response.status);
+            } catch (e) {
+                log('❌ Backend error: ' + e.message);
+            }
+        }
+        
+        function goToLogin() {
+            window.location.href = '/login';
+        }
+        
+        function testRoot() {
+            window.location.href = '/';
+        }
+        
+        function updateStatus() {
+            const token = localStorage.getItem('token');
+            const status = document.getElementById('status');
+            status.innerHTML = `
+                <strong>LocalStorage token:</strong> ${token ? 'EXISTS (length: ' + token.length + ')' : 'NONE'}<br>
+                <strong>Current URL:</strong> ${window.location.href}<br>
+                <strong>User Agent:</strong> ${navigator.userAgent.substring(0, 50)}...
+            `;
+        }
+        
+        updateStatus();
+        log('Test page loaded');
+        
+        // Test if React root element exists
+        setTimeout(() => {
+            const root = document.getElementById('root');
+            if (root) {
+                log('✅ React root element found on main page');
+            } else {
+                log('❌ React root element NOT found');
+            }
+        }, 100);
+    </script>
+</body>
+</html>
+

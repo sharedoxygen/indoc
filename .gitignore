@@ -1,0 +1,181 @@
+# ============================================================================
+# inDoc - Comprehensive .gitignore
+# Created: 2025-10-15
+# Purpose: Security-first gitignore to prevent sensitive data exposure
+# ============================================================================
+
+# ============================================================================
+# CRITICAL: USER DATA & UPLOADS (NEVER COMMIT)
+# ============================================================================
+# NOTE: keep these anchored to real runtime data dirs. Do NOT use bare
+# "storage/" or "uploads/" - those also match source dirs like
+# app/services/storage/ and would drop real code.
+/data/
+/uploads/
+/storage/
+app/data/
+backend/data/
+backend/backend/data/
+tmp/indoc_temp/
+tmp/e2e-test-files/
+
+# ============================================================================
+# CRITICAL: CREDENTIALS & SECRETS (NEVER COMMIT)
+# ============================================================================
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+keys/
+secrets/
+credentials/
+
+# ============================================================================
+# CRITICAL: BACKUPS & DATABASES (NEVER COMMIT)
+# ============================================================================
+backups/
+*.backup
+*.bak
+*.sql
+*.db
+*.sqlite
+*.sqlite3
+*.dump
+
+# ============================================================================
+# CRITICAL: PRIVATE DOCUMENTATION (NEVER COMMIT)
+# ============================================================================
+private-docs/
+DEPLOYMENT_SUMMARY.md
+CLEANUP_SUMMARY.md
+*CREDENTIALS*.md
+*PASSWORD*.md
+*SECRET*.md
+
+# ============================================================================
+# PYTHON
+# ============================================================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environments
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+.venv/
+
+# ============================================================================
+# NODE / JAVASCRIPT
+# ============================================================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm/
+.yarn/
+package-lock.json
+yarn.lock
+
+# Build outputs
+frontend/dist/
+frontend/build/
+*.tgz
+
+# ============================================================================
+# TESTING & REPORTS
+# ============================================================================
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+.hypothesis/
+test-results/
+playwright-report/
+.playwright/
+
+# ============================================================================
+# LOGS & TEMPORARY FILES
+# ============================================================================
+*.log
+logs/
+tmp/
+*.tmp
+*.temp
+*.out
+*.pid
+celerybeat-schedule
+celerybeat-schedule.db
+
+# ============================================================================
+# IDEs & EDITORS
+# ============================================================================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+*.iml
+
+# ============================================================================
+# DOCKER
+# ============================================================================
+docker-compose.override.yml
+
+# ============================================================================
+# CONFIGURATION (Local overrides only)
+# ============================================================================
+config/local.yaml
+config/production.yaml
+alembic.ini.local
+
+# ============================================================================
+# MONITORING & METRICS
+# ============================================================================
+monitoring/data/
+
+# ============================================================================
+# MISC
+# ============================================================================
+.cache/
+*.orig
+.project
+.settings/
+.pydevproject
+.ropeproject
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+
