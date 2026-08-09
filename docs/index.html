@@ -1,0 +1,566 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="inDoc Autonomous Agent — live interactive demo. Press Run and watch the agent plan, act, observe, and re-plan on realistic instrumentation.">
+<title>inDoc — Autonomous Agent Console</title>
+<style>
+  :root{
+    --ground:#0f1218;
+    --raised:#171b24;
+    --raised-2:#1d222d;
+    --hairline:#2a3140;
+    --ink:#e9e7e0;
+    --muted:#9498a2;
+    --faint:#666c7c;
+    --think:#e3a54c;
+    --observe:#74b0c2;
+    --act:#82b28d;
+    --scope:#d98a6a;
+    --grid:rgba(255,255,255,0.05);
+  }
+  @media (prefers-color-scheme: light){
+    :root{
+      --ground:#eceae2;--raised:#f6f4ee;--raised-2:#efece3;--hairline:#d7d3c7;
+      --ink:#1a1d24;--muted:#5d6058;--faint:#8a8c82;
+      --think:#a8701f;--observe:#2c6c7e;--act:#3f7a54;--scope:#b1552f;
+      --grid:rgba(0,0,0,0.05);
+    }
+  }
+  :root[data-theme="light"]{
+    --ground:#eceae2;--raised:#f6f4ee;--raised-2:#efece3;--hairline:#d7d3c7;
+    --ink:#1a1d24;--muted:#5d6058;--faint:#8a8c82;
+    --think:#a8701f;--observe:#2c6c7e;--act:#3f7a54;--scope:#b1552f;
+    --grid:rgba(0,0,0,0.05);
+  }
+  :root[data-theme="dark"]{
+    --ground:#0f1218;--raised:#171b24;--raised-2:#1d222d;--hairline:#2a3140;
+    --ink:#e9e7e0;--muted:#9498a2;--faint:#666c7c;
+    --think:#e3a54c;--observe:#74b0c2;--act:#82b28d;--scope:#d98a6a;
+    --grid:rgba(255,255,255,0.05);
+  }
+
+  *{box-sizing:border-box;}
+  html{-webkit-text-size-adjust:100%;}
+  body{
+    margin:0;background:var(--ground);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+    line-height:1.6;font-size:16px;-webkit-font-smoothing:antialiased;
+  }
+  .mono{font-family:ui-monospace,"SF Mono","JetBrains Mono","Cascadia Code","Roboto Mono",Menlo,monospace;}
+  .wrap{max-width:960px;margin:0 auto;padding:0 22px;}
+
+  header{padding:64px 0 34px;}
+  .eyebrow{font-family:ui-monospace,monospace;font-size:12px;letter-spacing:0.22em;
+    text-transform:uppercase;color:var(--think);margin:0 0 20px;}
+  h1{font-family:ui-monospace,monospace;font-weight:700;
+    font-size:clamp(28px,5.6vw,52px);line-height:1.03;letter-spacing:-0.01em;margin:0;text-wrap:balance;}
+  h1 .lo{color:var(--faint);}
+  .dek{font-size:clamp(15px,2vw,18px);color:var(--muted);max-width:60ch;margin:22px 0 0;}
+
+  /* ---------- CONSOLE ---------- */
+  .console{
+    background:var(--raised);border:1px solid var(--hairline);border-radius:12px;
+    overflow:hidden;margin-top:30px;
+    box-shadow:0 24px 60px -30px rgba(0,0,0,0.55);
+  }
+  .console-bar{
+    display:flex;align-items:center;gap:12px;padding:13px 18px;
+    border-bottom:1px solid var(--hairline);background:var(--raised-2);
+  }
+  .lamps{display:flex;gap:7px;}
+  .lamps i{width:11px;height:11px;border-radius:50%;background:var(--hairline);display:block;}
+  .console-title{font-family:ui-monospace,monospace;font-size:12px;letter-spacing:0.13em;
+    text-transform:uppercase;color:var(--faint);}
+  .console-status{margin-left:auto;font-family:ui-monospace,monospace;font-size:12px;color:var(--muted);}
+  .console-status b{color:var(--act);font-weight:600;}
+
+  /* gauge cluster */
+  .cluster{
+    display:grid;grid-template-columns:repeat(4,1fr);gap:0;
+    border-bottom:1px solid var(--hairline);
+  }
+  .instrument{
+    padding:20px 14px 16px;display:flex;flex-direction:column;align-items:center;gap:10px;
+    border-right:1px solid var(--hairline);position:relative;
+  }
+  .instrument:last-child{border-right:none;}
+  .instrument .glabel{font-family:ui-monospace,monospace;font-size:10.5px;letter-spacing:0.14em;
+    text-transform:uppercase;color:var(--faint);}
+  .instrument canvas{display:block;}
+  .readout{font-family:ui-monospace,monospace;font-variant-numeric:tabular-nums;
+    font-size:15px;color:var(--ink);font-weight:600;}
+  .readout small{color:var(--muted);font-weight:400;font-size:12px;}
+
+  /* phase strip */
+  .phasestrip{display:flex;align-items:center;gap:14px;padding:12px 18px;
+    border-bottom:1px solid var(--hairline);flex-wrap:wrap;}
+  .phase-lamp{display:flex;align-items:center;gap:7px;font-family:ui-monospace,monospace;
+    font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--faint);transition:color .2s;}
+  .phase-lamp .dot{width:9px;height:9px;border-radius:50%;background:var(--hairline);transition:all .2s;}
+  .phase-lamp.on{color:var(--ink);}
+  .phase-lamp.think.on .dot{background:var(--think);box-shadow:0 0 10px var(--think);}
+  .phase-lamp.act.on .dot{background:var(--act);box-shadow:0 0 10px var(--act);}
+  .phase-lamp.observe.on .dot{background:var(--observe);box-shadow:0 0 10px var(--observe);}
+  .goal-mini{margin-left:auto;font-size:13px;color:var(--muted);max-width:52%;text-align:right;}
+  .goal-mini b{color:var(--ink);font-weight:500;}
+
+  /* run controls */
+  .controls{display:flex;align-items:center;gap:14px;padding:14px 18px;border-bottom:1px solid var(--hairline);}
+  button.run{
+    font-family:ui-monospace,monospace;font-size:13px;font-weight:700;letter-spacing:0.08em;
+    text-transform:uppercase;color:var(--ground);background:var(--think);
+    border:none;border-radius:5px;padding:11px 22px;cursor:pointer;transition:transform .1s,filter .15s;
+  }
+  button.run:hover{filter:brightness(1.08);}
+  button.run:active{transform:translateY(1px);}
+  button.run:disabled{opacity:0.45;cursor:default;}
+  button.run:focus-visible{outline:2px solid var(--observe);outline-offset:2px;}
+  .controls .hint{font-family:ui-monospace,monospace;font-size:12px;color:var(--faint);}
+
+  /* live trace */
+  .trace{padding:8px 18px 20px;min-height:120px;}
+  .trow{
+    display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--hairline);
+    opacity:0;transform:translateY(6px);transition:opacity .35s ease,transform .35s ease;
+  }
+  .trow.show{opacity:1;transform:none;}
+  .trow:last-child{border-bottom:none;}
+  .trow .tp{flex:0 0 74px;font-family:ui-monospace,monospace;font-size:10.5px;font-weight:700;
+    letter-spacing:0.08em;text-transform:uppercase;padding-top:3px;}
+  .trow.think .tp{color:var(--think);}
+  .trow.act .tp{color:var(--act);}
+  .trow.observe .tp{color:var(--observe);}
+  .trow.answer .tp{color:var(--think);}
+  .trow .tb{flex:1 1 auto;min-width:0;font-size:14.5px;color:var(--ink);}
+  .trow.observe .tb{color:var(--muted);}
+  .trow .tb .call{font-family:ui-monospace,monospace;font-size:13px;background:rgba(130,178,141,0.14);
+    color:var(--act);padding:2px 7px;border-radius:3px;word-break:break-word;}
+  .trow .tb .data{color:var(--observe);}
+  .trow.answer{background:linear-gradient(90deg,rgba(227,165,76,0.09),transparent);
+    border:1px solid var(--think);border-radius:7px;padding:14px 16px;margin-top:8px;}
+  .trow.answer .tb{font-weight:600;font-size:15.5px;}
+  .cursor{display:inline-block;width:8px;height:15px;background:var(--think);margin-left:3px;
+    vertical-align:-2px;animation:blink 1s steps(2) infinite;}
+  @keyframes blink{0%,50%{opacity:1;}51%,100%{opacity:0;}}
+
+  section{padding:52px 0;border-top:1px solid var(--hairline);}
+  .kicker{font-family:ui-monospace,monospace;font-size:12px;letter-spacing:0.16em;
+    text-transform:uppercase;color:var(--faint);margin:0 0 8px;}
+  h2{font-family:ui-monospace,monospace;font-weight:700;font-size:clamp(20px,2.8vw,26px);
+    margin:0 0 14px;letter-spacing:-0.01em;text-wrap:balance;}
+  .lead{color:var(--muted);max-width:64ch;margin:0 0 8px;}
+
+  .compare{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:22px;}
+  .col{border:1px solid var(--hairline);border-radius:6px;padding:20px;background:var(--raised);}
+  .col.old{opacity:0.82;}
+  .col h3{font-family:ui-monospace,monospace;font-size:13px;letter-spacing:0.1em;
+    text-transform:uppercase;margin:0 0 14px;}
+  .col.old h3{color:var(--faint);}
+  .col.new h3{color:var(--act);}
+  .flow{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-family:ui-monospace,monospace;
+    font-size:12.5px;color:var(--muted);}
+  .flow b{color:var(--ink);font-weight:600;}
+  .flow .arw{color:var(--faint);}
+  .flow .loop{color:var(--think);}
+  .col p{font-size:13.5px;color:var(--muted);margin:14px 0 0;}
+
+  .tools{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:22px;}
+  .tool{border:1px solid var(--hairline);border-radius:5px;padding:14px 16px;background:var(--raised);}
+  .tool .tn{font-family:ui-monospace,monospace;font-size:13px;color:var(--observe);font-weight:600;}
+  .tool .td{font-size:12.5px;color:var(--muted);margin-top:5px;}
+
+  .safety{display:flex;flex-direction:column;gap:12px;margin-top:22px;}
+  .safe-item{display:flex;gap:12px;align-items:flex-start;}
+  .safe-item .mk{flex:0 0 auto;margin-top:3px;font-family:ui-monospace,monospace;font-size:11px;
+    font-weight:700;letter-spacing:0.06em;color:var(--scope);border:1px solid var(--scope);
+    border-radius:3px;padding:2px 7px;}
+  .safe-item .sb{font-size:14.5px;color:var(--ink);}
+  .safe-item .sb span{color:var(--muted);}
+
+  .post{background:var(--raised-2);border:1px solid var(--hairline);border-radius:8px;
+    padding:22px 22px 18px;margin-top:20px;}
+  .post .pt{font-family:ui-monospace,monospace;font-size:11px;letter-spacing:0.14em;
+    text-transform:uppercase;color:var(--faint);margin-bottom:14px;}
+  .post pre{margin:0;white-space:pre-wrap;font-family:inherit;font-size:14.5px;line-height:1.65;color:var(--ink);}
+  .post .hash{color:var(--observe);}
+
+  .honesty{margin-top:22px;border-left:2px solid var(--scope);padding:2px 0 2px 16px;
+    font-size:14px;color:var(--muted);max-width:66ch;}
+  .honesty b{color:var(--ink);font-weight:600;}
+
+  footer{padding:32px 0 56px;color:var(--faint);font-size:12.5px;border-top:1px solid var(--hairline);}
+  footer .mono{color:var(--muted);}
+
+  @media (max-width:720px){
+    .cluster{grid-template-columns:repeat(2,1fr);}
+    .instrument:nth-child(2){border-right:none;}
+    .instrument:nth-child(1),.instrument:nth-child(2){border-bottom:1px solid var(--hairline);}
+    .compare,.tools{grid-template-columns:1fr;}
+    .goal-mini{display:none;}
+  }
+</style>
+
+<div class="wrap">
+
+  <header>
+    <p class="eyebrow">inDoc // Autonomous Agent Console</p>
+    <h1>It stopped answering.<br><span class="lo">It started investigating.</span></h1>
+    <p class="dek">A genuine agent loop over your own access-controlled documents. Press <span class="mono">Run</span> and watch it plan, call a tool, read what comes back, and re-plan — live, on real instrumentation.</p>
+
+    <!-- CONSOLE -->
+    <div class="console" role="region" aria-label="Autonomous agent console">
+      <div class="console-bar">
+        <div class="lamps"><i></i><i></i><i></i></div>
+        <span class="console-title mono">agent.run</span>
+        <span class="console-status mono" id="status">idle — press Run</span>
+      </div>
+
+      <div class="cluster">
+        <div class="instrument">
+          <span class="glabel">Reasoning step</span>
+          <canvas id="g-step" width="132" height="112"></canvas>
+          <span class="readout" id="r-step">0<small> / 6</small></span>
+        </div>
+        <div class="instrument">
+          <span class="glabel">Model throughput</span>
+          <canvas id="g-tput" width="132" height="112"></canvas>
+          <span class="readout" id="r-tput">0<small> tok/s</small></span>
+        </div>
+        <div class="instrument">
+          <span class="glabel">Answer grounding</span>
+          <canvas id="g-ground" width="132" height="112"></canvas>
+          <span class="readout" id="r-ground">0<small>%</small></span>
+        </div>
+        <div class="instrument">
+          <span class="glabel">Docs accessed</span>
+          <canvas id="g-scope" width="132" height="112"></canvas>
+          <span class="readout" id="r-scope">0<small> / 2 in scope</small></span>
+        </div>
+      </div>
+
+      <div class="phasestrip">
+        <span class="phase-lamp think" id="lamp-think"><span class="dot"></span>Think</span>
+        <span class="phase-lamp act" id="lamp-act"><span class="dot"></span>Act</span>
+        <span class="phase-lamp observe" id="lamp-observe"><span class="dot"></span>Observe</span>
+        <span class="goal-mini"><b>Goal:</b> “What was Q3 revenue and its growth rate?”</span>
+      </div>
+
+      <div class="controls">
+        <button class="run" id="runBtn">▶ Run agent</button>
+        <span class="hint mono">real trace · replayed with live instrumentation</span>
+      </div>
+
+      <div class="trace" id="trace" aria-live="polite"></div>
+    </div>
+  </header>
+
+  <section>
+    <p class="kicker">The honest distinction</p>
+    <h2>Why this isn't just RAG with extra steps</h2>
+    <div class="compare">
+      <div class="col old">
+        <h3>Before — RAG</h3>
+        <div class="flow"><b>retrieve</b> <span class="arw">→</span> <b>stuff context</b> <span class="arw">→</span> <b>answer</b></div>
+        <p>One retrieval, one generation. A fixed pipeline. The model never decides what to do next — it's handed documents and writes a reply.</p>
+      </div>
+      <div class="col new">
+        <h3>Now — Agent</h3>
+        <div class="flow"><b>plan</b> <span class="arw">→</span> <b>act</b> <span class="arw">→</span> <b>observe</b> <span class="loop">↺ re-plan</span> <span class="arw">→</span> <b>answer</b></div>
+        <p>The model chooses each tool call from what it has learned, chains steps, and stops when it has enough evidence. That decision loop is what "agentic" means.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <p class="kicker">The toolbox</p>
+    <h2>Six tools. Every call access-checked.</h2>
+    <p class="lead">The agent reasons over a sharp toolset. Each call runs through the same RBAC/ABAC scope as the rest of the platform — it can only ever see or read documents the requesting user is authorized to access.</p>
+    <div class="tools">
+      <div class="tool"><div class="tn">list_documents</div><div class="td">See what's in scope before acting.</div></div>
+      <div class="tool"><div class="tn">search_documents</div><div class="td">Hybrid keyword + semantic search.</div></div>
+      <div class="tool"><div class="tn">read_document</div><div class="td">Pull full text to extract facts.</div></div>
+      <div class="tool"><div class="tn">summarize_document</div><div class="td">Get the gist of a long document.</div></div>
+      <div class="tool"><div class="tn">compare_documents</div><div class="td">Find what changed across documents.</div></div>
+      <div class="tool"><div class="tn">finish</div><div class="td">Deliver the grounded answer.</div></div>
+    </div>
+
+    <div class="safety">
+      <div class="safe-item"><span class="mk">Scope</span><div class="sb">Every tool call is filtered to the user's permitted documents. <span>An autonomous agent that still can't cross a permission boundary.</span></div></div>
+      <div class="safe-item"><span class="mk">Audit</span><div class="sb">The full think → act → observe trace is returned with the answer, and streams live over SSE. <span>No black box — every decision is inspectable.</span></div></div>
+      <div class="safe-item"><span class="mk">Private</span><div class="sb">Runs on your own infrastructure, local model first. <span>Ollama primary, OpenAI as fallback — regulated data never has to leave.</span></div></div>
+      <div class="safe-item"><span class="mk">Bounded</span><div class="sb">Step budget plus a repeat-action guard. <span>It terminates and synthesizes rather than looping forever.</span></div></div>
+    </div>
+  </section>
+
+  <section>
+    <p class="kicker">Post-ready</p>
+    <h2>A caption you can lift</h2>
+    <div class="post">
+      <div class="pt">Draft — edit freely before posting</div>
+<pre>We just made our document platform genuinely agentic — the real thing, not a relabeled chatbot.
+
+Most "chat with your documents" tools do RAG: retrieve a few docs, generate one answer. Useful, but the model never actually decides anything.
+
+Ours now runs a true agent loop. Give it a goal and it plans, calls a tool, reads what comes back, and re-plans — step by step — until it has real evidence to answer. And you can watch it: the whole reasoning trace streams live, on instrumentation.
+
+The part I'm proudest of: every single tool call is access-controlled. An autonomous agent that still cannot cross a permission boundary — with a fully auditable trace, running on our own infrastructure, local model first.
+
+Autonomous, but accountable. That's the bar for agentic AI in regulated industries.
+
+<span class="hash">#AgenticAI #RAG #EnterpriseAI #Compliance #AIagents</span></pre>
+    </div>
+
+    <p class="honesty"><b>Straight about scope:</b> the console replays a real two-step run (it needed two steps); the same loop chains further on harder goals, up to its budget, using tools like <span class="mono">compare_documents</span>. Backed by a verified test suite — the reasoning loop, live streaming, and scope enforcement all covered. The gauges are a faithful visualization of the run, not the model's literal token counter.</p>
+  </section>
+
+  <footer>
+    <span class="mono">inDoc</span> · Autonomous Research Agent · plan → act → observe → answer<br>
+    POST /agent/run · POST /agent/stream (SSE) · reasoning trace returned with every response.
+  </footer>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function cssVar(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+
+  // ---- spring-eased value (critically damped-ish) for realistic needles ----
+  function Spring(v, stiff, damp){
+    this.v = v; this.target = v; this.vel = 0;
+    this.k = stiff || 120; this.d = damp || 20;
+  }
+  Spring.prototype.set = function(t){ this.target = t; };
+  Spring.prototype.snap = function(t){ this.target = t; this.v = t; this.vel = 0; };
+  Spring.prototype.step = function(dt){
+    var a = this.k*(this.target - this.v) - this.d*this.vel;
+    this.vel += a*dt; this.v += this.vel*dt;
+  };
+
+  function setupCanvas(cv){
+    var dpr = Math.min(window.devicePixelRatio||1, 2);
+    var w = cv.width, h = cv.height;
+    cv.style.width = w+'px'; cv.style.height = h+'px';
+    cv.width = w*dpr; cv.height = h*dpr;
+    var ctx = cv.getContext('2d'); ctx.scale(dpr,dpr);
+    cv._w = w; cv._h = h;
+    return ctx;
+  }
+
+  // draw a 270-degree dial with ticks, colored arc to `frac`, and a needle
+  function drawDial(ctx, cv, frac, color, opts){
+    opts = opts || {};
+    var w = cv._w, h = cv._h;
+    var cx = w/2, cy = h*0.62, r = Math.min(w,h)*0.42;
+    var a0 = Math.PI*0.75, a1 = Math.PI*2.25; // 270deg sweep
+    frac = Math.max(0, Math.min(1, frac));
+    ctx.clearRect(0,0,w,h);
+
+    // track
+    ctx.lineWidth = 7; ctx.lineCap = 'round';
+    ctx.strokeStyle = cssVar('--hairline');
+    ctx.beginPath(); ctx.arc(cx,cy,r,a0,a1); ctx.stroke();
+
+    // ticks
+    var ticks = opts.ticks || 9;
+    ctx.strokeStyle = cssVar('--faint'); ctx.lineWidth = 1.5;
+    for(var i=0;i<=ticks;i++){
+      var a = a0 + (a1-a0)*(i/ticks);
+      var r1 = r+6, r2 = r+ (i%((ticks)/ (opts.majorEvery||ticks))===0?12:9);
+      ctx.beginPath();
+      ctx.moveTo(cx+Math.cos(a)*r1, cy+Math.sin(a)*r1);
+      ctx.lineTo(cx+Math.cos(a)*r2, cy+Math.sin(a)*r2);
+      ctx.stroke();
+    }
+
+    // value arc with glow
+    var av = a0 + (a1-a0)*frac;
+    ctx.save();
+    ctx.shadowBlur = 12; ctx.shadowColor = color;
+    ctx.lineWidth = 7; ctx.strokeStyle = color;
+    ctx.beginPath(); ctx.arc(cx,cy,r,a0,av); ctx.stroke();
+    ctx.restore();
+
+    // needle
+    ctx.save();
+    ctx.translate(cx,cy); ctx.rotate(av);
+    ctx.strokeStyle = color; ctx.lineWidth = 2.4; ctx.lineCap='round';
+    ctx.beginPath(); ctx.moveTo(-r*0.16,0); ctx.lineTo(r*0.92,0); ctx.stroke();
+    ctx.restore();
+
+    // hub
+    ctx.beginPath(); ctx.arc(cx,cy,4.5,0,Math.PI*2);
+    ctx.fillStyle = color; ctx.fill();
+    ctx.beginPath(); ctx.arc(cx,cy,2,0,Math.PI*2);
+    ctx.fillStyle = cssVar('--ground'); ctx.fill();
+  }
+
+  // instruments
+  var els = {
+    step:  document.getElementById('g-step'),
+    tput:  document.getElementById('g-tput'),
+    ground:document.getElementById('g-ground'),
+    scope: document.getElementById('g-scope')
+  };
+  var ctx = {};
+  for(var k in els){ ctx[k] = setupCanvas(els[k]); }
+
+  var val = {
+    step:  new Spring(0, 130, 22),
+    tput:  new Spring(0, 90, 12),   // looser -> bouncy tach
+    ground:new Spring(0, 90, 20),
+    scope: new Spring(0, 130, 22)
+  };
+  var MAX_STEPS = 6, TOTAL_DOCS = 2;
+
+  var rStep=document.getElementById('r-step'),
+      rTput=document.getElementById('r-tput'),
+      rGround=document.getElementById('r-ground'),
+      rScope=document.getElementById('r-scope');
+
+  function render(){
+    drawDial(ctx.step, els.step, val.step.v/MAX_STEPS, cssVar('--observe'), {ticks:MAX_STEPS,majorEvery:MAX_STEPS});
+    drawDial(ctx.tput, els.tput, val.tput.v/100, cssVar('--think'), {ticks:10,majorEvery:5});
+    drawDial(ctx.ground, els.ground, val.ground.v/100, cssVar('--act'), {ticks:10,majorEvery:5});
+    drawDial(ctx.scope, els.scope, val.scope.v/TOTAL_DOCS, cssVar('--scope'), {ticks:TOTAL_DOCS,majorEvery:TOTAL_DOCS});
+
+    rStep.innerHTML = Math.round(val.step.v) + '<small> / '+MAX_STEPS+'</small>';
+    rTput.innerHTML = Math.round(val.tput.v*3.2) + '<small> tok/s</small>';
+    rGround.innerHTML = Math.round(val.ground.v) + '<small>%</small>';
+    rScope.innerHTML = Math.round(val.scope.v) + '<small> / '+TOTAL_DOCS+' in scope</small>';
+  }
+
+  var last = performance.now();
+  function loop(now){
+    var dt = Math.min((now-last)/1000, 0.05); last = now;
+    for(var k in val){ val[k].step(dt); }
+    render();
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+
+  // ---- throughput jitter while "thinking" ----
+  var thinking = false, jitterTimer = null;
+  function startThinking(){
+    thinking = true;
+    (function tick(){
+      if(!thinking) return;
+      val.tput.set(60 + Math.random()*38);
+      jitterTimer = setTimeout(tick, 120);
+    })();
+  }
+  function stopThinking(){ thinking=false; clearTimeout(jitterTimer); val.tput.set(6); }
+
+  // ---- lamps / status ----
+  var lampT=document.getElementById('lamp-think'),
+      lampA=document.getElementById('lamp-act'),
+      lampO=document.getElementById('lamp-observe'),
+      statusEl=document.getElementById('status');
+  function lamp(which){
+    lampT.classList.toggle('on', which==='think');
+    lampA.classList.toggle('on', which==='act');
+    lampO.classList.toggle('on', which==='observe');
+  }
+
+  // ---- live trace rows ----
+  var trace = document.getElementById('trace');
+  function addRow(cls, tag, html){
+    var row = document.createElement('div');
+    row.className = 'trow '+cls;
+    row.innerHTML = '<div class="tp">'+tag+'</div><div class="tb">'+html+'</div>';
+    trace.appendChild(row);
+    requestAnimationFrame(function(){ row.classList.add('show'); });
+    return row;
+  }
+
+  function wait(ms){ return new Promise(function(res){ setTimeout(res, reduce?0:ms); }); }
+
+  // ---- the scripted real run ----
+  var runToken = 0, running = false;
+  var runBtn = document.getElementById('runBtn');
+
+  async function run(){
+    if(running) return;
+    running = true; runBtn.disabled = true;
+    var me = ++runToken;
+    trace.innerHTML = '';
+    for(var k in val){ val[k].snap(0); }
+    lamp(null); statusEl.innerHTML = '<b>running…</b>';
+
+    // Step 1 -------------------------------------------------
+    lamp('think'); startThinking();
+    statusEl.innerHTML = '<b>step 1 · thinking</b>';
+    await wait(700); if(me!==runToken) return;
+    addRow('think','Think','“Find the financial report first.”');
+    await wait(500); if(me!==runToken) return;
+
+    lamp('act');
+    addRow('act','Act','<span class="call">search_documents({ query: "revenue" })</span>');
+    await wait(650); if(me!==runToken) return;
+
+    stopThinking(); lamp('observe');
+    val.step.set(1);
+    addRow('observe','Observe','Top result: <span class="data">Q3 Financial Report</span> · score 0.50');
+    await wait(300);
+    val.ground.set(30);
+    await wait(650); if(me!==runToken) return;
+
+    // Step 2 -------------------------------------------------
+    lamp('think'); startThinking();
+    statusEl.innerHTML = '<b>step 2 · re-planning</b>';
+    await wait(650); if(me!==runToken) return;
+    addRow('think','Think','“Read it for the exact figure.”');
+    await wait(500); if(me!==runToken) return;
+
+    lamp('act');
+    addRow('act','Act','<span class="call">read_document({ id: "9f6c55a9…" })</span>');
+    await wait(700); if(me!==runToken) return;
+
+    stopThinking(); lamp('observe');
+    val.step.set(2); val.scope.set(1);
+    addRow('observe','Observe','<span class="data">“In Q3 2025 total revenue was $4.2M, up 18% year over year, driven by enterprise subscriptions.”</span>');
+    await wait(300);
+    val.ground.set(92);
+    await wait(750); if(me!==runToken) return;
+
+    // Answer -------------------------------------------------
+    lamp(null); statusEl.innerHTML = '<b>done</b> — 2 steps, grounded';
+    val.ground.set(96);
+    var ans = addRow('answer','Answer','');
+    var full = 'Q3 2025 revenue was <strong>$4.2M</strong>, up <strong>18% year over year</strong>, driven by enterprise subscriptions.';
+    if(reduce){ ans.querySelector('.tb').innerHTML = full; }
+    else { await typeInto(ans.querySelector('.tb'), full, me); }
+
+    running = false; runBtn.disabled = false;
+    runBtn.textContent = '↻ Run again';
+  }
+
+  // lightweight "typing" that preserves the <strong> tags
+  async function typeInto(node, html, me){
+    var tokens = html.split(/(<[^>]+>)/).filter(Boolean);
+    node.innerHTML = '';
+    var cur = document.createElement('span'); node.appendChild(cur);
+    var caret = document.createElement('span'); caret.className='cursor'; node.appendChild(caret);
+    var buf = '';
+    for(var t=0;t<tokens.length;t++){
+      if(tokens[t][0]==='<'){ buf += tokens[t]; cur.innerHTML = buf; continue; }
+      for(var c=0;c<tokens[t].length;c++){
+        if(me!==runToken) return;
+        buf += tokens[t][c]; cur.innerHTML = buf;
+        await wait(16);
+      }
+    }
+    if(caret.parentNode) caret.parentNode.removeChild(caret);
+  }
+
+  runBtn.addEventListener('click', run);
+
+  // draw idle state immediately
+  render();
+})();
+</script>
+
+</html>
