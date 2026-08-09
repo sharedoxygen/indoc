@@ -13,7 +13,7 @@ Ask a question. Watch an AI agent **plan → search → read → re-plan** acros
 ![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)
 ![License](https://img.shields.io/badge/License-Proprietary-orange)
 
-### ▶ **[Launch the interactive demo](https://claude.ai/code/artifact/13037d77-354d-46a5-a4a2-17fdd467dfaf)** — press *Run* and watch the agent reason on live instrumentation.
+### ▶ **[Launch the interactive demo](https://sharedoxygen.github.io/indoc/)** — press *Run* and watch the agent reason on live instrumentation.
 
 </div>
 
