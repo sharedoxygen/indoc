@@ -54,13 +54,24 @@ repos:
       - id: check-merge-conflict
       - id: detect-private-key
 
-  # Custom inDoc-specific checks (AI Prompt Engineering Guide enforcement)
+  # Secret scanning - blocks commits that contain credentials, keys, or tokens.
+  # This is the primary guard against re-introducing the kind of leak that
+  # forced the git history reset. Runs on staged content at commit time.
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.18.4
+    hooks:
+      - id: gitleaks
+
+  # Custom inDoc-specific checks (AI Prompt Engineering Guide enforcement).
+  # NOTE: entries use YAML block scalars (entry: |) so embedded quotes, colons,
+  # and symbols stay literal and the file remains valid YAML.
   - repo: local
     hooks:
       # Check for hardcoded colors in UI components (Guide §8)
       - id: no-hardcoded-colors
         name: No Hardcoded Colors (Theme tokens only)
-        entry: bash -c 'if grep -rn --include="*.tsx" --include="*.ts" -E "(color:\s*['\''\"](#[0-9a-fA-F]{3,8}|rgb\(|rgba\())" frontend/src/components frontend/src/pages 2>/dev/null; then echo "❌ Hardcoded colors found! Use theme tokens from theme.ts"; exit 1; fi'
+        entry: |
+          bash -c 'if grep -rn --include="*.tsx" --include="*.ts" -E "(color:\s*['\''\"](#[0-9a-fA-F]{3,8}|rgb\(|rgba\())" frontend/src/components frontend/src/pages 2>/dev/null; then echo "Hardcoded colors found - use theme tokens from theme.ts"; exit 1; fi'
         language: system
         pass_filenames: false
         files: ^frontend/src/(components|pages)/.*\.(tsx|ts)$
@@ -76,7 +87,8 @@ repos:
       # Check hybrid search concurrency (Guide §4)
       - id: verify-hybrid-search-concurrent
         name: Verify Hybrid Search Stays Concurrent
-        entry: bash -c 'if git diff --cached --name-only | grep -q "search.*\.py"; then if git diff --cached | grep -q "await.*asyncio.gather"; then echo "✅ Hybrid search concurrency verified"; else echo "⚠️  Warning: Search changes detected. Verify ES+Weaviate run concurrently"; fi; fi'
+        entry: |
+          bash -c 'if git diff --cached --name-only | grep -q "search.*\.py"; then if git diff --cached | grep -q "await.*asyncio.gather"; then echo "Hybrid search concurrency verified"; else echo "Warning - search changes detected; verify ES and Qdrant run concurrently"; fi; fi'
         language: system
         pass_filenames: false
         files: search.*\.py$
@@ -84,7 +96,8 @@ repos:
       # Verify migrations are additive only (Guide §5)
       - id: check-migrations-additive
         name: Migrations Must Be Additive Only
-        entry: bash -c 'if git diff --cached | grep -E "^\+.*(DROP|ALTER.*DROP)" | grep -v "DROP INDEX"; then echo "❌ Destructive migration detected! Migrations must be additive per Guide §5"; exit 1; fi'
+        entry: |
+          bash -c 'if git diff --cached | grep -E "^\+.*(DROP|ALTER.*DROP)" | grep -v "DROP INDEX"; then echo "Destructive migration detected - migrations must be additive (Guide 5)"; exit 1; fi'
         language: system
         pass_filenames: false
         files: ^alembic/versions/.*\.py$
@@ -92,14 +105,15 @@ repos:
       # Check for test coverage on new endpoints (Guide §10)
       - id: test-coverage-check
         name: Tests Required for New Endpoints
-        entry: bash -c 'NEW_ENDPOINTS=$(git diff --cached --name-only | grep "api/v1/endpoints.*\.py$" | wc -l | tr -d " "); if [ "$NEW_ENDPOINTS" -gt 0 ]; then NEW_TESTS=$(git diff --cached --name-only | grep "tests/.*\.py$" | wc -l | tr -d " "); if [ "$NEW_TESTS" -eq 0 ]; then echo "⚠️  Warning: New API endpoints added but no tests updated. See Guide §10"; fi; fi'
+        entry: |
+          bash -c 'NEW_ENDPOINTS=$(git diff --cached --name-only | grep "api/v1/endpoints.*\.py$" | wc -l | tr -d " "); if [ "$NEW_ENDPOINTS" -gt 0 ]; then NEW_TESTS=$(git diff --cached --name-only | grep "tests/.*\.py$" | wc -l | tr -d " "); if [ "$NEW_TESTS" -eq 0 ]; then echo "Warning - new API endpoints added but no tests updated (Guide 10)"; fi; fi'
         language: system
         pass_filenames: false
 
       # Verify private-docs not accidentally committed (unless forced)
-        - id: prevent-private-docs-leak
+      - id: prevent-private-docs-leak
         name: Prevent Private Docs from Leaking
-        entry: bash -c 'if git diff --cached --name-only | grep "^private-docs/" | grep -v ".gitignore" >/dev/null; then if [ "$ALLOW_PRIVATE_DOCS" != "1" ]; then echo "⚠️  Warning: private-docs/ contains sensitive info. Use git add -f if intentional, or set ALLOW_PRIVATE_DOCS=1"; exit 1; fi; fi'
+        entry: |
+          bash -c 'if git diff --cached --name-only | grep "^private-docs/" | grep -v ".gitignore" >/dev/null; then if [ "$ALLOW_PRIVATE_DOCS" != "1" ]; then echo "private-docs/ contains sensitive info - use git add -f if intentional, or set ALLOW_PRIVATE_DOCS=1"; exit 1; fi; fi'
         language: system
         pass_filenames: false
-
