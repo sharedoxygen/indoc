@@ -36,6 +36,7 @@ import {
     Edit as EditIcon
 } from '@mui/icons-material';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
+import { motion } from 'framer-motion';
 import { http } from '../services/http';
 import '../styles/RoleManagement.css';
 
@@ -1119,15 +1120,16 @@ const RoleManagement: React.FC = () => {
                                     sx={{
                                         p: 2,
                                         bgcolor: alpha('#2196f3', 0.05),
-                                        border: `2px dashed ${alpha('#2196f3', 0.3)}`,
-                                        minHeight: 400
+                                        border: `2px dashed ${alpha('#2196f3', 0.45)}`,
+                                        minHeight: 400,
+                                        transition: 'box-shadow 0.2s ease, border-color 0.2s ease',
                                     }}
                                 >
                                     <Typography variant="h6" gutterBottom color="primary">
-                                        📦 Available Permissions ({availPerms.length})
+                                        Available Permissions ({availPerms.length})
                                     </Typography>
                                     <Typography variant="caption" color="text.secondary" gutterBottom display="block">
-                                        Drag permissions here to assign them
+                                        Drop permissions here to unassign
                                     </Typography>
 
                                     <Droppable droppableId="available">
@@ -1138,11 +1140,19 @@ const RoleManagement: React.FC = () => {
                                                 sx={{
                                                     mt: 2,
                                                     minHeight: 300,
-                                                    bgcolor: snapshot.isDraggingOver ? alpha('#2196f3', 0.1) : 'transparent',
+                                                    bgcolor: snapshot.isDraggingOver ? alpha('#2196f3', 0.16) : 'transparent',
+                                                    border: snapshot.isDraggingOver ? `2px solid ${alpha('#2196f3', 0.5)}` : '2px solid transparent',
+                                                    boxShadow: snapshot.isDraggingOver ? 4 : 0,
                                                     borderRadius: 2,
-                                                    p: 1
+                                                    p: 1,
+                                                    transition: 'all 0.2s ease',
                                                 }}
                                             >
+                                                {availPerms.length === 0 && (
+                                                    <Box sx={{ py: 6, textAlign: 'center', color: 'text.secondary', border: '1px dashed', borderColor: 'divider', borderRadius: 2 }}>
+                                                        Drop permissions here
+                                                    </Box>
+                                                )}
                                                 {availPerms.map((perm, index) => (
                                                     <Draggable
                                                         key={perm.id}
@@ -1154,6 +1164,9 @@ const RoleManagement: React.FC = () => {
                                                                 ref={provided.innerRef}
                                                                 {...provided.draggableProps}
                                                                 {...provided.dragHandleProps}
+                                                                component={motion.div as any}
+                                                                initial={{ opacity: 0, y: 6 }}
+                                                                animate={{ opacity: 1, y: 0 }}
                                                                 sx={{
                                                                     p: 1.5,
                                                                     mb: 1,
@@ -1162,6 +1175,9 @@ const RoleManagement: React.FC = () => {
                                                                     gap: 1,
                                                                     cursor: 'grab',
                                                                     bgcolor: snapshot.isDragging ? 'primary.light' : 'background.paper',
+                                                                    boxShadow: snapshot.isDragging ? 8 : 1,
+                                                                    transform: snapshot.isDragging ? 'scale(1.03)' : 'none',
+                                                                    zIndex: snapshot.isDragging ? 2 : 1,
                                                                     '&:hover': {
                                                                         bgcolor: 'action.hover'
                                                                     }
@@ -1191,15 +1207,16 @@ const RoleManagement: React.FC = () => {
                                     sx={{
                                         p: 2,
                                         bgcolor: alpha('#4caf50', 0.05),
-                                        border: `2px dashed ${alpha('#4caf50', 0.3)}`,
-                                        minHeight: 400
+                                        border: `2px dashed ${alpha('#4caf50', 0.45)}`,
+                                        minHeight: 400,
+                                        transition: 'box-shadow 0.2s ease, border-color 0.2s ease',
                                     }}
                                 >
                                     <Typography variant="h6" gutterBottom color="success.main">
-                                        ✅ Assigned Permissions ({rolePermissions.length})
+                                        Assigned Permissions ({rolePermissions.length})
                                     </Typography>
                                     <Typography variant="caption" color="text.secondary" gutterBottom display="block">
-                                        Drag permissions here to remove them
+                                        Drop permissions here to assign them
                                     </Typography>
 
                                     <Droppable droppableId="assigned">
@@ -1210,11 +1227,19 @@ const RoleManagement: React.FC = () => {
                                                 sx={{
                                                     mt: 2,
                                                     minHeight: 300,
-                                                    bgcolor: snapshot.isDraggingOver ? alpha('#4caf50', 0.1) : 'transparent',
+                                                    bgcolor: snapshot.isDraggingOver ? alpha('#4caf50', 0.16) : 'transparent',
+                                                    border: snapshot.isDraggingOver ? `2px solid ${alpha('#4caf50', 0.55)}` : '2px solid transparent',
+                                                    boxShadow: snapshot.isDraggingOver ? 4 : 0,
                                                     borderRadius: 2,
-                                                    p: 1
+                                                    p: 1,
+                                                    transition: 'all 0.2s ease',
                                                 }}
                                             >
+                                                {rolePermissions.length === 0 && (
+                                                    <Box sx={{ py: 6, textAlign: 'center', color: 'text.secondary', border: '1px dashed', borderColor: 'success.main', borderRadius: 2 }}>
+                                                        Drop permissions here
+                                                    </Box>
+                                                )}
                                                 {rolePermissions.map((perm, index) => (
                                                     <Draggable
                                                         key={perm.id}
@@ -1226,6 +1251,9 @@ const RoleManagement: React.FC = () => {
                                                                 ref={provided.innerRef}
                                                                 {...provided.draggableProps}
                                                                 {...provided.dragHandleProps}
+                                                                component={motion.div as any}
+                                                                initial={{ opacity: 0, y: 6 }}
+                                                                animate={{ opacity: 1, y: 0 }}
                                                                 sx={{
                                                                     p: 1.5,
                                                                     mb: 1,
@@ -1236,6 +1264,9 @@ const RoleManagement: React.FC = () => {
                                                                     bgcolor: snapshot.isDragging ? 'success.light' : 'background.paper',
                                                                     border: '1px solid',
                                                                     borderColor: 'success.main',
+                                                                    boxShadow: snapshot.isDragging ? 8 : 1,
+                                                                    transform: snapshot.isDragging ? 'scale(1.03)' : 'none',
+                                                                    zIndex: snapshot.isDragging ? 2 : 1,
                                                                     '&:hover': {
                                                                         bgcolor: 'action.hover'
                                                                     }

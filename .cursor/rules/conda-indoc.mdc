@@ -1,0 +1,11 @@
+---
+description: Use only the conda environment named indoc for this project
+alwaysApply: true
+---
+
+# Conda environment
+
+- Use **only** the conda env `indoc` for local Python/backend/Celery work.
+- Do not create, activate, or document alternate envs (e.g. `trader`, ad-hoc names).
+- Makefile already sets `ENV_NAME?=indoc` and `CONDA_RUN=conda run -n $(ENV_NAME)` — keep that as the single source of truth.
+- Prefer `conda run -n indoc …` (or `make` targets) over switching shells into another env.
