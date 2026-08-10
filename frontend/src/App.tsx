@@ -32,6 +32,7 @@ import DocumentsHubPage from './pages/DocumentsHubPage'
 import IdentityHubPage from './pages/IdentityHubPage'
 import LogViewerPage from './pages/LogViewerPage'
 import SearchInspectorPage from './pages/SearchInspectorPage'
+import MonitoringPage from './pages/MonitoringPage'
 
 // Components
 import PrivateRoute from './components/PrivateRoute'
@@ -117,6 +118,7 @@ function App() {
             <Route path="/team" element={<TeamPage />} />
             <Route element={<PrivateRoute requiredRoles={['Admin', 'Manager']} />}>
               <Route path="/identity" element={<IdentityHubPage />} />
+              <Route path="/monitoring" element={<MonitoringPage />} />
             </Route>
             <Route element={<PrivateRoute requiredRoles={['Admin']} />}>
               <Route path="/logs" element={<LogViewerPage />} />
