@@ -163,7 +163,7 @@ class Settings(BaseSettings):
             'API_PORT': g(['server','port'], self.API_PORT if hasattr(self, 'API_PORT') else 8000),
             'TEMP_REPO_PATH': Path(g(['storage','temp_path'], './tmp/indoc_temp')).resolve(),
             'STORAGE_PATH': Path(g(['storage','storage_path'], './data/storage')).resolve(),
-            'CORS_ORIGINS': g(['cors','origins'], ["http://localhost:5173", "http://localhost:3000"]),
+            'CORS_ORIGINS': g(['cors','origins'], ["http://localhost:5193", "http://localhost:3000"]),
             'ELASTICSEARCH_URL': g(['search','elasticsearch_url'], 'http://localhost:9200'),
             'ELASTICSEARCH_INDEX': g(['search','elasticsearch_index'], 'indoc_documents'),
             'QDRANT_URL': g(['search','qdrant_url'], 'http://localhost:6333'),
@@ -404,7 +404,7 @@ class Settings(BaseSettings):
     CACHE_TTL_SEARCH_RESULTS: int = 600  # 10 minutes
     
     # CORS
-    CORS_ORIGINS: List[str] = ["http://localhost:5173", "http://localhost:3000"]
+    CORS_ORIGINS: List[str] = ["http://localhost:5193", "http://localhost:3000"]
     
     @property
     def DATABASE_URL(self) -> str:

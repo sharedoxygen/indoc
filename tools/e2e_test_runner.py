@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 class E2ETestRunner:
     """Run comprehensive E2E tests for inDoc application"""
     
-    def __init__(self, base_url: str = "http://localhost:5173"):
+    def __init__(self, base_url: str = "http://localhost:5193"):
         self.base_url = base_url
         self.api_base = f"{base_url}/api/v1"
         self.session = None
@@ -561,7 +561,7 @@ Prerequisites:
         """)
         return
     
-    base_url = "http://localhost:5173"
+    base_url = "http://localhost:5193"
     if len(sys.argv) > 2 and sys.argv[1] == "--url":
         base_url = sys.argv[2]
     
