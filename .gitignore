@@ -18,6 +18,7 @@ backend/data/
 backend/backend/data/
 tmp/indoc_temp/
 tmp/e2e-test-files/
+.worktrees/
 
 # ============================================================================
 # CRITICAL: CREDENTIALS & SECRETS (NEVER COMMIT)
