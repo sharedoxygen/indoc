@@ -2,7 +2,7 @@
 <html lang="en">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="inDoc Autonomous Agent — live interactive demo. Press Run and watch the agent plan, act, observe, and re-plan on realistic instrumentation.">
+<meta name="description" content="inDoc Autonomous Agent — Live Interactive Demo. Press Run And Watch The Agent Plan, Act, Observe, And Re-Plan On Realistic Instrumentation.">
 <title>inDoc — Autonomous Agent Console</title>
 <style>
   :root{
@@ -51,8 +51,8 @@
   .wrap{max-width:960px;margin:0 auto;padding:0 22px;}
 
   header{padding:64px 0 34px;}
-  .eyebrow{font-family:ui-monospace,monospace;font-size:12px;letter-spacing:0.22em;
-    text-transform:uppercase;color:var(--think);margin:0 0 20px;}
+  .eyebrow{font-family:ui-monospace,monospace;font-size:12px;letter-spacing:0.06em;
+    color:var(--think);margin:0 0 20px;}
   h1{font-family:ui-monospace,monospace;font-weight:700;
     font-size:clamp(28px,5.6vw,52px);line-height:1.03;letter-spacing:-0.01em;margin:0;text-wrap:balance;}
   h1 .lo{color:var(--faint);}
@@ -70,8 +70,8 @@
   }
   .lamps{display:flex;gap:7px;}
   .lamps i{width:11px;height:11px;border-radius:50%;background:var(--hairline);display:block;}
-  .console-title{font-family:ui-monospace,monospace;font-size:12px;letter-spacing:0.13em;
-    text-transform:uppercase;color:var(--faint);}
+  .console-title{font-family:ui-monospace,monospace;font-size:12px;letter-spacing:0.04em;
+    color:var(--faint);}
   .console-status{margin-left:auto;font-family:ui-monospace,monospace;font-size:12px;color:var(--muted);}
   .console-status b{color:var(--act);font-weight:600;}
 
@@ -85,8 +85,8 @@
     border-right:1px solid var(--hairline);position:relative;
   }
   .instrument:last-child{border-right:none;}
-  .instrument .glabel{font-family:ui-monospace,monospace;font-size:10.5px;letter-spacing:0.14em;
-    text-transform:uppercase;color:var(--faint);}
+  .instrument .glabel{font-family:ui-monospace,monospace;font-size:10.5px;letter-spacing:0.04em;
+    color:var(--faint);}
   .instrument canvas{display:block;}
   .readout{font-family:ui-monospace,monospace;font-variant-numeric:tabular-nums;
     font-size:15px;color:var(--ink);font-weight:600;}
@@ -96,7 +96,7 @@
   .phasestrip{display:flex;align-items:center;gap:14px;padding:12px 18px;
     border-bottom:1px solid var(--hairline);flex-wrap:wrap;}
   .phase-lamp{display:flex;align-items:center;gap:7px;font-family:ui-monospace,monospace;
-    font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--faint);transition:color .2s;}
+    font-size:11px;letter-spacing:0.04em;color:var(--faint);transition:color .2s;}
   .phase-lamp .dot{width:9px;height:9px;border-radius:50%;background:var(--hairline);transition:all .2s;}
   .phase-lamp.on{color:var(--ink);}
   .phase-lamp.think.on .dot{background:var(--think);box-shadow:0 0 10px var(--think);}
@@ -108,8 +108,8 @@
   /* run controls */
   .controls{display:flex;align-items:center;gap:14px;padding:14px 18px;border-bottom:1px solid var(--hairline);}
   button.run{
-    font-family:ui-monospace,monospace;font-size:13px;font-weight:700;letter-spacing:0.08em;
-    text-transform:uppercase;color:var(--ground);background:var(--think);
+    font-family:ui-monospace,monospace;font-size:13px;font-weight:700;letter-spacing:0.04em;
+    color:var(--ground);background:var(--think);
     border:none;border-radius:5px;padding:11px 22px;cursor:pointer;transition:transform .1s,filter .15s;
   }
   button.run:hover{filter:brightness(1.08);}
@@ -127,7 +127,7 @@
   .trow.show{opacity:1;transform:none;}
   .trow:last-child{border-bottom:none;}
   .trow .tp{flex:0 0 74px;font-family:ui-monospace,monospace;font-size:10.5px;font-weight:700;
-    letter-spacing:0.08em;text-transform:uppercase;padding-top:3px;}
+    letter-spacing:0.04em;padding-top:3px;}
   .trow.think .tp{color:var(--think);}
   .trow.act .tp{color:var(--act);}
   .trow.observe .tp{color:var(--observe);}
@@ -145,8 +145,8 @@
   @keyframes blink{0%,50%{opacity:1;}51%,100%{opacity:0;}}
 
   section{padding:52px 0;border-top:1px solid var(--hairline);}
-  .kicker{font-family:ui-monospace,monospace;font-size:12px;letter-spacing:0.16em;
-    text-transform:uppercase;color:var(--faint);margin:0 0 8px;}
+  .kicker{font-family:ui-monospace,monospace;font-size:12px;letter-spacing:0.04em;
+    color:var(--faint);margin:0 0 8px;}
   h2{font-family:ui-monospace,monospace;font-weight:700;font-size:clamp(20px,2.8vw,26px);
     margin:0 0 14px;letter-spacing:-0.01em;text-wrap:balance;}
   .lead{color:var(--muted);max-width:64ch;margin:0 0 8px;}
@@ -154,8 +154,8 @@
   .compare{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:22px;}
   .col{border:1px solid var(--hairline);border-radius:6px;padding:20px;background:var(--raised);}
   .col.old{opacity:0.82;}
-  .col h3{font-family:ui-monospace,monospace;font-size:13px;letter-spacing:0.1em;
-    text-transform:uppercase;margin:0 0 14px;}
+  .col h3{font-family:ui-monospace,monospace;font-size:13px;letter-spacing:0.04em;
+    margin:0 0 14px;}
   .col.old h3{color:var(--faint);}
   .col.new h3{color:var(--act);}
   .flow{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-family:ui-monospace,monospace;
@@ -180,8 +180,8 @@
 
   .post{background:var(--raised-2);border:1px solid var(--hairline);border-radius:8px;
     padding:22px 22px 18px;margin-top:20px;}
-  .post .pt{font-family:ui-monospace,monospace;font-size:11px;letter-spacing:0.14em;
-    text-transform:uppercase;color:var(--faint);margin-bottom:14px;}
+  .post .pt{font-family:ui-monospace,monospace;font-size:11px;letter-spacing:0.04em;
+    color:var(--faint);margin-bottom:14px;}
   .post pre{margin:0;white-space:pre-wrap;font-family:inherit;font-size:14.5px;line-height:1.65;color:var(--ink);}
   .post .hash{color:var(--observe);}
 
@@ -205,37 +205,37 @@
 
   <header>
     <p class="eyebrow">inDoc // Autonomous Agent Console</p>
-    <h1>It stopped answering.<br><span class="lo">It started investigating.</span></h1>
+    <h1>It Stopped Answering.<br><span class="lo">It Started Investigating.</span></h1>
     <p class="dek">A genuine agent loop over your own access-controlled documents. Press <span class="mono">Run</span> and watch it plan, call a tool, read what comes back, and re-plan — live, on real instrumentation.</p>
 
     <!-- CONSOLE -->
-    <div class="console" role="region" aria-label="Autonomous agent console">
+    <div class="console" role="region" aria-label="Autonomous Agent Console">
       <div class="console-bar">
         <div class="lamps"><i></i><i></i><i></i></div>
         <span class="console-title mono">agent.run</span>
-        <span class="console-status mono" id="status">idle — press Run</span>
+        <span class="console-status mono" id="status">Idle — Press Run</span>
       </div>
 
       <div class="cluster">
         <div class="instrument">
-          <span class="glabel">Reasoning step</span>
+          <span class="glabel">Reasoning Step</span>
           <canvas id="g-step" width="132" height="112"></canvas>
           <span class="readout" id="r-step">0<small> / 6</small></span>
         </div>
         <div class="instrument">
-          <span class="glabel">Model throughput</span>
+          <span class="glabel">Model Throughput</span>
           <canvas id="g-tput" width="132" height="112"></canvas>
           <span class="readout" id="r-tput">0<small> tok/s</small></span>
         </div>
         <div class="instrument">
-          <span class="glabel">Answer grounding</span>
+          <span class="glabel">Answer Grounding</span>
           <canvas id="g-ground" width="132" height="112"></canvas>
           <span class="readout" id="r-ground">0<small>%</small></span>
         </div>
         <div class="instrument">
-          <span class="glabel">Docs accessed</span>
+          <span class="glabel">Docs Accessed</span>
           <canvas id="g-scope" width="132" height="112"></canvas>
-          <span class="readout" id="r-scope">0<small> / 2 in scope</small></span>
+          <span class="readout" id="r-scope">0<small> / 2 In Scope</small></span>
         </div>
       </div>
 
@@ -247,8 +247,8 @@
       </div>
 
       <div class="controls">
-        <button class="run" id="runBtn">▶ Run agent</button>
-        <span class="hint mono">real trace · replayed with live instrumentation</span>
+        <button class="run" id="runBtn">▶ Run Agent</button>
+        <span class="hint mono">Real Trace · Replayed With Live Instrumentation</span>
       </div>
 
       <div class="trace" id="trace" aria-live="polite"></div>
@@ -256,48 +256,48 @@
   </header>
 
   <section>
-    <p class="kicker">The honest distinction</p>
-    <h2>Why this isn't just RAG with extra steps</h2>
+    <p class="kicker">The Honest Distinction</p>
+    <h2>Why This Isn't Just RAG With Extra Steps</h2>
     <div class="compare">
       <div class="col old">
         <h3>Before — RAG</h3>
-        <div class="flow"><b>retrieve</b> <span class="arw">→</span> <b>stuff context</b> <span class="arw">→</span> <b>answer</b></div>
+        <div class="flow"><b>Retrieve</b> <span class="arw">→</span> <b>Stuff Context</b> <span class="arw">→</span> <b>Answer</b></div>
         <p>One retrieval, one generation. A fixed pipeline. The model never decides what to do next — it's handed documents and writes a reply.</p>
       </div>
       <div class="col new">
         <h3>Now — Agent</h3>
-        <div class="flow"><b>plan</b> <span class="arw">→</span> <b>act</b> <span class="arw">→</span> <b>observe</b> <span class="loop">↺ re-plan</span> <span class="arw">→</span> <b>answer</b></div>
+        <div class="flow"><b>Plan</b> <span class="arw">→</span> <b>Act</b> <span class="arw">→</span> <b>Observe</b> <span class="loop">↺ Re-Plan</span> <span class="arw">→</span> <b>Answer</b></div>
         <p>The model chooses each tool call from what it has learned, chains steps, and stops when it has enough evidence. That decision loop is what "agentic" means.</p>
       </div>
     </div>
   </section>
 
   <section>
-    <p class="kicker">The toolbox</p>
-    <h2>Six tools. Every call access-checked.</h2>
+    <p class="kicker">The Toolbox</p>
+    <h2>Six Tools. Every Call Access-Checked.</h2>
     <p class="lead">The agent reasons over a sharp toolset. Each call runs through the same RBAC/ABAC scope as the rest of the platform — it can only ever see or read documents the requesting user is authorized to access.</p>
     <div class="tools">
-      <div class="tool"><div class="tn">list_documents</div><div class="td">See what's in scope before acting.</div></div>
-      <div class="tool"><div class="tn">search_documents</div><div class="td">Hybrid keyword + semantic search.</div></div>
-      <div class="tool"><div class="tn">read_document</div><div class="td">Pull full text to extract facts.</div></div>
-      <div class="tool"><div class="tn">summarize_document</div><div class="td">Get the gist of a long document.</div></div>
-      <div class="tool"><div class="tn">compare_documents</div><div class="td">Find what changed across documents.</div></div>
-      <div class="tool"><div class="tn">finish</div><div class="td">Deliver the grounded answer.</div></div>
+      <div class="tool"><div class="tn">list_documents</div><div class="td">See What's In Scope Before Acting.</div></div>
+      <div class="tool"><div class="tn">search_documents</div><div class="td">Hybrid Keyword + Semantic Search.</div></div>
+      <div class="tool"><div class="tn">read_document</div><div class="td">Pull Full Text To Extract Facts.</div></div>
+      <div class="tool"><div class="tn">summarize_document</div><div class="td">Get The Gist Of A Long Document.</div></div>
+      <div class="tool"><div class="tn">compare_documents</div><div class="td">Find What Changed Across Documents.</div></div>
+      <div class="tool"><div class="tn">finish</div><div class="td">Deliver The Grounded Answer.</div></div>
     </div>
 
     <div class="safety">
       <div class="safe-item"><span class="mk">Scope</span><div class="sb">Every tool call is filtered to the user's permitted documents. <span>An autonomous agent that still can't cross a permission boundary.</span></div></div>
-      <div class="safe-item"><span class="mk">Audit</span><div class="sb">The full think → act → observe trace is returned with the answer, and streams live over SSE. <span>No black box — every decision is inspectable.</span></div></div>
+      <div class="safe-item"><span class="mk">Audit</span><div class="sb">The full Think → Act → Observe trace is returned with the answer, and streams live over SSE. <span>No black box — every decision is inspectable.</span></div></div>
       <div class="safe-item"><span class="mk">Private</span><div class="sb">Runs on your own infrastructure, local model first. <span>Ollama primary, OpenAI as fallback — regulated data never has to leave.</span></div></div>
       <div class="safe-item"><span class="mk">Bounded</span><div class="sb">Step budget plus a repeat-action guard. <span>It terminates and synthesizes rather than looping forever.</span></div></div>
     </div>
   </section>
 
   <section>
-    <p class="kicker">Post-ready</p>
-    <h2>A caption you can lift</h2>
+    <p class="kicker">Post-Ready</p>
+    <h2>A Caption You Can Lift</h2>
     <div class="post">
-      <div class="pt">Draft — edit freely before posting</div>
+      <div class="pt">Draft — Edit Freely Before Posting</div>
 <pre>We just made our document platform genuinely agentic — the real thing, not a relabeled chatbot.
 
 Most "chat with your documents" tools do RAG: retrieve a few docs, generate one answer. Useful, but the model never actually decides anything.
@@ -311,12 +311,12 @@ Autonomous, but accountable. That's the bar for agentic AI in regulated industri
 <span class="hash">#AgenticAI #RAG #EnterpriseAI #Compliance #AIagents</span></pre>
     </div>
 
-    <p class="honesty"><b>Straight about scope:</b> the console replays a real two-step run (it needed two steps); the same loop chains further on harder goals, up to its budget, using tools like <span class="mono">compare_documents</span>. Backed by a verified test suite — the reasoning loop, live streaming, and scope enforcement all covered. The gauges are a faithful visualization of the run, not the model's literal token counter.</p>
+    <p class="honesty"><b>Straight About Scope:</b> the console replays a real two-step run (it needed two steps); the same loop chains further on harder goals, up to its budget, using tools like <span class="mono">compare_documents</span>. Backed by a verified test suite — the reasoning loop, live streaming, and scope enforcement all covered. The gauges are a faithful visualization of the run, not the model's literal token counter.</p>
   </section>
 
   <footer>
-    <span class="mono">inDoc</span> · Autonomous Research Agent · plan → act → observe → answer<br>
-    POST /agent/run · POST /agent/stream (SSE) · reasoning trace returned with every response.
+    <span class="mono">inDoc</span> · Autonomous Research Agent · Plan → Act → Observe → Answer<br>
+    POST /api/v1/agent/run · POST /api/v1/agent/stream (SSE) · Reasoning Trace Returned With Every Response.
   </footer>
 
 </div>
@@ -430,7 +430,7 @@ Autonomous, but accountable. That's the bar for agentic AI in regulated industri
     rStep.innerHTML = Math.round(val.step.v) + '<small> / '+MAX_STEPS+'</small>';
     rTput.innerHTML = Math.round(val.tput.v*3.2) + '<small> tok/s</small>';
     rGround.innerHTML = Math.round(val.ground.v) + '<small>%</small>';
-    rScope.innerHTML = Math.round(val.scope.v) + '<small> / '+TOTAL_DOCS+' in scope</small>';
+    rScope.innerHTML = Math.round(val.scope.v) + '<small> / '+TOTAL_DOCS+' In Scope</small>';
   }
 
   var last = performance.now();
@@ -488,11 +488,11 @@ Autonomous, but accountable. That's the bar for agentic AI in regulated industri
     var me = ++runToken;
     trace.innerHTML = '';
     for(var k in val){ val[k].snap(0); }
-    lamp(null); statusEl.innerHTML = '<b>running…</b>';
+    lamp(null); statusEl.innerHTML = '<b>Running…</b>';
 
     // Step 1 -------------------------------------------------
     lamp('think'); startThinking();
-    statusEl.innerHTML = '<b>step 1 · thinking</b>';
+    statusEl.innerHTML = '<b>Step 1 · Thinking</b>';
     await wait(700); if(me!==runToken) return;
     addRow('think','Think','“Find the financial report first.”');
     await wait(500); if(me!==runToken) return;
@@ -503,14 +503,14 @@ Autonomous, but accountable. That's the bar for agentic AI in regulated industri
 
     stopThinking(); lamp('observe');
     val.step.set(1);
-    addRow('observe','Observe','Top result: <span class="data">Q3 Financial Report</span> · score 0.50');
+    addRow('observe','Observe','Top Result: <span class="data">Q3 Financial Report</span> · Score 0.50');
     await wait(300);
     val.ground.set(30);
     await wait(650); if(me!==runToken) return;
 
     // Step 2 -------------------------------------------------
     lamp('think'); startThinking();
-    statusEl.innerHTML = '<b>step 2 · re-planning</b>';
+    statusEl.innerHTML = '<b>Step 2 · Re-Planning</b>';
     await wait(650); if(me!==runToken) return;
     addRow('think','Think','“Read it for the exact figure.”');
     await wait(500); if(me!==runToken) return;
@@ -527,7 +527,7 @@ Autonomous, but accountable. That's the bar for agentic AI in regulated industri
     await wait(750); if(me!==runToken) return;
 
     // Answer -------------------------------------------------
-    lamp(null); statusEl.innerHTML = '<b>done</b> — 2 steps, grounded';
+    lamp(null); statusEl.innerHTML = '<b>Done</b> — 2 Steps, Grounded';
     val.ground.set(96);
     var ans = addRow('answer','Answer','');
     var full = 'Q3 2025 revenue was <strong>$4.2M</strong>, up <strong>18% year over year</strong>, driven by enterprise subscriptions.';
@@ -535,7 +535,7 @@ Autonomous, but accountable. That's the bar for agentic AI in regulated industri
     else { await typeInto(ans.querySelector('.tb'), full, me); }
 
     running = false; runBtn.disabled = false;
-    runBtn.textContent = '↻ Run again';
+    runBtn.textContent = '↻ Run Again';
   }
 
   // lightweight "typing" that preserves the <strong> tags
