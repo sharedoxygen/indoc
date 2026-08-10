@@ -6,8 +6,8 @@
 
 Ask a question. Watch an AI agent **plan → search → read → re-plan** across your documents until it can answer — with a full audit trace and access control it can never cross.
 
-[![Security](https://github.com/sharedoxygen/indoc/actions/workflows/security.yml/badge.svg)](https://github.com/sharedoxygen/indoc/actions/workflows/security.yml)
-[![CI](https://github.com/sharedoxygen/indoc/actions/workflows/ci.yml/badge.svg)](https://github.com/sharedoxygen/indoc/actions/workflows/ci.yml)
+[![Security](https://github.com/sharedoxygen/indoc/actions/workflows/security.yml/badge.svg?branch=main)](https://github.com/sharedoxygen/indoc/actions/workflows/security.yml?query=branch%3Amain)
+[![CI](https://github.com/sharedoxygen/indoc/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/sharedoxygen/indoc/actions/workflows/ci.yml?query=branch%3Amain)
 ![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)
 ![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)
 ![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)
