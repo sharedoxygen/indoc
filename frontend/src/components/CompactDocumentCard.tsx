@@ -10,6 +10,24 @@ import {
 } from '@mui/material'
 import { MoreVert as MoreIcon } from '@mui/icons-material'
 import { format } from 'date-fns'
+import { motion } from 'framer-motion'
+import { ArcMeter } from './instruments'
+
+const statusProgress = (status?: string) => {
+    switch (status) {
+        case 'indexed':
+            return 100
+        case 'failed':
+            return 100
+        case 'processing':
+        case 'text_extracted':
+            return 62
+        case 'uploaded':
+            return 28
+        default:
+            return 0
+    }
+}
 
 interface CompactDocumentCardProps {
     document: any
@@ -43,18 +61,21 @@ export const CompactDocumentCard: React.FC<CompactDocumentCardProps> = ({
     onView,
     onMenuOpen,
 }) => {
+    const progress = statusProgress(document.status)
+    const showMeter = document.status && document.status !== 'indexed'
     return (
         <Card
+            component={motion.div as any}
+            whileHover={{ y: -3 }}
             sx={{
-                height: 140,
+                height: showMeter ? 168 : 140,
                 cursor: 'pointer',
                 borderRadius: 3,
                 border: '1px solid',
                 borderColor: 'divider',
-                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                transition: 'border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
                 '&:hover': {
                     borderColor: 'primary.main',
-                    transform: 'translateY(-1px)',
                     boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
                 },
             }}
@@ -108,28 +129,39 @@ export const CompactDocumentCard: React.FC<CompactDocumentCardProps> = ({
                     {formatFileSize(document.file_size)} • {format(new Date(document.created_at), 'MMM dd')}
                 </Typography>
 
-                {/* Status badges */}
-                <Box sx={{ display: 'flex', gap: 0.5, mt: 'auto' }}>
-                    <Chip
-                        label={document.status}
-                        size="small"
-                        color={document.status === 'indexed' ? 'success' : document.status === 'failed' ? 'error' : 'warning'}
-                        sx={{
-                            fontSize: '0.65rem',
-                            height: 20,
-                            '& .MuiChip-label': { px: 1 }
-                        }}
-                    />
-                    {document.virus_scan_status && document.virus_scan_status !== 'clean' && (
+                {/* Status badges + processing meter */}
+                <Box sx={{ display: 'flex', gap: 0.5, mt: 'auto', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Box sx={{ display: 'flex', gap: 0.5 }}>
                         <Chip
-                            label={document.virus_scan_status}
+                            label={document.status}
                             size="small"
-                            color="warning"
+                            color={document.status === 'indexed' ? 'success' : document.status === 'failed' ? 'error' : 'warning'}
                             sx={{
                                 fontSize: '0.65rem',
                                 height: 20,
                                 '& .MuiChip-label': { px: 1 }
                             }}
+                        />
+                        {document.virus_scan_status && document.virus_scan_status !== 'clean' && (
+                            <Chip
+                                label={document.virus_scan_status}
+                                size="small"
+                                color="warning"
+                                sx={{
+                                    fontSize: '0.65rem',
+                                    height: 20,
+                                    '& .MuiChip-label': { px: 1 }
+                                }}
+                            />
+                        )}
+                    </Box>
+                    {showMeter && (
+                        <ArcMeter
+                            value={progress}
+                            unit="%"
+                            precision={0}
+                            size={56}
+                            status={document.status === 'failed' ? 'error' : 'active'}
                         />
                     )}
                 </Box>

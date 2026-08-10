@@ -11,8 +11,25 @@ import {
 } from '@mui/material';
 
 import { format } from 'date-fns';
-import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import DocumentDetailsDrawer from './DocumentDetailsDrawer';
+import { ArcMeter } from './instruments';
+
+const statusProgress = (status?: string) => {
+    switch (status) {
+        case 'indexed':
+            return 100
+        case 'failed':
+            return 100
+        case 'processing':
+        case 'text_extracted':
+            return 62
+        case 'uploaded':
+            return 28
+        default:
+            return 0
+    }
+}
 
 interface Document {
     uuid: string;
@@ -40,8 +57,7 @@ interface DocumentsListProps {
     searchTerm?: string;
 }
 
-export const DocumentsList: React.FC<DocumentsListProps> = ({ documents, isLoading, selectedDocuments, onDocumentSelect, searchTerm }) => {
-    const navigate = useNavigate();
+export const DocumentsList: React.FC<DocumentsListProps> = ({ documents, isLoading, selectedDocuments, onDocumentSelect, searchTerm: _searchTerm }) => {
     const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
     const [drawerOpen, setDrawerOpen] = useState(false);
 
@@ -55,10 +71,6 @@ export const DocumentsList: React.FC<DocumentsListProps> = ({ documents, isLoadi
             ? selectedDocuments.filter(id => id !== docId)
             : [...selectedDocuments, docId];
         onDocumentSelect(newSelection);
-    };
-
-    const handleViewDocument = (docId: string) => {
-        navigate(`/document/${docId}`);
     };
 
     const handleDocumentClick = (document: Document) => {
@@ -87,6 +99,8 @@ export const DocumentsList: React.FC<DocumentsListProps> = ({ documents, isLoadi
                         return (
                             <Grid item xs={12} sm={6} key={doc.uuid}>
                                 <Card
+                                    component={motion.div as any}
+                                    whileHover={{ y: -3 }}
                                     onClick={() => handleDocumentClick(doc)}
                                     sx={{
                                         cursor: 'pointer',
@@ -96,9 +110,7 @@ export const DocumentsList: React.FC<DocumentsListProps> = ({ documents, isLoadi
                                         flexDirection: 'column',
                                         justifyContent: 'space-between',
                                         height: '100%',
-                                        transition: 'all 0.2s ease',
                                         '&:hover': {
-                                            transform: 'translateY(-2px)',
                                             boxShadow: 4,
                                             borderColor: 'primary.main'
                                         }
@@ -129,6 +141,18 @@ export const DocumentsList: React.FC<DocumentsListProps> = ({ documents, isLoadi
                                         }}>
                                             {doc.description || 'No description available.'}
                                         </Typography>
+                                        {doc.status && doc.status !== 'indexed' && (
+                                            <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                                                <ArcMeter
+                                                    value={statusProgress(doc.status)}
+                                                    label={doc.status}
+                                                    unit="%"
+                                                    precision={0}
+                                                    size={72}
+                                                    status={doc.status === 'failed' ? 'error' : 'active'}
+                                                />
+                                            </Box>
+                                        )}
                                     </CardContent>
                                     <CardActions sx={{ display: 'flex', justifyContent: 'space-between', px: 2, pb: 1.5 }}>
                                         <Typography variant="caption" sx={{ fontSize: '0.6875rem' }}>

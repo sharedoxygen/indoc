@@ -1,0 +1,8 @@
+# Port override for `make saas` only (merged on top of publish worktree compose).
+# Keeps saas API off the make-dev namespace (8001/5193).
+# Requires Docker Compose that supports !override for sequence replace.
+
+services:
+  backend:
+    ports: !override
+      - "${SAAS_API_PORT:-8011}:8000"
