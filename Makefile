@@ -66,12 +66,19 @@ dev: conda-install celery-cleanup ## Start full development stack (local process
 	@echo "   • Backend:    Local (conda) - Hot Reload ✅"
 	@echo "   • Frontend:   Local (vite) - Hot Reload ✅"
 	@echo "   • Celery:     Local (conda) - Debug Mode ✅"
-	@echo "   • Services:   Docker (ES, Qdrant, Redis, Monitoring)"
-	@echo "   • Database:   PostgreSQL @ localhost:5432 (external)"
+	@echo "   • Services:   Docker (ES, Qdrant, Monitoring)"
+	@echo "   • Database:   PostgreSQL @ localhost:5432 (bare metal)"
+	@echo "   • Cache:      Redis @ localhost:6379 (bare metal)"
+	@if ! nc -z localhost 6379 2>/dev/null; then \
+		echo "$(RED)❌ Redis not running on localhost:6379$(NC)"; \
+		echo "$(YELLOW)   Start Redis first (brew services start redis)$(NC)"; \
+		exit 1; \
+	fi
+	@echo "$(GREEN)✅ Redis running (localhost:6379)$(NC)"
 	@echo ""
 	@echo "$(YELLOW)Cleaning old processes...$(NC)"
 	@pkill -9 -f "uvicorn main:app" 2>/dev/null || true
-	@pkill -9 -f "vite.*5173" 2>/dev/null || true
+	@pkill -9 -f "vite.*5193" 2>/dev/null || true
 	@pkill -9 -f "celery -A app.core.celery_app worker" 2>/dev/null || true
 	@pkill -9 -f "celery -A app.core.celery_app beat" 2>/dev/null || true
 	@pkill -9 -f "conda run.*celery" 2>/dev/null || true
@@ -81,13 +88,13 @@ dev: conda-install celery-cleanup ## Start full development stack (local process
 	@echo "$(GREEN)✅ Clean$(NC)"
 	@echo ""
 	@echo "$(BLUE)Starting Docker services...$(NC)"
-	@export PATH="/Applications/Docker.app/Contents/Resources/bin:$$PATH" && docker compose up -d elasticsearch qdrant redis prometheus grafana
+	@export PATH="/Applications/Docker.app/Contents/Resources/bin:$$PATH" && docker compose up -d elasticsearch qdrant prometheus grafana
 	@echo "$(YELLOW)⏳ Waiting for services (10 seconds)...$(NC)"
 	@sleep 10
 	@mkdir -p $(TMP_DIR)
 	@echo ""
 	@echo "$(BLUE)Starting application processes...$(NC)"
-	@cd app && nohup $(CONDA_RUN) sh -c 'export PYTHONPATH=$$PWD/..:$$PYTHONPATH && uvicorn main:app --host 0.0.0.0 --port 8000 --reload' > $(TMP_DIR)/backend.out 2>&1 & echo $$! > $(TMP_DIR)/backend.pid
+	@cd app && nohup $(CONDA_RUN) sh -c 'export PYTHONPATH=$$PWD/..:$$PYTHONPATH && uvicorn main:app --host 0.0.0.0 --port 8001 --reload' > $(TMP_DIR)/backend.out 2>&1 & echo $$! > $(TMP_DIR)/backend.pid
 	@echo "$(GREEN)✓$(NC) Backend starting..."
 	@sleep 3
 	@nohup $(CONDA_RUN) celery -A app.core.celery_app worker --pool=solo --loglevel=info --queues=celery,document_processing,search_indexing,llm_processing > $(TMP_DIR)/celery_worker.out 2>&1 & echo $$! > $(TMP_DIR)/celery_worker.pid
@@ -96,7 +103,7 @@ dev: conda-install celery-cleanup ## Start full development stack (local process
 	@nohup $(CONDA_RUN) celery -A app.core.celery_app beat --loglevel=info > $(TMP_DIR)/celery_beat.out 2>&1 & echo $$! > $(TMP_DIR)/celery_beat.pid
 	@echo "$(GREEN)✓$(NC) Celery beat starting..."
 	@sleep 1
-	@cd frontend && nohup npm run dev -- --port 5173 > $(TMP_DIR)/frontend.out 2>&1 & echo $$! > $(TMP_DIR)/frontend.pid
+	@cd frontend && nohup npm run dev -- --port 5193 > $(TMP_DIR)/frontend.out 2>&1 & echo $$! > $(TMP_DIR)/frontend.pid
 	@echo "$(GREEN)✓$(NC) Frontend starting..."
 	@sleep 5
 	@echo ""
@@ -104,9 +111,9 @@ dev: conda-install celery-cleanup ## Start full development stack (local process
 	@echo "$(BLUE)═══════════════════════════════════════════════════════════════$(NC)"
 	@echo ""
 	@echo "$(BLUE)📍 Access Points:$(NC)"
-	@echo "   • Frontend:    http://localhost:5173"
-	@echo "   • API:         http://localhost:8000"
-	@echo "   • API Docs:    http://localhost:8000/api/v1/docs"
+	@echo "   • Frontend:    http://localhost:5193"
+	@echo "   • API:         http://localhost:8001"
+	@echo "   • API Docs:    http://localhost:8001/api/v1/docs"
 	@echo "   • Grafana:     http://localhost:3030 (admin/admin)"
 	@echo "   • Prometheus:  http://localhost:9090"
 	@echo ""
@@ -123,7 +130,7 @@ stop: celery-cleanup ## Stop all processes (works for both dev and saas)
 	@sleep 2
 	@# Force kill by process name (aggressive)
 	@pkill -9 -f "uvicorn main:app" 2>/dev/null || true
-	@pkill -9 -f "vite.*5173" 2>/dev/null || true
+	@pkill -9 -f "vite.*5193" 2>/dev/null || true
 	@pkill -9 -f "celery -A app.core.celery_app worker" 2>/dev/null || true
 	@pkill -9 -f "celery -A app.core.celery_app beat" 2>/dev/null || true
 	@pkill -9 -f "conda run.*celery" 2>/dev/null || true
@@ -157,18 +164,24 @@ saas-local: ## Simulate production SaaS locally with Docker Compose
 	@echo "$(GREEN)✅ Docker running$(NC)"
 	@if ! nc -z localhost 5432 2>/dev/null; then \
 		echo "$(RED)❌ PostgreSQL not running on localhost:5432$(NC)"; \
-		echo "$(YELLOW)   Start PostgreSQL first (outside Docker as planned)$(NC)"; \
+		echo "$(YELLOW)   Start PostgreSQL first (brew services start postgresql@17)$(NC)"; \
 		exit 1; \
 	fi
 	@echo "$(GREEN)✅ PostgreSQL running (localhost:5432)$(NC)"
+	@if ! nc -z localhost 6379 2>/dev/null; then \
+		echo "$(RED)❌ Redis not running on localhost:6379$(NC)"; \
+		echo "$(YELLOW)   Start Redis first (brew services start redis)$(NC)"; \
+		exit 1; \
+	fi
+	@echo "$(GREEN)✅ Redis running (localhost:6379)$(NC)"
 	@echo ""
 	@echo "$(BLUE)🐳 Starting Docker services:$(NC)"
-	@echo "   • Redis (cache)"
 	@echo "   • Elasticsearch (keyword search)"
 	@echo "   • Qdrant (vector search)"
 	@echo "   • Prometheus & Grafana (monitoring)"
+	@echo "   • Backend API (port 8001; 8000 reserved for PATi)"
 	@echo ""
-	@echo "$(YELLOW)⚠️  PostgreSQL runs OUTSIDE Docker (localhost:5432)$(NC)"
+	@echo "$(YELLOW)⚠️  PostgreSQL + Redis run OUTSIDE Docker (bare metal)$(NC)"
 	@echo ""
 	@export PATH="/Applications/Docker.app/Contents/Resources/bin:$$PATH" && docker compose -f $(COMPOSE_DEV) up -d
 	@echo ""
@@ -181,17 +194,18 @@ saas-local: ## Simulate production SaaS locally with Docker Compose
 	@echo "$(BLUE)═══════════════════════════════════════════════════════════════$(NC)"
 	@echo ""
 	@echo "$(BLUE)📍 Access Points:$(NC)"
-	@echo "   • Frontend:          http://localhost:5173"
-	@echo "   • Backend API:       http://localhost:8000"
-	@echo "   • API Docs:          http://localhost:8000/api/v1/docs"
+	@echo "   • Frontend:          http://localhost:5193"
+	@echo "   • Backend API:       http://localhost:8001"
+	@echo "   • API Docs:          http://localhost:8001/api/v1/docs"
 	@echo "   • Grafana:           http://localhost:3030 (admin/admin)"
 	@echo "   • Prometheus:        http://localhost:9090"
 	@echo "   • Qdrant Dashboard:  http://localhost:6333/dashboard"
 	@echo ""
-	@echo "$(YELLOW)💾 Database:$(NC) PostgreSQL @ localhost:5432 (external)"
+	@echo "$(YELLOW)💾 Database:$(NC) PostgreSQL @ localhost:5432 (bare metal)"
+	@echo "$(YELLOW)📦 Cache:$(NC)    Redis @ localhost:6379 (bare metal)"
 	@echo ""
 	@echo "$(BLUE)📝 Default Credentials:$(NC)"
-	@echo "   • Admin:  admin / Admin123!"
+	@echo "   • Admin:  admin / AdminSecure123!"
 	@echo ""
 	@echo "$(YELLOW)🛑 To stop: make stop$(NC)"
 	@echo ""
@@ -238,17 +252,17 @@ saas-stop-prod: ## Stop production SaaS platform
 
 saas-health: ## Check health of SaaS services
 	@echo "$(BLUE)🔍 Checking SaaS service health...$(NC)"
-	@echo -n "PostgreSQL: "; docker compose exec -T db pg_isready -U indoc_user 2>/dev/null && echo "$(GREEN)✅$(NC)" || echo "$(RED)❌$(NC)"
-	@echo -n "Redis:      "; docker compose exec -T redis redis-cli ping 2>/dev/null | grep -q PONG && echo "$(GREEN)✅$(NC)" || echo "$(RED)❌$(NC)"
+	@echo -n "PostgreSQL: "; pg_isready -h localhost -p 5432 >/dev/null 2>&1 && echo "$(GREEN)✅ bare metal$(NC)" || echo "$(RED)❌$(NC)"
+	@echo -n "Redis:      "; redis-cli -h localhost -p 6379 ping 2>/dev/null | grep -q PONG && echo "$(GREEN)✅ bare metal$(NC)" || echo "$(RED)❌$(NC)"
 	@echo -n "Elasticsearch: "; curl -sf http://localhost:9200/_cluster/health >/dev/null && echo "$(GREEN)✅$(NC)" || echo "$(YELLOW)⚠️$(NC)"
 	@echo -n "Qdrant:     "; curl -sf http://localhost:6333/healthz >/dev/null && echo "$(GREEN)✅$(NC)" || echo "$(YELLOW)⚠️$(NC)"
-	@echo -n "Backend:    "; curl -sf http://localhost:8000/ >/dev/null && echo "$(GREEN)✅$(NC)" || echo "$(YELLOW)⚠️$(NC)"
-	@echo -n "Frontend:   "; curl -sfI http://localhost:5173 >/dev/null && echo "$(GREEN)✅$(NC)" || echo "$(YELLOW)⚠️$(NC)"
+	@echo -n "Backend:    "; curl -sf http://localhost:8001/ >/dev/null && echo "$(GREEN)✅$(NC)" || echo "$(YELLOW)⚠️$(NC)"
+	@echo -n "Frontend:   "; curl -sfI http://localhost:5193 >/dev/null && echo "$(GREEN)✅$(NC)" || echo "$(YELLOW)⚠️$(NC)"
 
 saas-health-prod: ## Check health of production SaaS services
 	@echo "$(BLUE)🔍 Checking production SaaS service health...$(NC)"
-	@echo -n "PostgreSQL: "; docker compose -f $(COMPOSE_PROD) exec -T db pg_isready -U indoc_user 2>/dev/null && echo "$(GREEN)✅$(NC)" || echo "$(RED)❌$(NC)"
-	@echo -n "Redis:      "; docker compose -f $(COMPOSE_PROD) exec -T redis redis-cli ping 2>/dev/null | grep -q PONG && echo "$(GREEN)✅$(NC)" || echo "$(RED)❌$(NC)"
+	@echo -n "PostgreSQL: "; pg_isready -h localhost -p 5432 >/dev/null 2>&1 && echo "$(GREEN)✅ external$(NC)" || echo "$(RED)❌$(NC)"
+	@echo -n "Redis:      "; redis-cli -h localhost -p 6379 ping 2>/dev/null | grep -q PONG && echo "$(GREEN)✅ external$(NC)" || echo "$(RED)❌$(NC)"
 	@echo -n "Vault:      "; curl -sf http://localhost:8200/v1/sys/health >/dev/null && echo "$(GREEN)✅$(NC)" || echo "$(RED)❌$(NC)"
 	@echo -n "Nginx:      "; curl -sfI http://localhost >/dev/null && echo "$(GREEN)✅$(NC)" || echo "$(RED)❌$(NC)"
 	@echo -n "Jaeger:     "; curl -sf http://localhost:16686 >/dev/null && echo "$(GREEN)✅$(NC)" || echo "$(YELLOW)⚠️$(NC)"
@@ -295,15 +309,21 @@ migrate: ## Run database migrations (requires running DB)
 	@$(CONDA_RUN) sh -c 'cd app && export PYTHONPATH=$$PWD/..:$$PYTHONPATH && alembic upgrade head'
 	@echo "$(GREEN)✅ Migrations complete$(NC)"
 
-db-shell: ## Open PostgreSQL shell
-	@echo "$(BLUE)Opening PostgreSQL shell...$(NC)"
-	@docker compose exec db psql -U indoc_user -d indoc
+db-shell: ## Open PostgreSQL shell (external/bare-metal)
+	@echo "$(BLUE)Opening PostgreSQL shell (host :5432 / indoc)...$(NC)"
+	@psql "postgresql://$${POSTGRES_USER:-indoc_user}:$${POSTGRES_PASSWORD:-indoc_dev_password}@$${POSTGRES_HOST:-127.0.0.1}:$${POSTGRES_PORT:-5432}/$${POSTGRES_DB:-indoc}"
 
-db-backup: ## Backup database to backups/ directory
-	@echo "$(BLUE)Backing up database...$(NC)"
+db-backup: ## Backup database to backups/ directory (external/bare-metal)
+	@echo "$(BLUE)Backing up database (host :5432 / indoc)...$(NC)"
 	@mkdir -p backups
-	@docker compose exec -T db pg_dump -U indoc_user indoc > backups/indoc_backup_$(shell date +%Y%m%d_%H%M%S).sql
+	@pg_dump "postgresql://$${POSTGRES_USER:-indoc_user}:$${POSTGRES_PASSWORD:-indoc_dev_password}@$${POSTGRES_HOST:-127.0.0.1}:$${POSTGRES_PORT:-5432}/$${POSTGRES_DB:-indoc}" > backups/indoc_backup_$(shell date +%Y%m%d_%H%M%S).sql
 	@echo "$(GREEN)✅ Database backed up to backups/$(NC)"
+
+db-isolate: ## Ensure local Postgres/Redis isolation (role, DB ownership, Redis DB 2)
+	@echo "$(BLUE)Applying bare-metal DB isolation...$(NC)"
+	@psql "postgresql://postgres:$${POSTGRES_SUPER_PASSWORD:-postgres-cbr!000Rr}@127.0.0.1:5432/postgres" -v ON_ERROR_STOP=1 -f scripts/setup/ensure_baremetal_isolation.sql
+	@redis-cli -n 2 ping | grep -q PONG && echo "$(GREEN)✅ Redis DB 2 reachable$(NC)" || echo "$(RED)❌ Redis DB 2 not reachable$(NC)"
+	@echo "$(GREEN)✅ Isolation ready (indoc / indoc_user; Redis /2)$(NC)"
 
 ##@ Testing
 

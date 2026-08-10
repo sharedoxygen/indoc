@@ -1,10 +1,13 @@
-# Production Docker Compose Configuration for inDoc
-# This configuration addresses all integration issues and follows production best practices
+# Production Docker Compose — inDoc compute + search/observability only.
+#
+# SCALE MODEL: PostgreSQL and Redis are external shared services (host bare-metal
+# or cloud managed). Scale `app` / workers horizontally; do not run Postgres or
+# Redis inside this stack. Wire credentials via .env (POSTGRES_*, REDIS_*, DB_PASSWORD).
 
 version: "3.8"
 
 services:
-  # Main Application Service
+  # Main Application Service (stateless API — scale by replica count)
   app:
     build:
       context: .
@@ -14,8 +17,15 @@ services:
     restart: unless-stopped
     environment:
       - ENVIRONMENT=production
-      - DATABASE_URL=postgresql://indoc_user:${DB_PASSWORD}@db:5432/indoc_prod
-      - REDIS_URL=redis://redis:6379/0
+      - POSTGRES_HOST=host.docker.internal
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=${POSTGRES_DB:-indoc}
+      - POSTGRES_USER=${POSTGRES_USER:-indoc_user}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-${POSTGRES_PASSWORD}}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-indoc_user}:${DB_PASSWORD:-${POSTGRES_PASSWORD}}@host.docker.internal:5432/${POSTGRES_DB:-indoc}
+      - REDIS_URL=redis://host.docker.internal:6379/2
+      - CELERY_BROKER_URL=redis://host.docker.internal:6379/2
+      - CELERY_RESULT_BACKEND=redis://host.docker.internal:6379/2
       - ELASTICSEARCH_URL=http://elasticsearch:9200
       - QDRANT_URL=http://qdrant:6333
       - OLLAMA_BASE_URL=http://ollama:11434
@@ -30,9 +40,9 @@ services:
       - app_logs:/var/log/indoc
       - uploads:/app/uploads
       - ./keys:/app/keys:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
-      - db
-      - redis
       - elasticsearch
       - qdrant
       - ollama
@@ -45,42 +55,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
-
-  # PostgreSQL Database
-  db:
-    image: postgres:15-alpine
-    container_name: indoc-db
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: indoc_prod
-      POSTGRES_USER: indoc_user
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
-    networks:
-      - indoc_network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U indoc_user -d indoc_prod"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
-  # Redis Cache
-  redis:
-    image: redis:7-alpine
-    container_name: indoc-redis
-    restart: unless-stopped
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
-    volumes:
-      - redis_data:/data
-    networks:
-      - indoc_network
-    healthcheck:
-      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
 
   # Elasticsearch for Search
   elasticsearch:
@@ -257,10 +231,6 @@ services:
       - indoc_network
 
 volumes:
-  postgres_data:
-    driver: local
-  redis_data:
-    driver: local
   elasticsearch_data:
     driver: local
   qdrant_data:
