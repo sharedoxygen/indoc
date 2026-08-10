@@ -97,7 +97,7 @@ const LogViewerPage: React.FC = () => {
     const fetchAvailableLogs = useCallback(async () => {
         try {
             const token = localStorage.getItem('token')
-            const response = await fetch('http://localhost:8000/api/v1/logs/available', {
+            const response = await fetch('http://localhost:8001/api/v1/logs/available', {
                 headers: { 'Authorization': `Bearer ${token}` }
             })
 
@@ -118,7 +118,7 @@ const LogViewerPage: React.FC = () => {
     const fetchStats = useCallback(async () => {
         try {
             const token = localStorage.getItem('token')
-            const response = await fetch(`http://localhost:8000/api/v1/logs/stats/${selectedLog}`, {
+            const response = await fetch(`http://localhost:8001/api/v1/logs/stats/${selectedLog}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             })
 
@@ -150,7 +150,7 @@ const LogViewerPage: React.FC = () => {
             }
 
             const response = await fetch(
-                `http://localhost:8000/api/v1/logs/view/${selectedLog}?${params}`,
+                `http://localhost:8001/api/v1/logs/view/${selectedLog}?${params}`,
                 { headers: { 'Authorization': `Bearer ${token}` } }
             )
 
@@ -178,7 +178,7 @@ const LogViewerPage: React.FC = () => {
     const handleDownload = async () => {
         try {
             const token = localStorage.getItem('token')
-            const response = await fetch(`http://localhost:8000/api/v1/logs/download/${selectedLog}`, {
+            const response = await fetch(`http://localhost:8001/api/v1/logs/download/${selectedLog}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             })
 
@@ -205,7 +205,7 @@ const LogViewerPage: React.FC = () => {
 
         try {
             const token = localStorage.getItem('token')
-            const response = await fetch(`http://localhost:8000/api/v1/logs/clear/${selectedLog}`, {
+            const response = await fetch(`http://localhost:8001/api/v1/logs/clear/${selectedLog}`, {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}` }
             })
@@ -223,7 +223,7 @@ const LogViewerPage: React.FC = () => {
     // Real-time WebSocket connection
     const connectWebSocket = useCallback(() => {
         const token = localStorage.getItem('token')
-        const ws = new WebSocket(`ws://localhost:8000/api/v1/logs/ws/tail/${selectedLog}`)
+        const ws = new WebSocket(`ws://localhost:8001/api/v1/logs/ws/tail/${selectedLog}`)
 
         ws.onopen = () => {
             // Send auth

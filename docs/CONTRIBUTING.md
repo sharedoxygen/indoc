@@ -257,7 +257,7 @@ python tools/test_enterprise_grade.py
 tail -f tmp/backend.log
 
 # Or use the Admin Log Viewer
-# Navigate to: http://localhost:5173/logs (Admin only)
+# Navigate to: http://localhost:5193/logs (Admin only)
 ```
 
 ### Frontend Logs:

@@ -190,7 +190,7 @@ Edit `playwright.config.ts` to customize:
 
 ```typescript
 // Change base URLs
-baseURL: process.env.E2E_BASE_URL || 'http://localhost:5173',
+baseURL: process.env.E2E_BASE_URL || 'http://localhost:5193',
 apiURL: process.env.E2E_API_URL || 'http://localhost:8000',
 
 // Adjust timeouts

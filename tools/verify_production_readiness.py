@@ -43,7 +43,7 @@ class ProductionValidator:
             
         # Frontend health
         try:
-            async with session.get("http://localhost:5173") as r:
+            async with session.get("http://localhost:5193") as r:
                 if r.status == 200:
                     self.log("Frontend Health", "PASS")
                 else:

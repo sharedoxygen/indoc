@@ -33,7 +33,7 @@ export const useProcessingWebSocket = (onUpdate: (update: ProcessingUpdate) => v
       }
 
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${protocol}//${window.location.hostname}:8000/api/v1/ws/processing?token=${token}`;
+      const wsUrl = `${protocol}//${window.location.hostname}:8001/api/v1/ws/processing?token=${token}`;
 
       try {
         const ws = new WebSocket(wsUrl);
