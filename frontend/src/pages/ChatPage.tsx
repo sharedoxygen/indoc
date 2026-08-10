@@ -21,11 +21,14 @@ import {
   Divider,
   ToggleButton,
   ToggleButtonGroup,
+  Tooltip,
 } from '@mui/material'
 import { DocumentChat } from '../components/DocumentChat'
 import ChatHistory from '../components/ChatHistory'
 import DocumentDetailsDrawer from '../components/DocumentDetailsDrawer'
 import AgentModePanel from '../components/agent/AgentModePanel'
+import { AGENT_HELP } from '../components/agent/agentHelp'
+import HelpTip from '../components/HelpTip'
 import { ArcMeter } from '../components/instruments'
 import { useGetDocumentsQuery } from '../store/api'
 import { format } from 'date-fns'
@@ -105,25 +108,37 @@ const ChatPage: React.FC = () => {
   }
 
   const handleSelectAll = () => {
-    if (selectedDocuments.length === availableDocuments.length) {
-      setSelectedDocuments([])
+    const visibleIds = availableDocuments.map((doc: any) => doc.uuid)
+    const allShownSelected =
+      visibleIds.length > 0 && visibleIds.every((id: string) => selectedDocuments.includes(id))
+    if (allShownSelected) {
+      // Clear only currently listed docs; keep selections outside the filter
+      const visible = new Set(visibleIds)
+      setSelectedDocuments((prev) => prev.filter((id) => !visible.has(id)))
     } else {
-      setSelectedDocuments(availableDocuments.map((doc: any) => doc.uuid))
+      setSelectedDocuments((prev) => Array.from(new Set([...prev, ...visibleIds])))
     }
   }
 
+  const selectedInView = availableDocuments.filter((d: any) => selectedDocuments.includes(d.uuid)).length
   const selectionPct =
-    availableDocuments.length > 0 ? (selectedDocuments.length / availableDocuments.length) * 100 : 0
+    availableDocuments.length > 0 ? Math.min(100, (selectedInView / availableDocuments.length) * 100) : 0
 
   return (
     <Box sx={{ p: 3, height: 'calc(100vh - 64px)', display: 'flex', flexDirection: 'column' }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
         <Box>
           <Typography variant="h4" sx={{ fontWeight: 700 }}>
-            {mode === 'agent' ? 'Agent Tower' : 'Document Chat'}
+            {mode === 'agent' ? (
+              <HelpTip title={AGENT_HELP.pageTitle} underline={false}>
+                Agent Tower
+              </HelpTip>
+            ) : (
+              'Document Chat'
+            )}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            {mode === 'agent' ? 'Watch the ReAct agent fly missions over your docs' : 'Conversational Q&A over indexed documents'}
+            {mode === 'agent' ? AGENT_HELP.pageSubtitle : 'Conversational Q&A over indexed documents'}
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -134,12 +149,16 @@ const ChatPage: React.FC = () => {
             onChange={(_, v) => v && setMode(v)}
             sx={{ bgcolor: 'background.paper' }}
           >
-            <ToggleButton value="agent">
-              <AgentIcon sx={{ mr: 0.75, fontSize: 18 }} /> Agent
-            </ToggleButton>
-            <ToggleButton value="chat">
-              <ChatIcon sx={{ mr: 0.75, fontSize: 18 }} /> Chat
-            </ToggleButton>
+            <Tooltip title={AGENT_HELP.modeAgent}>
+              <ToggleButton value="agent">
+                <AgentIcon sx={{ mr: 0.75, fontSize: 18 }} /> Agent
+              </ToggleButton>
+            </Tooltip>
+            <Tooltip title={AGENT_HELP.modeChat}>
+              <ToggleButton value="chat">
+                <ChatIcon sx={{ mr: 0.75, fontSize: 18 }} /> Chat
+              </ToggleButton>
+            </Tooltip>
           </ToggleButtonGroup>
           {mode === 'chat' && (
             <Button
@@ -150,9 +169,11 @@ const ChatPage: React.FC = () => {
               New Chat
             </Button>
           )}
-          <Button variant="outlined" startIcon={<HistoryIcon />} onClick={() => setHistoryOpen(true)}>
-            History
-          </Button>
+          <Tooltip title={AGENT_HELP.history}>
+            <Button variant="outlined" startIcon={<HistoryIcon />} onClick={() => setHistoryOpen(true)}>
+              History
+            </Button>
+          </Tooltip>
         </Box>
       </Box>
 
@@ -169,40 +190,50 @@ const ChatPage: React.FC = () => {
           >
             <Box sx={{ mb: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1rem' }}>
-                Scope
+                <HelpTip title={AGENT_HELP.scope}>Scope</HelpTip>
               </Typography>
-              <Button size="small" onClick={handleSelectAll} disabled={availableDocuments.length === 0}>
-                {selectedDocuments.length === availableDocuments.length ? 'Clear' : 'All'}
-              </Button>
+              <Tooltip title={AGENT_HELP.scopeSelectAll}>
+                <span>
+                  <Button size="small" onClick={handleSelectAll} disabled={availableDocuments.length === 0}>
+                    {selectedInView === availableDocuments.length && availableDocuments.length > 0
+                      ? 'Clear shown'
+                      : 'All shown'}
+                  </Button>
+                </span>
+              </Tooltip>
             </Box>
 
-            <Box sx={{ display: 'flex', justifyContent: 'center', mb: 1 }}>
-              <ArcMeter
-                value={selectionPct}
-                label="Selected"
-                subtitle={`${selectedDocuments.length}/${availableDocuments.length}`}
-                unit="%"
-                precision={0}
-                size={100}
-                status={selectedDocuments.length > 0 ? 'ok' : 'idle'}
+            <Tooltip title={AGENT_HELP.scopeMeter} arrow>
+              <Box sx={{ display: 'flex', justifyContent: 'center', mb: 1, cursor: 'help' }}>
+                <ArcMeter
+                  value={selectionPct}
+                  label="In list"
+                  subtitle={`${selectedDocuments.length} selected · ${availableDocuments.length} shown`}
+                  unit="%"
+                  precision={0}
+                  size={100}
+                  status={selectedDocuments.length > 0 ? 'ok' : 'idle'}
+                />
+              </Box>
+            </Tooltip>
+
+            <Tooltip title={AGENT_HELP.scopeSearch}>
+              <TextField
+                size="small"
+                fullWidth
+                placeholder="Filter list…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                sx={{ mb: 1 }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon fontSize="small" />
+                    </InputAdornment>
+                  ),
+                }}
               />
-            </Box>
-
-            <TextField
-              size="small"
-              fullWidth
-              placeholder="Search…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              sx={{ mb: 1 }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon fontSize="small" />
-                  </InputAdornment>
-                ),
-              }}
-            />
+            </Tooltip>
             <Box sx={{ display: 'flex', gap: 1, mb: 1, flexWrap: 'wrap' }}>
               <FormControl size="small" sx={{ minWidth: 100 }}>
                 <InputLabel>Type</InputLabel>
@@ -224,7 +255,9 @@ const ChatPage: React.FC = () => {
                   <MenuItem value="file_size">Size</MenuItem>
                 </Select>
               </FormControl>
-              <Chip label={`${data?.total ?? availableDocuments.length}`} size="small" />
+              <Tooltip title="Documents matching the current filter (API total).">
+                <Chip label={`${data?.total ?? availableDocuments.length} match`} size="small" />
+              </Tooltip>
             </Box>
 
             <Box sx={{ flexGrow: 1, overflow: 'auto', pr: 0.5 }}>
@@ -308,7 +341,7 @@ const ChatPage: React.FC = () => {
                 documentIds={selectedDocuments}
                 onFinalAnswer={(goal, answer) => {
                   setLastAgentAnswer({ goal, answer })
-                  enqueueSnackbar('Mission complete — answer landed on the arrival board', {
+                  enqueueSnackbar('Agent finished — answer saved on the Arrival Board below', {
                     variant: 'success',
                   })
                 }}

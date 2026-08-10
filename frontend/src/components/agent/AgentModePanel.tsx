@@ -10,12 +10,15 @@ import {
   Slider,
   Stack,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material'
 import { ExpandMore as ExpandMoreIcon, FlightTakeoff as LaunchIcon, Stop as StopIcon } from '@mui/icons-material'
 import { motion } from 'framer-motion'
 import { useAgentStream } from '../../hooks/useAgentStream'
+import HelpTip from '../HelpTip'
 import AgentTheater from './AgentTheater'
+import { AGENT_HELP } from './agentHelp'
 
 const RUNS_KEY = 'indoc.agent.runs'
 
@@ -92,46 +95,69 @@ export const AgentModePanel: React.FC<AgentModePanelProps> = ({ documentIds, onF
         sx={{ p: 1.5, borderRadius: 3 }}
       >
         <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} alignItems={{ md: 'center' }}>
-          <TextField
-            fullWidth
-            size="small"
-            label="Mission goal"
-            placeholder="e.g. Summarize key risks across my indexed contracts"
-            value={goal}
-            onChange={(e) => setGoal(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault()
-                handleLaunch()
+          <Tooltip title={AGENT_HELP.missionGoal} arrow>
+            <TextField
+              fullWidth
+              size="small"
+              label="Goal"
+              placeholder="e.g. Summarize key risks across my indexed contracts"
+              value={goal}
+              onChange={(e) => setGoal(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  handleLaunch()
+                }
+              }}
+              disabled={running}
+              helperText={
+                documentIds.length === 0
+                  ? 'Select at least one document in Scope (left)'
+                  : `${documentIds.length} doc${documentIds.length === 1 ? '' : 's'} in scope`
               }
-            }}
-            disabled={running}
-          />
-          <Button
-            variant="contained"
-            color="primary"
-            startIcon={<LaunchIcon />}
-            onClick={handleLaunch}
-            disabled={!goal.trim() || running}
-            sx={{ minWidth: 140, whiteSpace: 'nowrap' }}
+            />
+          </Tooltip>
+          <Tooltip
+            title={
+              !goal.trim()
+                ? 'Enter a goal first'
+                : documentIds.length === 0
+                  ? 'Select documents in Scope first'
+                  : AGENT_HELP.launch
+            }
           >
-            {running ? 'In flight…' : 'Launch'}
-          </Button>
+            <span>
+              <Button
+                variant="contained"
+                color="primary"
+                startIcon={<LaunchIcon />}
+                onClick={handleLaunch}
+                disabled={!goal.trim() || running || documentIds.length === 0}
+                sx={{ minWidth: 140, whiteSpace: 'nowrap' }}
+              >
+                {running ? 'Running…' : 'Launch'}
+              </Button>
+            </span>
+          </Tooltip>
           {running && (
-            <Button variant="outlined" color="inherit" startIcon={<StopIcon />} onClick={agent.stop}>
-              Abort
-            </Button>
+            <Tooltip title={AGENT_HELP.abort}>
+              <Button variant="outlined" color="inherit" startIcon={<StopIcon />} onClick={agent.stop}>
+                Stop
+              </Button>
+            </Tooltip>
           )}
         </Stack>
         <Accordion disableGutters elevation={0} sx={{ mt: 1, bgcolor: 'transparent', '&:before': { display: 'none' } }}>
           <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ minHeight: 36, px: 0 }}>
             <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600 }}>
-              Advanced · max steps {maxSteps} · scope {documentIds.length || 'all accessible'} docs
+              <HelpTip title={AGENT_HELP.advanced} underline={false}>
+                Advanced · max steps {maxSteps} · scope {documentIds.length || 0} docs
+              </HelpTip>
             </Typography>
           </AccordionSummary>
           <AccordionDetails sx={{ px: 0 }}>
-            <Typography variant="caption" color="text.secondary">
-              Max reasoning steps
+            <Typography variant="caption" color="text.secondary" component="div">
+              <HelpTip title={AGENT_HELP.maxSteps}>Max reasoning steps</HelpTip>
             </Typography>
             <Slider
               value={maxSteps}
@@ -162,14 +188,13 @@ export const AgentModePanel: React.FC<AgentModePanelProps> = ({ documentIds, onF
         />
       </Box>
 
-      {/* Arrival / prior-run transcript strip */}
       <Paper sx={{ p: 1.5, borderRadius: 3, maxHeight: 160, overflow: 'auto' }}>
         <Typography variant="caption" sx={{ fontWeight: 700, letterSpacing: 0.8, color: 'text.secondary' }}>
-          ARRIVAL BOARD · MISSION LOG
+          <HelpTip title={AGENT_HELP.arrivalBoard}>ARRIVAL BOARD · completed answers</HelpTip>
         </Typography>
         {priorRuns.length === 0 && !agent.finalAnswer && (
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            Completed flights land here — goal + final answer for reuse.
+            When a run finishes, the goal and final answer appear here for reuse this session.
           </Typography>
         )}
         <Stack spacing={1} sx={{ mt: 1 }}>
@@ -202,7 +227,9 @@ export const AgentModePanel: React.FC<AgentModePanelProps> = ({ documentIds, onF
                 }}
               >
                 <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5 }}>
-                  <Chip size="small" label={`${run.steps || 0} steps`} />
+                  <Tooltip title="Tool steps taken in this run">
+                    <Chip size="small" label={`${run.steps || 0} steps`} />
+                  </Tooltip>
                   <Typography variant="caption" color="text.secondary" noWrap sx={{ flex: 1 }}>
                     {run.goal}
                   </Typography>

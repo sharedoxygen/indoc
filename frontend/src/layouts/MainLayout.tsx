@@ -92,8 +92,8 @@ const MainLayout: React.FC = () => {
     { text: 'System Logs', icon: <TerminalIcon />, path: '/logs', roles: ['Admin'] },
     { text: 'Search Inspector', icon: <SearchInspectorIcon />, path: '/search-inspector', roles: ['Admin', 'Manager'] },
     { text: 'Settings', icon: <SettingsIcon />, path: '/settings', roles: ['Admin'] },
-    // External monitoring links (Grafana)
-    { text: 'Monitoring', icon: <TimelineIcon />, path: 'EXTERNAL:grafana', roles: ['Admin', 'Manager'] },
+    // Monitoring lives inside inDoc (embedded Grafana) — no second login for viewers
+    { text: 'Monitoring', icon: <TimelineIcon />, path: '/monitoring', roles: ['Admin', 'Manager'] },
   ]
 
   const filteredMenuItems = menuItems.filter(
@@ -111,13 +111,7 @@ const MainLayout: React.FC = () => {
           <ListItem key={item.text} disablePadding>
             <ListItemButton
               selected={location.pathname === item.path}
-              onClick={() => {
-                if (item.path === 'EXTERNAL:grafana') {
-                  window.open('http://localhost:3030', '_blank', 'noopener,noreferrer')
-                } else {
-                  navigate(item.path)
-                }
-              }}
+              onClick={() => navigate(item.path)}
               sx={{
                 borderRadius: 2,
                 mb: 0.5,
