@@ -87,7 +87,7 @@ dev: conda-install celery-cleanup ## Start full development stack (local process
 	@mkdir -p $(TMP_DIR)
 	@echo ""
 	@echo "$(BLUE)Starting application processes...$(NC)"
-	@cd app && nohup $(CONDA_RUN) sh -c 'export PYTHONPATH=$$PWD/..:$$PYTHONPATH && uvicorn main:app --host 0.0.0.0 --port 8000 --reload' > ../$(TMP_DIR)/backend.out 2>&1 & echo $$! > ../$(TMP_DIR)/backend.pid
+	@cd app && nohup $(CONDA_RUN) sh -c 'export PYTHONPATH=$$PWD/..:$$PYTHONPATH && uvicorn main:app --host 0.0.0.0 --port 8000 --reload' > $(TMP_DIR)/backend.out 2>&1 & echo $$! > $(TMP_DIR)/backend.pid
 	@echo "$(GREEN)✓$(NC) Backend starting..."
 	@sleep 3
 	@nohup $(CONDA_RUN) celery -A app.core.celery_app worker --pool=solo --loglevel=info --queues=celery,document_processing,search_indexing,llm_processing > $(TMP_DIR)/celery_worker.out 2>&1 & echo $$! > $(TMP_DIR)/celery_worker.pid
@@ -96,7 +96,7 @@ dev: conda-install celery-cleanup ## Start full development stack (local process
 	@nohup $(CONDA_RUN) celery -A app.core.celery_app beat --loglevel=info > $(TMP_DIR)/celery_beat.out 2>&1 & echo $$! > $(TMP_DIR)/celery_beat.pid
 	@echo "$(GREEN)✓$(NC) Celery beat starting..."
 	@sleep 1
-	@cd frontend && nohup npm run dev -- --port 5173 > ../$(TMP_DIR)/frontend.out 2>&1 & echo $$! > ../$(TMP_DIR)/frontend.pid
+	@cd frontend && nohup npm run dev -- --port 5173 > $(TMP_DIR)/frontend.out 2>&1 & echo $$! > $(TMP_DIR)/frontend.pid
 	@echo "$(GREEN)✓$(NC) Frontend starting..."
 	@sleep 5
 	@echo ""
