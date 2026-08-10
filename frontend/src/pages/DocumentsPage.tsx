@@ -7,27 +7,34 @@ import DocumentFolderView from '../components/DocumentFolderView'
 import { useDebounce } from '../hooks/useDebounce'
 import { useNavigate } from 'react-router-dom'
 
+const STATUS_SLIDES = [
+    { value: 'indexed', label: 'Ready' },
+    { value: 'processing', label: 'Processing' },
+    { value: 'uploaded', label: 'Queued' },
+    { value: 'failed', label: 'Failed' },
+    { value: 'all', label: 'All' },
+] as const
+
 const DocumentsPage: React.FC = () => {
     const navigate = useNavigate()
     const [search, setSearch] = useState('')
     const [fileType, setFileType] = useState<'all' | string>('all')
+    const [statusFilter, setStatusFilter] = useState<string>('indexed')
     const [sortBy, setSortBy] = useState<'created_at' | 'updated_at' | 'filename' | 'file_type' | 'file_size'>('created_at')
     const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
     const [viewMode, setViewMode] = useState<'folder' | 'list'>('folder')
 
-    // Debounce the search term to reduce API calls
     const debouncedSearch = useDebounce(search, 300)
 
-    const { data, isLoading, refetch } = useGetDocumentsQuery({
+    const { data, isLoading } = useGetDocumentsQuery({
         skip: 0,
         limit: 100,
         search: debouncedSearch || undefined,
-        status: 'indexed',
+        status: statusFilter === 'all' ? undefined : statusFilter,
         file_type: fileType === 'all' ? undefined : fileType,
         sort_by: sortBy,
         sort_order: sortOrder
     }, {
-        // Force cache invalidation to ensure fresh data
         refetchOnMountOrArgChange: true,
         refetchOnFocus: false
     })
@@ -47,6 +54,21 @@ const DocumentsPage: React.FC = () => {
                     onChange={(e) => setSearch(e.target.value)}
                     InputProps={{ startAdornment: (<InputAdornment position="start"><SearchIcon /></InputAdornment>) }}
                 />
+                <Box sx={{ mt: 1.5, mb: 1 }}>
+                    <ToggleButtonGroup
+                        exclusive
+                        size="small"
+                        value={statusFilter}
+                        onChange={(_, v) => v && setStatusFilter(v)}
+                        sx={{ flexWrap: 'wrap' }}
+                    >
+                        {STATUS_SLIDES.map((s) => (
+                            <ToggleButton key={s.value} value={s.value}>
+                                {s.label}
+                            </ToggleButton>
+                        ))}
+                    </ToggleButtonGroup>
+                </Box>
                 <Box sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap' }}>
                     <FormControl size="small" sx={{ minWidth: 120 }}>
                         <InputLabel>Type</InputLabel>
@@ -86,7 +108,7 @@ const DocumentsPage: React.FC = () => {
                     <ToggleButtonGroup
                         value={viewMode}
                         exclusive
-                        onChange={(e, newMode) => newMode && setViewMode(newMode)}
+                        onChange={(_e, newMode) => newMode && setViewMode(newMode)}
                         size="small"
                     >
                         <ToggleButton value="folder">

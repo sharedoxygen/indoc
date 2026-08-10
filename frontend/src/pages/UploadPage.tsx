@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, useEffect, useRef } from 'react'
 import { useSelector } from 'react-redux'
 import type { RootState } from '../store'
 import {
@@ -9,7 +9,6 @@ import {
   TextField,
   Chip,
   Alert,
-  LinearProgress,
   List,
   ListItem,
   ListItemText,
@@ -20,7 +19,13 @@ import {
   DialogContent,
   DialogActions,
   Grid,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
 } from '@mui/material'
+import { ExpandMore as ExpandMoreIcon } from '@mui/icons-material'
+import { motion } from 'framer-motion'
+import { ArcMeter } from '../components/instruments'
 import {
   CloudUpload as UploadIcon,
   InsertDriveFile as FileIcon,
@@ -75,6 +80,8 @@ const UploadPage: React.FC = () => {
   const [showProcessingModal, setShowProcessingModal] = useState(false)
   const [selectedResult, setSelectedResult] = useState<any>(null)
   const [showProcessingProgress, setShowProcessingProgress] = useState(false)
+  const [shouldAutoUpload, setShouldAutoUpload] = useState(false)
+  const uploadingLock = useRef(false)
 
   // WebSocket for real-time processing updates
   const handleProcessingUpdate = useCallback((update: any) => {
@@ -119,6 +126,8 @@ const UploadPage: React.FC = () => {
       relativePath: (file as any).path || (file as any).webkitRelativePath || undefined,
     }))
     setFiles((prev) => [...prev, ...newFiles])
+    // Zero-friction: auto-start upload after drop
+    setShouldAutoUpload(true)
   }, [])
 
   const { getRootProps, getInputProps, isDragActive, open: openFileDialog } = useDropzone({
@@ -231,8 +240,11 @@ const UploadPage: React.FC = () => {
       })
       formData.append('folder_mapping', JSON.stringify(folderMapping))
 
-      // Add metadata
-      if (metadata.title) formData.append('title', metadata.title)
+      // Auto title from first filename stem when user left title blank
+      const autoTitle =
+        metadata.title ||
+        (pendingFiles[0]?.file.name || '').replace(/\.[^.]+$/, '')
+      if (autoTitle) formData.append('title', autoTitle)
       if (metadata.description) formData.append('description', metadata.description)
       if (metadata.tags) formData.append('tags', metadata.tags)
       if (metadata.documentSetId) formData.append('document_set_id', metadata.documentSetId)
@@ -400,7 +412,8 @@ const UploadPage: React.FC = () => {
 
       const formData = new FormData()
       formData.append('file', uploadFile.file)
-      if (metadata.title) formData.append('title', metadata.title)
+      const autoTitle = metadata.title || uploadFile.file.name.replace(/\.[^.]+$/, '')
+      if (autoTitle) formData.append('title', autoTitle)
       if (metadata.description) formData.append('description', metadata.description)
       if (metadata.tags) formData.append('tags', metadata.tags)
       if (metadata.documentSetId) formData.append('document_set_id', metadata.documentSetId)
@@ -575,6 +588,20 @@ const UploadPage: React.FC = () => {
     enqueueSnackbar(`Retrying ${fileToRetry.file.name}...`, { variant: 'info' })
   }
 
+  useEffect(() => {
+    if (!shouldAutoUpload || uploadingLock.current) return
+    const pending = files.filter((f) => f.status === 'pending')
+    if (pending.length === 0) {
+      setShouldAutoUpload(false)
+      return
+    }
+    setShouldAutoUpload(false)
+    uploadingLock.current = true
+    Promise.resolve(handleUpload()).finally(() => {
+      uploadingLock.current = false
+    })
+  }, [shouldAutoUpload, files])
+
   const hasFiles = files.length > 0
   const hasPendingFiles = files.some((f) => f.status === 'pending')
   const isUploading = files.some((f) => f.status === 'uploading')
@@ -590,15 +617,19 @@ const UploadPage: React.FC = () => {
           <Paper sx={{ p: 3 }}>
             <Box
               {...getRootProps()}
+              component={motion.div as any}
+              animate={{ scale: isDragActive ? 1.015 : 1 }}
+              transition={{ type: 'spring', stiffness: 260, damping: 22 }}
               sx={{
                 border: '2px dashed',
                 borderColor: isDragActive ? 'primary.main' : 'grey.300',
-                borderRadius: 2,
+                borderRadius: 3,
                 p: 4,
                 textAlign: 'center',
                 cursor: 'pointer',
                 bgcolor: isDragActive ? 'action.hover' : 'background.paper',
-                transition: 'all 0.3s',
+                boxShadow: isDragActive ? 6 : 0,
+                transition: 'background-color 0.3s, border-color 0.3s',
                 '&:hover': {
                   borderColor: 'primary.main',
                   bgcolor: 'action.hover',
@@ -608,12 +639,12 @@ const UploadPage: React.FC = () => {
               <input {...getInputProps()} />
               <UploadIcon sx={{ fontSize: 64, color: 'primary.main', mb: 3 }} />
               <Typography variant="h5" gutterBottom sx={{ fontWeight: 600, color: 'text.primary' }}>
-                {isDragActive ? 'Drop your files here!' : 'Upload Documents'}
+                {isDragActive ? 'Release to launch upload' : 'Drop files — auto uploads'}
               </Typography>
               <Typography variant="body1" color="text.secondary" sx={{ mb: 3, maxWidth: 500, mx: 'auto', lineHeight: 1.6 }}>
                 {isDragActive
-                  ? 'Release to upload your files and folders'
-                  : 'Drag & drop files or folders here, or choose what to upload below'
+                  ? 'Upload starts the moment you release'
+                  : 'Drag & drop files or folders. No forms required — titles come from filenames.'
                 }
               </Typography>
 
@@ -683,7 +714,7 @@ const UploadPage: React.FC = () => {
                     <Box key={uploadFile.id} sx={{ mb: 2 }}>
                       <DocumentProcessingProgress
                         filename={uploadFile.file.name}
-                        steps={uploadFile.processingSteps || {}}
+                        steps={(uploadFile.processingSteps || {}) as any}
                         overallProgress={uploadFile.progress}
                       />
                     </Box>
@@ -755,8 +786,14 @@ const UploadPage: React.FC = () => {
                         secondary={
                           uploadFile.status === 'uploading' ? (
                             <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-                              <LinearProgress variant="determinate" value={uploadFile.progress} sx={{ flex: 1 }} />
-                              <Typography variant="caption">{Math.round(uploadFile.progress)}%</Typography>
+                              <ArcMeter
+                                value={uploadFile.progress}
+                                label="Upload"
+                                unit="%"
+                                precision={0}
+                                size={72}
+                                status="active"
+                              />
                             </Box>
                           ) : uploadFile.error ? (
                             <Box sx={{ mt: 0.5 }}>
@@ -789,57 +826,62 @@ const UploadPage: React.FC = () => {
         </Grid>
 
         <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 3 }}>
-            <Typography variant="h6" gutterBottom>
-              Document Metadata
+          <Paper sx={{ p: 2 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1 }}>
+              Drop to fly
             </Typography>
-            <TextField
-              fullWidth
-              label="Title"
-              value={metadata.title}
-              onChange={(e) => setMetadata({ ...metadata, title: e.target.value })}
-              margin="normal"
-              helperText="Optional: Custom title for the document"
-            />
-            <TextField
-              fullWidth
-              label="Description"
-              value={metadata.description}
-              onChange={(e) => setMetadata({ ...metadata, description: e.target.value })}
-              margin="normal"
-              multiline
-              rows={3}
-              helperText="Optional: Brief description"
-            />
-            <TextField
-              fullWidth
-              label="Tags"
-              value={metadata.tags}
-              onChange={(e) => setMetadata({ ...metadata, tags: e.target.value })}
-              margin="normal"
-              helperText="Comma-separated tags"
-            />
-            {metadata.tags && (
-              <Box sx={{ mt: 1 }}>
-                {metadata.tags.split(',').map((tag, index) => (
-                  <Chip
-                    key={index}
-                    label={tag.trim()}
-                    size="small"
-                    sx={{ mr: 0.5, mb: 0.5 }}
-                  />
-                ))}
-              </Box>
-            )}
-            <TextField
-              fullWidth
-              label="Document Set ID (Optional)"
-              value={metadata.documentSetId}
-              onChange={(e) => setMetadata({ ...metadata, documentSetId: e.target.value })}
-              margin="normal"
-              helperText="Group related documents together (e.g., 'ZX10R-2024' or 'project-alpha')"
-              placeholder="my-document-set"
-            />
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Files upload automatically. Titles default from the filename — open Advanced only if you need tags or a set id.
+            </Typography>
+            <Accordion disableGutters elevation={0} sx={{ bgcolor: 'transparent', '&:before': { display: 'none' } }}>
+              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                  Advanced metadata
+                </Typography>
+              </AccordionSummary>
+              <AccordionDetails>
+                <TextField
+                  fullWidth
+                  label="Title"
+                  value={metadata.title}
+                  onChange={(e) => setMetadata({ ...metadata, title: e.target.value })}
+                  margin="normal"
+                  helperText="Blank = filename stem"
+                />
+                <TextField
+                  fullWidth
+                  label="Description"
+                  value={metadata.description}
+                  onChange={(e) => setMetadata({ ...metadata, description: e.target.value })}
+                  margin="normal"
+                  multiline
+                  rows={3}
+                />
+                <TextField
+                  fullWidth
+                  label="Tags"
+                  value={metadata.tags}
+                  onChange={(e) => setMetadata({ ...metadata, tags: e.target.value })}
+                  margin="normal"
+                  helperText="Comma-separated tags"
+                />
+                {metadata.tags && (
+                  <Box sx={{ mt: 1 }}>
+                    {metadata.tags.split(',').map((tag, index) => (
+                      <Chip key={index} label={tag.trim()} size="small" sx={{ mr: 0.5, mb: 0.5 }} />
+                    ))}
+                  </Box>
+                )}
+                <TextField
+                  fullWidth
+                  label="Document Set ID"
+                  value={metadata.documentSetId}
+                  onChange={(e) => setMetadata({ ...metadata, documentSetId: e.target.value })}
+                  margin="normal"
+                  placeholder="my-document-set"
+                />
+              </AccordionDetails>
+            </Accordion>
           </Paper>
 
           {hasFiles && (
@@ -977,13 +1019,12 @@ const UploadPage: React.FC = () => {
                   <Box key={file.id} sx={{ mb: 3 }}>
                     <DocumentProcessingProgress
                       filename={file.file.name}
-                      steps={file.processingSteps || {
+                      steps={(file.processingSteps || {
                         upload: { status: 'completed', progress: 100 },
-                        virusScan: { status: 'pending', progress: 0 },
-                        extraction: { status: 'pending', progress: 0 },
-                        elasticsearch: { status: 'pending', progress: 0 },
-                        qdrant: { status: 'pending', progress: 0 },
-                      }}
+                        text_extraction: { status: 'pending', progress: 0 },
+                        elasticsearch_indexing: { status: 'pending', progress: 0 },
+                        qdrant_vector_index: { status: 'pending', progress: 0 },
+                      }) as any}
                       overallProgress={file.progress}
                     />
                   </Box>

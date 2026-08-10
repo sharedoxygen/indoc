@@ -8,10 +8,12 @@
 # - Clear documentation: Self-documenting targets
 
 .PHONY: help dev saas saas-local saas-prod install build test clean migrate \
-	start stop restart health logs monitor ps \
+	start stop stop-dev stop-saas stop-dev-processes saas-stop restart health status \
+	logs monitor ps \
 	conda-env conda-install local-e2e local-stop \
 	test-backend test-frontend e2e-test seed-data \
-	db-shell db-backup format lint
+	db-shell db-backup format lint \
+	publish-worktree-ensure
 
 # Default target
 .DEFAULT_GOAL := help
@@ -24,6 +26,26 @@ ROOT_DIR:=$(CURDIR)
 TMP_DIR:=$(ROOT_DIR)/tmp
 COMPOSE_DEV:=docker-compose.yml
 COMPOSE_PROD:=docker-compose.production.yml
+COMPOSE_SAAS_PORTS:=docker-compose.saas-ports.yml
+PUBLISH_BRANCH?=publish
+PUBLISH_WORKTREE:=$(ROOT_DIR)/.worktrees/publish
+STACK_MODE_FILE:=$(TMP_DIR)/stack.mode
+STACK_MODE_SH:=$(ROOT_DIR)/scripts/dev/stack_mode.sh
+PUBLISH_WORKTREE_SH:=$(ROOT_DIR)/scripts/dev/publish_worktree.sh
+DOCKER_PATH:=/Applications/Docker.app/Contents/Resources/bin
+export PATH:=$(DOCKER_PATH):$(PATH)
+export TMP_DIR
+export STACK_MODE_FILE
+export PUBLISH_WORKTREE
+export PUBLISH_BRANCH
+
+# Port namespaces (exclusive modes — only one stack at a time)
+DEV_API_PORT?=8001
+DEV_FE_PORT?=5193
+SAAS_API_PORT?=8011
+SAAS_FE_PORT?=5293
+export DEV_API_PORT
+export SAAS_API_PORT
 
 # Colors for output
 BLUE := \033[0;34m
@@ -31,6 +53,15 @@ GREEN := \033[0;32m
 YELLOW := \033[1;33m
 RED := \033[0;31m
 NC := \033[0m
+
+# Compose against publish worktree (saas only). Fixed project name so stop matches containers.
+COMPOSE_PROJECT_NAME?=indoc
+export COMPOSE_PROJECT_NAME
+COMPOSE_SAAS=docker compose --project-name $(COMPOSE_PROJECT_NAME) \
+	--project-directory $(PUBLISH_WORKTREE) \
+	--env-file $(ROOT_DIR)/.env \
+	-f $(PUBLISH_WORKTREE)/$(COMPOSE_DEV) \
+	-f $(ROOT_DIR)/$(COMPOSE_SAAS_PORTS)
 
 ##@ Help
 
@@ -44,9 +75,11 @@ help: ## Display this help message
 
 ##@ Development (Full Stack)
 
-dev: conda-install celery-cleanup ## Start full development stack (local processes, hot reload)
+dev: ## Start full development stack (local processes, hot reload)
+	@$(STACK_MODE_SH) assert-can-start dev
+	@$(MAKE) conda-install
 	@echo "$(BLUE)═══════════════════════════════════════════════════════════════$(NC)"
-	@echo "$(BLUE)  🚀 Starting Full Development Stack (Everything Needed)$(NC)"
+	@echo "$(BLUE)  🚀 Starting Full Development Stack (current working tree)$(NC)"
 	@echo "$(BLUE)═══════════════════════════════════════════════════════════════$(NC)"
 	@echo ""
 	@echo "$(YELLOW)📋 Prerequisites Check:$(NC)"
@@ -61,14 +94,6 @@ dev: conda-install celery-cleanup ## Start full development stack (local process
 		exit 1; \
 	fi
 	@echo "$(GREEN)✅ PostgreSQL running (localhost:5432)$(NC)"
-	@echo ""
-	@echo "$(YELLOW)Stack Configuration:$(NC)"
-	@echo "   • Backend:    Local (conda) - Hot Reload ✅"
-	@echo "   • Frontend:   Local (vite) - Hot Reload ✅"
-	@echo "   • Celery:     Local (conda) - Debug Mode ✅"
-	@echo "   • Services:   Docker (ES, Qdrant, Monitoring)"
-	@echo "   • Database:   PostgreSQL @ localhost:5432 (bare metal)"
-	@echo "   • Cache:      Redis @ localhost:6379 (bare metal)"
 	@if ! nc -z localhost 6379 2>/dev/null; then \
 		echo "$(RED)❌ Redis not running on localhost:6379$(NC)"; \
 		echo "$(YELLOW)   Start Redis first (brew services start redis)$(NC)"; \
@@ -76,26 +101,30 @@ dev: conda-install celery-cleanup ## Start full development stack (local process
 	fi
 	@echo "$(GREEN)✅ Redis running (localhost:6379)$(NC)"
 	@echo ""
-	@echo "$(YELLOW)Cleaning old processes...$(NC)"
-	@pkill -9 -f "uvicorn main:app" 2>/dev/null || true
-	@pkill -9 -f "vite.*5193" 2>/dev/null || true
-	@pkill -9 -f "celery -A app.core.celery_app worker" 2>/dev/null || true
-	@pkill -9 -f "celery -A app.core.celery_app beat" 2>/dev/null || true
-	@pkill -9 -f "conda run.*celery" 2>/dev/null || true
-	@pkill -9 -f "conda run.*uvicorn" 2>/dev/null || true
-	@rm -f $(TMP_DIR)/*.pid $(TMP_DIR)/*.out 2>/dev/null || true
-	@sleep 3
+	@echo "$(YELLOW)Stack Configuration:$(NC)"
+	@echo "   • Mode:       dev (exclusive)"
+	@echo "   • Source:     primary working tree ($$(git -C $(ROOT_DIR) rev-parse --abbrev-ref HEAD) @ $$(git -C $(ROOT_DIR) rev-parse --short HEAD))"
+	@echo "   • Backend:    Local (conda) :$(DEV_API_PORT) - Hot Reload"
+	@echo "   • Frontend:   Local (vite) :$(DEV_FE_PORT) - Hot Reload"
+	@echo "   • Celery:     Local (conda)"
+	@echo "   • Services:   Docker (ES, Qdrant, Monitoring)"
+	@echo "   • Database:   PostgreSQL @ localhost:5432 (bare metal)"
+	@echo "   • Cache:      Redis @ localhost:6379 (bare metal)"
+	@echo ""
+	@echo "$(YELLOW)Cleaning old dev processes...$(NC)"
+	@$(MAKE) stop-dev-processes
+	@sleep 2
 	@echo "$(GREEN)✅ Clean$(NC)"
 	@echo ""
 	@echo "$(BLUE)Starting Docker services...$(NC)"
-	@export PATH="/Applications/Docker.app/Contents/Resources/bin:$$PATH" && docker compose up -d elasticsearch qdrant prometheus grafana
+	@docker compose --project-name $(COMPOSE_PROJECT_NAME) -f $(ROOT_DIR)/$(COMPOSE_DEV) up -d elasticsearch qdrant prometheus grafana
 	@echo "$(YELLOW)⏳ Waiting for services (10 seconds)...$(NC)"
 	@sleep 10
 	@mkdir -p $(TMP_DIR)
 	@echo ""
 	@echo "$(BLUE)Starting application processes...$(NC)"
-	@cd app && nohup $(CONDA_RUN) sh -c 'export PYTHONPATH=$$PWD/..:$$PYTHONPATH && uvicorn main:app --host 0.0.0.0 --port 8001 --reload' > $(TMP_DIR)/backend.out 2>&1 & echo $$! > $(TMP_DIR)/backend.pid
-	@echo "$(GREEN)✓$(NC) Backend starting..."
+	@cd app && nohup $(CONDA_RUN) sh -c 'export PYTHONPATH=$$PWD/..:$$PYTHONPATH && uvicorn main:app --host 0.0.0.0 --port $(DEV_API_PORT) --reload' > $(TMP_DIR)/backend.out 2>&1 & echo $$! > $(TMP_DIR)/backend.pid
+	@echo "$(GREEN)✓$(NC) Backend starting on :$(DEV_API_PORT)..."
 	@sleep 3
 	@nohup $(CONDA_RUN) celery -A app.core.celery_app worker --pool=solo --loglevel=info --queues=celery,document_processing,search_indexing,llm_processing > $(TMP_DIR)/celery_worker.out 2>&1 & echo $$! > $(TMP_DIR)/celery_worker.pid
 	@echo "$(GREEN)✓$(NC) Celery worker starting..."
@@ -103,59 +132,91 @@ dev: conda-install celery-cleanup ## Start full development stack (local process
 	@nohup $(CONDA_RUN) celery -A app.core.celery_app beat --loglevel=info > $(TMP_DIR)/celery_beat.out 2>&1 & echo $$! > $(TMP_DIR)/celery_beat.pid
 	@echo "$(GREEN)✓$(NC) Celery beat starting..."
 	@sleep 1
-	@cd frontend && nohup npm run dev -- --port 5193 > $(TMP_DIR)/frontend.out 2>&1 & echo $$! > $(TMP_DIR)/frontend.pid
-	@echo "$(GREEN)✓$(NC) Frontend starting..."
+	@cd frontend && nohup npm run dev -- --port $(DEV_FE_PORT) > $(TMP_DIR)/frontend.out 2>&1 & echo $$! > $(TMP_DIR)/frontend.pid
+	@echo "$(GREEN)✓$(NC) Frontend starting on :$(DEV_FE_PORT)..."
 	@sleep 5
+	@$(STACK_MODE_SH) write dev "$$(git -C $(ROOT_DIR) rev-parse HEAD)"
 	@echo ""
 	@echo "$(GREEN)✨ Development stack ready!$(NC)"
 	@echo "$(BLUE)═══════════════════════════════════════════════════════════════$(NC)"
 	@echo ""
-	@echo "$(BLUE)📍 Access Points:$(NC)"
-	@echo "   • Frontend:    http://localhost:5193"
-	@echo "   • API:         http://localhost:8001"
-	@echo "   • API Docs:    http://localhost:8001/api/v1/docs"
+	@echo "$(BLUE)📍 Access Points (dev):$(NC)"
+	@echo "   • Frontend:    http://localhost:$(DEV_FE_PORT)"
+	@echo "   • API:         http://localhost:$(DEV_API_PORT)"
+	@echo "   • API Docs:    http://localhost:$(DEV_API_PORT)/api/v1/docs"
 	@echo "   • Grafana:     http://localhost:3030 (admin/admin)"
 	@echo "   • Prometheus:  http://localhost:9090"
 	@echo ""
 	@echo "$(YELLOW)🛑 To stop: make stop$(NC)"
 	@echo ""
 
-stop: celery-cleanup ## Stop all processes (works for both dev and saas)
-	@echo "$(YELLOW)🛑 Stopping all processes...$(NC)"
-	@# Kill by PID files first (graceful)
+stop-dev-processes: ## Internal: stop local dev app processes only
 	@if [ -f $(TMP_DIR)/backend.pid ]; then kill `cat $(TMP_DIR)/backend.pid` 2>/dev/null || true; fi
 	@if [ -f $(TMP_DIR)/celery_worker.pid ]; then kill `cat $(TMP_DIR)/celery_worker.pid` 2>/dev/null || true; fi
 	@if [ -f $(TMP_DIR)/celery_beat.pid ]; then kill `cat $(TMP_DIR)/celery_beat.pid` 2>/dev/null || true; fi
 	@if [ -f $(TMP_DIR)/frontend.pid ]; then kill `cat $(TMP_DIR)/frontend.pid` 2>/dev/null || true; fi
-	@sleep 2
-	@# Force kill by process name (aggressive)
 	@pkill -9 -f "uvicorn main:app" 2>/dev/null || true
-	@pkill -9 -f "vite.*5193" 2>/dev/null || true
+	@pkill -9 -f "vite.*$(DEV_FE_PORT)" 2>/dev/null || true
 	@pkill -9 -f "celery -A app.core.celery_app worker" 2>/dev/null || true
 	@pkill -9 -f "celery -A app.core.celery_app beat" 2>/dev/null || true
 	@pkill -9 -f "conda run.*celery" 2>/dev/null || true
 	@pkill -9 -f "conda run.*uvicorn" 2>/dev/null || true
-	@pkill -9 -f "conda run.*vite" 2>/dev/null || true
-	@# Clean up PID and log files
 	@rm -f $(TMP_DIR)/*.pid $(TMP_DIR)/*.out 2>/dev/null || true
-	@echo "$(YELLOW)Stopping Docker services...$(NC)"
-	@export PATH="/Applications/Docker.app/Contents/Resources/bin:$$PATH" && docker compose down 2>/dev/null || true
-	@echo "$(GREEN)✅ All processes stopped$(NC)"
 
-celery-cleanup: ## Clean up Celery workers
+stop-dev: stop-dev-processes ## Stop development stack (local procs + primary compose)
+	@echo "$(YELLOW)🛑 Stopping development stack...$(NC)"
+	@docker compose --project-name $(COMPOSE_PROJECT_NAME) -f $(ROOT_DIR)/$(COMPOSE_DEV) down 2>/dev/null || true
+	@$(STACK_MODE_SH) clear
+	@echo "$(GREEN)✅ Development stack stopped$(NC)"
+
+stop-saas: ## Stop saas stack (publish worktree compose only)
+	@echo "$(YELLOW)🛑 Stopping saas stack (publish worktree)...$(NC)"
+	@if [ -f $(ROOT_DIR)/.env ] && [ -d $(PUBLISH_WORKTREE) ]; then \
+		ln -sfn $(ROOT_DIR)/.env $(PUBLISH_WORKTREE)/.env; \
+		$(COMPOSE_SAAS) down 2>/dev/null || true; \
+	fi
+	@docker compose --project-name $(COMPOSE_PROJECT_NAME) -f $(ROOT_DIR)/$(COMPOSE_DEV) down 2>/dev/null || true
+	@for c in indoc-backend indoc-celery-worker indoc-celery-beat indoc-flower \
+		indoc-elasticsearch indoc-qdrant indoc-prometheus indoc-grafana; do \
+		docker rm -f $$c 2>/dev/null || true; \
+	done
+	@$(STACK_MODE_SH) clear
+	@echo "$(GREEN)✅ SaaS stack stopped$(NC)"
+
+stop: ## Stop the active stack (dev or saas); clears mode lock
+	@mode="$$($(STACK_MODE_SH) detect)"; \
+	echo "$(YELLOW)🛑 Stopping stack (detected: $$mode)...$(NC)"; \
+	case "$$mode" in \
+		saas) $(MAKE) stop-saas ;; \
+		dev) $(MAKE) stop-dev ;; \
+		stale:*) $(MAKE) stop-dev-processes; $(MAKE) stop-saas; $(STACK_MODE_SH) clear ;; \
+		none) $(MAKE) stop-dev-processes; $(MAKE) stop-saas; $(STACK_MODE_SH) clear; echo "$(GREEN)✅ Nothing live (cleaned leftovers)$(NC)" ;; \
+		*) $(MAKE) stop-dev-processes; $(MAKE) stop-saas; $(STACK_MODE_SH) clear ;; \
+	esac
+
+celery-cleanup: ## Clean up local Celery workers (dev)
 	@pkill -f "celery.*worker" 2>/dev/null || true
 	@pkill -f "celery.*beat" 2>/dev/null || true
 	@rm -f $(TMP_DIR)/celery_worker.pid $(TMP_DIR)/celery_beat.pid 2>/dev/null || true
 
 ##@ SaaS Platform (Production Simulation)
 
-saas: saas-local ## Start full SaaS platform locally (default: docker-compose)
+publish-worktree-ensure: ## Ensure .worktrees/publish tracks local publish branch
+	@$(PUBLISH_WORKTREE_SH) ensure >/dev/null
 
-saas-local: ## Simulate production SaaS locally with Docker Compose
+saas: saas-local ## Start SaaS from local publish branch (docker compose)
+
+saas-local: ## Simulate SaaS from publish worktree (exclusive vs make dev)
+	@$(STACK_MODE_SH) assert-can-start saas
+	@$(MAKE) publish-worktree-ensure
 	@echo "$(BLUE)═══════════════════════════════════════════════════════════════$(NC)"
-	@echo "$(BLUE)  🚀 Starting Full SaaS Stack (Production Simulation)$(NC)"
+	@echo "$(BLUE)  🚀 Starting SaaS Stack (local '$(PUBLISH_BRANCH)' worktree)$(NC)"
 	@echo "$(BLUE)═══════════════════════════════════════════════════════════════$(NC)"
 	@echo ""
+	@if [ ! -f $(ROOT_DIR)/.env ]; then \
+		echo "$(RED)❌ Missing $(ROOT_DIR)/.env (required for saas compose)$(NC)"; \
+		exit 1; \
+	fi
 	@echo "$(YELLOW)📋 Prerequisites Check:$(NC)"
 	@if ! docker info > /dev/null 2>&1; then \
 		echo "$(RED)❌ Docker is not running. Start Docker Desktop first.$(NC)"; \
@@ -174,41 +235,46 @@ saas-local: ## Simulate production SaaS locally with Docker Compose
 		exit 1; \
 	fi
 	@echo "$(GREEN)✅ Redis running (localhost:6379)$(NC)"
-	@echo ""
-	@echo "$(BLUE)🐳 Starting Docker services:$(NC)"
-	@echo "   • Elasticsearch (keyword search)"
-	@echo "   • Qdrant (vector search)"
-	@echo "   • Prometheus & Grafana (monitoring)"
-	@echo "   • Backend API (port 8001; 8000 reserved for PATi)"
-	@echo ""
-	@echo "$(YELLOW)⚠️  PostgreSQL + Redis run OUTSIDE Docker (bare metal)$(NC)"
-	@echo ""
-	@export PATH="/Applications/Docker.app/Contents/Resources/bin:$$PATH" && docker compose -f $(COMPOSE_DEV) up -d
-	@echo ""
-	@echo "$(YELLOW)⏳ Waiting for services (30 seconds)...$(NC)"
-	@sleep 30
-	@echo ""
-	@$(MAKE) saas-health
-	@echo ""
-	@echo "$(GREEN)✨ Full SaaS Stack Running!$(NC)"
-	@echo "$(BLUE)═══════════════════════════════════════════════════════════════$(NC)"
-	@echo ""
-	@echo "$(BLUE)📍 Access Points:$(NC)"
-	@echo "   • Frontend:          http://localhost:5193"
-	@echo "   • Backend API:       http://localhost:8001"
-	@echo "   • API Docs:          http://localhost:8001/api/v1/docs"
-	@echo "   • Grafana:           http://localhost:3030 (admin/admin)"
-	@echo "   • Prometheus:        http://localhost:9090"
-	@echo "   • Qdrant Dashboard:  http://localhost:6333/dashboard"
-	@echo ""
-	@echo "$(YELLOW)💾 Database:$(NC) PostgreSQL @ localhost:5432 (bare metal)"
-	@echo "$(YELLOW)📦 Cache:$(NC)    Redis @ localhost:6379 (bare metal)"
-	@echo ""
-	@echo "$(BLUE)📝 Default Credentials:$(NC)"
-	@echo "   • Admin:  admin / AdminSecure123!"
-	@echo ""
-	@echo "$(YELLOW)🛑 To stop: make stop$(NC)"
-	@echo ""
+	@PUBLISH_SHA="$$(git -C $(PUBLISH_WORKTREE) rev-parse HEAD)"; \
+	echo "$(GREEN)✅ Source: $(PUBLISH_BRANCH) @ $$PUBLISH_SHA$(NC)"; \
+	echo "   Worktree: $(PUBLISH_WORKTREE)"; \
+	ln -sfn $(ROOT_DIR)/.env $(PUBLISH_WORKTREE)/.env; \
+	mkdir -p $(PUBLISH_WORKTREE)/data/uploads $(ROOT_DIR)/tmp; \
+	echo ""; \
+	echo "$(BLUE)🐳 Starting Docker services from publish worktree:$(NC)"; \
+	echo "   • Backend API :$(SAAS_API_PORT) (host; container :8000)"; \
+	echo "   • Frontend    :$(SAAS_FE_PORT) reserved (not in compose; API-focused saas)"; \
+	echo "   • ES / Qdrant / Prometheus / Grafana / Celery"; \
+	echo ""; \
+	echo "$(YELLOW)⚠️  PostgreSQL + Redis run OUTSIDE Docker (bare metal)$(NC)"; \
+	echo ""; \
+	$(COMPOSE_SAAS) up -d --build; \
+	echo ""; \
+	echo "$(YELLOW)⏳ Waiting for services (30 seconds)...$(NC)"; \
+	sleep 30; \
+	echo ""; \
+	$(MAKE) saas-health; \
+	$(STACK_MODE_SH) write saas "$$PUBLISH_SHA"; \
+	echo ""; \
+	echo "$(GREEN)✨ SaaS stack running from publish$(NC)"; \
+	echo "$(BLUE)═══════════════════════════════════════════════════════════════$(NC)"; \
+	echo ""; \
+	echo "$(BLUE)📍 Access Points (saas):$(NC)"; \
+	echo "   • Backend API:       http://localhost:$(SAAS_API_PORT)"; \
+	echo "   • API Docs:          http://localhost:$(SAAS_API_PORT)/api/v1/docs"; \
+	echo "   • Frontend port:     $(SAAS_FE_PORT) (reserved; not started by compose)"; \
+	echo "   • Grafana:           http://localhost:3030 (admin/admin)"; \
+	echo "   • Prometheus:        http://localhost:9090"; \
+	echo "   • Qdrant Dashboard:  http://localhost:6333/dashboard"; \
+	echo ""; \
+	echo "$(YELLOW)💾 Database:$(NC) PostgreSQL @ localhost:5432 (bare metal)"; \
+	echo "$(YELLOW)📦 Cache:$(NC)    Redis @ localhost:6379 (bare metal)"; \
+	echo ""; \
+	echo "$(BLUE)📝 Default Credentials:$(NC)"; \
+	echo "   • Admin:  admin / AdminSecure123!"; \
+	echo ""; \
+	echo "$(YELLOW)🛑 To stop: make stop$(NC)"; \
+	echo ""
 
 saas-prod: ## Deploy production SaaS with full stack (docker-compose.production.yml)
 	@echo "$(BLUE)═══════════════════════════════════════════════════════════════$(NC)"
@@ -242,22 +308,59 @@ saas-prod: ## Deploy production SaaS with full stack (docker-compose.production.
 		echo "$(YELLOW)Cancelled.$(NC)"; \
 	fi
 
-saas-stop: ## Alias for 'make stop' (stops all services)
-	@$(MAKE) stop
+saas-stop: stop-saas ## Stop saas stack only (publish worktree compose)
 
 saas-stop-prod: ## Stop production SaaS platform
 	@echo "$(YELLOW)🛑 Stopping production SaaS platform...$(NC)"
-	@export PATH="/Applications/Docker.app/Contents/Resources/bin:$$PATH" && docker compose -f $(COMPOSE_PROD) down
+	@docker compose -f $(COMPOSE_PROD) down
 	@echo "$(GREEN)✅ Production SaaS platform stopped$(NC)"
 
-saas-health: ## Check health of SaaS services
+saas-health: ## Check health of SaaS services (saas port namespace)
 	@echo "$(BLUE)🔍 Checking SaaS service health...$(NC)"
-	@echo -n "PostgreSQL: "; pg_isready -h localhost -p 5432 >/dev/null 2>&1 && echo "$(GREEN)✅ bare metal$(NC)" || echo "$(RED)❌$(NC)"
-	@echo -n "Redis:      "; redis-cli -h localhost -p 6379 ping 2>/dev/null | grep -q PONG && echo "$(GREEN)✅ bare metal$(NC)" || echo "$(RED)❌$(NC)"
-	@echo -n "Elasticsearch: "; curl -sf http://localhost:9200/_cluster/health >/dev/null && echo "$(GREEN)✅$(NC)" || echo "$(YELLOW)⚠️$(NC)"
-	@echo -n "Qdrant:     "; curl -sf http://localhost:6333/healthz >/dev/null && echo "$(GREEN)✅$(NC)" || echo "$(YELLOW)⚠️$(NC)"
-	@echo -n "Backend:    "; curl -sf http://localhost:8001/ >/dev/null && echo "$(GREEN)✅$(NC)" || echo "$(YELLOW)⚠️$(NC)"
-	@echo -n "Frontend:   "; curl -sfI http://localhost:5193 >/dev/null && echo "$(GREEN)✅$(NC)" || echo "$(YELLOW)⚠️$(NC)"
+	@printf "PostgreSQL: "; pg_isready -h localhost -p 5432 >/dev/null 2>&1 && echo "$(GREEN)✅ bare metal$(NC)" || echo "$(RED)❌$(NC)"
+	@printf "Redis:      "; redis-cli -h localhost -p 6379 ping 2>/dev/null | grep -q PONG && echo "$(GREEN)✅ bare metal$(NC)" || echo "$(RED)❌$(NC)"
+	@printf "Elasticsearch: "; curl -sf http://localhost:9200/_cluster/health >/dev/null && echo "$(GREEN)✅$(NC)" || echo "$(YELLOW)⚠️$(NC)"
+	@printf "Qdrant:     "; curl -sf http://localhost:6333/healthz >/dev/null && echo "$(GREEN)✅$(NC)" || echo "$(YELLOW)⚠️$(NC)"
+	@printf "Backend:    "; curl -sf http://localhost:$(SAAS_API_PORT)/ >/dev/null && echo "$(GREEN)✅ :$(SAAS_API_PORT)$(NC)" || echo "$(YELLOW)⚠️ :$(SAAS_API_PORT)$(NC)"
+	@printf "Frontend:   "; curl -sfI http://localhost:$(SAAS_FE_PORT) >/dev/null && echo "$(GREEN)✅ :$(SAAS_FE_PORT)$(NC)" || echo "$(YELLOW)⚠️ :$(SAAS_FE_PORT) (not in compose)$(NC)"
+
+status: ## Show active stack mode, source SHA, ports, health
+	@echo "$(BLUE)═══════════════════════════════════════════════════════════════$(NC)"
+	@echo "$(BLUE)  inDoc stack status$(NC)"
+	@echo "$(BLUE)═══════════════════════════════════════════════════════════════$(NC)"
+	@detected="$$($(STACK_MODE_SH) detect)"; \
+	echo "Detected:  $$detected"; \
+	if [ -f "$(STACK_MODE_FILE)" ]; then \
+		echo "Lock file: $(STACK_MODE_FILE)"; \
+		grep -E '^(MODE|SHA|STARTED_AT|DEV_API_PORT|SAAS_API_PORT)=' "$(STACK_MODE_FILE)" || true; \
+	else \
+		echo "Lock file: (none)"; \
+	fi; \
+	echo ""; \
+	echo "$(YELLOW)Port namespaces$(NC)"; \
+	echo "  dev  API/FE: $(DEV_API_PORT) / $(DEV_FE_PORT)"; \
+	echo "  saas API/FE: $(SAAS_API_PORT) / $(SAAS_FE_PORT)"; \
+	echo ""; \
+	echo "$(YELLOW)Source$(NC)"; \
+	echo "  primary: $$(git -C $(ROOT_DIR) rev-parse --abbrev-ref HEAD) @ $$(git -C $(ROOT_DIR) rev-parse --short HEAD)"; \
+	if git -C $(ROOT_DIR) show-ref --verify --quiet refs/heads/$(PUBLISH_BRANCH); then \
+		echo "  publish: $(PUBLISH_BRANCH) @ $$(git -C $(ROOT_DIR) rev-parse --short refs/heads/$(PUBLISH_BRANCH))"; \
+	else \
+		echo "  publish: (missing local branch)"; \
+	fi; \
+	if [ -d "$(PUBLISH_WORKTREE)" ]; then \
+		echo "  worktree: $(PUBLISH_WORKTREE) @ $$(git -C $(PUBLISH_WORKTREE) rev-parse --short HEAD 2>/dev/null || echo '?')"; \
+	else \
+		echo "  worktree: (not created)"; \
+	fi; \
+	echo ""; \
+	echo "$(YELLOW)Health$(NC)"; \
+	printf "  PostgreSQL: "; pg_isready -h localhost -p 5432 >/dev/null 2>&1 && echo "$(GREEN)ok$(NC)" || echo "$(RED)down$(NC)"; \
+	printf "  Redis:      "; redis-cli -h localhost -p 6379 ping 2>/dev/null | grep -q PONG && echo "$(GREEN)ok$(NC)" || echo "$(RED)down$(NC)"; \
+	printf "  Dev API:    "; curl -sf http://localhost:$(DEV_API_PORT)/ >/dev/null && echo "$(GREEN)up :$(DEV_API_PORT)$(NC)" || echo "down :$(DEV_API_PORT)"; \
+	printf "  SaaS API:   "; curl -sf http://localhost:$(SAAS_API_PORT)/ >/dev/null && echo "$(GREEN)up :$(SAAS_API_PORT)$(NC)" || echo "down :$(SAAS_API_PORT)"; \
+	printf "  Dev FE:     "; curl -sfI http://localhost:$(DEV_FE_PORT) >/dev/null && echo "$(GREEN)up :$(DEV_FE_PORT)$(NC)" || echo "down :$(DEV_FE_PORT)"; \
+	echo ""
 
 saas-health-prod: ## Check health of production SaaS services
 	@echo "$(BLUE)🔍 Checking production SaaS service health...$(NC)"

@@ -364,16 +364,16 @@ const DocumentAccessManager: React.FC<DocumentAccessManagerProps> = ({
                                 sx={{
                                     p: 2,
                                     bgcolor: alpha('#2196f3', 0.05),
-                                    border: `2px dashed ${alpha('#2196f3', 0.3)}`,
+                                    border: `2px dashed ${alpha('#2196f3', 0.45)}`,
                                     minHeight: 400
                                 }}
                             >
                                 <Typography variant="h6" gutterBottom color="primary">
-                                    📦 Available Users ({availableUsers.length})
+                                    Available Users ({availableUsers.length})
                                 </Typography>
                                 <Typography variant="caption" color="text.secondary" display="block" mb={2}>
                                     {availableUsers.length > 0
-                                        ? "Drag users here to grant access"
+                                        ? "Drop users here to revoke access"
                                         : "User list not available - use role-based sharing above"}
                                 </Typography>
 
@@ -384,11 +384,19 @@ const DocumentAccessManager: React.FC<DocumentAccessManagerProps> = ({
                                             {...provided.droppableProps}
                                             sx={{
                                                 minHeight: 300,
-                                                bgcolor: snapshot.isDraggingOver ? alpha('#2196f3', 0.1) : 'transparent',
+                                                bgcolor: snapshot.isDraggingOver ? alpha('#2196f3', 0.16) : 'transparent',
+                                                border: snapshot.isDraggingOver ? `2px solid ${alpha('#2196f3', 0.5)}` : '2px solid transparent',
+                                                boxShadow: snapshot.isDraggingOver ? 4 : 0,
                                                 borderRadius: 2,
-                                                p: 1
+                                                p: 1,
+                                                transition: 'all 0.2s ease',
                                             }}
                                         >
+                                            {availableUsers.length === 0 && (
+                                                <Box sx={{ py: 6, textAlign: 'center', color: 'text.secondary', border: '1px dashed', borderColor: 'divider', borderRadius: 2 }}>
+                                                    Drop users here
+                                                </Box>
+                                            )}
                                             {availableUsers.map((user, index) => (
                                                 <Draggable
                                                     key={user.id}
@@ -408,6 +416,8 @@ const DocumentAccessManager: React.FC<DocumentAccessManagerProps> = ({
                                                                 gap: 1,
                                                                 cursor: 'grab',
                                                                 bgcolor: snapshot.isDragging ? 'primary.light' : 'background.paper',
+                                                                boxShadow: snapshot.isDragging ? 8 : 1,
+                                                                transform: snapshot.isDragging ? 'scale(1.03)' : 'none',
                                                                 '&:hover': {
                                                                     bgcolor: 'action.hover'
                                                                 }
@@ -448,16 +458,16 @@ const DocumentAccessManager: React.FC<DocumentAccessManagerProps> = ({
                                 sx={{
                                     p: 2,
                                     bgcolor: alpha('#4caf50', 0.05),
-                                    border: `2px dashed ${alpha('#4caf50', 0.3)}`,
+                                    border: `2px dashed ${alpha('#4caf50', 0.45)}`,
                                     minHeight: 400
                                 }}
                             >
                                 <Typography variant="h6" gutterBottom color="success.main">
-                                    ✅ Access Granted ({grantedUsers.length})
+                                    Access Granted ({grantedUsers.length})
                                 </Typography>
                                 <Typography variant="caption" color="text.secondary" display="block" mb={2}>
                                     {availableUsers.length > 0
-                                        ? "Drag users here to revoke access"
+                                        ? "Drop users here to grant access"
                                         : "Role-based permissions will be applied to all users in selected roles"}
                                 </Typography>
 
@@ -468,11 +478,19 @@ const DocumentAccessManager: React.FC<DocumentAccessManagerProps> = ({
                                             {...provided.droppableProps}
                                             sx={{
                                                 minHeight: 300,
-                                                bgcolor: snapshot.isDraggingOver ? alpha('#4caf50', 0.1) : 'transparent',
+                                                bgcolor: snapshot.isDraggingOver ? alpha('#4caf50', 0.16) : 'transparent',
+                                                border: snapshot.isDraggingOver ? `2px solid ${alpha('#4caf50', 0.55)}` : '2px solid transparent',
+                                                boxShadow: snapshot.isDraggingOver ? 4 : 0,
                                                 borderRadius: 2,
-                                                p: 1
+                                                p: 1,
+                                                transition: 'all 0.2s ease',
                                             }}
                                         >
+                                            {grantedUsers.length === 0 && (
+                                                <Box sx={{ py: 6, textAlign: 'center', color: 'text.secondary', border: '1px dashed', borderColor: 'success.main', borderRadius: 2 }}>
+                                                    Drop users here
+                                                </Box>
+                                            )}
                                             {grantedUsers.map((user, index) => (
                                                 <Draggable
                                                     key={user.id}
@@ -494,6 +512,8 @@ const DocumentAccessManager: React.FC<DocumentAccessManagerProps> = ({
                                                                 bgcolor: snapshot.isDragging ? 'success.light' : 'background.paper',
                                                                 border: '1px solid',
                                                                 borderColor: 'success.main',
+                                                                boxShadow: snapshot.isDragging ? 8 : 1,
+                                                                transform: snapshot.isDragging ? 'scale(1.03)' : 'none',
                                                                 '&:hover': {
                                                                     bgcolor: 'action.hover'
                                                                 }

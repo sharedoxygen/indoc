@@ -1,7 +1,41 @@
 import React from 'react'
-import { Box, Paper, Typography, Grid, Chip, Stack, Divider, Button, TextField } from '@mui/material'
-import { useGetSettingsQuery, useGetAdminSettingsQuery, useGetFeatureFlagsQuery, useGetDependenciesHealthQuery, useGetMcpStatusQuery, useExecuteToolMutation } from '../store/api'
+import {
+  Box,
+  Paper,
+  Typography,
+  Grid,
+  Chip,
+  Stack,
+  Divider,
+  Button,
+  TextField,
+  Switch,
+  FormControlLabel,
+} from '@mui/material'
+import { motion } from 'framer-motion'
+import {
+  useGetSettingsQuery,
+  useGetAdminSettingsQuery,
+  useGetFeatureFlagsQuery,
+  useGetDependenciesHealthQuery,
+  useGetMcpStatusQuery,
+  useExecuteToolMutation,
+} from '../store/api'
 import { useAppSelector } from '../hooks/redux'
+import { PrecisionDial, NeedleGauge } from '../components/instruments'
+
+function healthToScore(status: unknown): number {
+  const s = String(status || '').toLowerCase()
+  if (s === 'healthy' || s === 'ok' || s === 'up') return 100
+  if (s === 'degraded' || s === 'warning') return 50
+  return 0
+}
+
+function healthStatus(score: number): 'ok' | 'warn' | 'error' {
+  if (score >= 90) return 'ok'
+  if (score >= 40) return 'warn'
+  return 'error'
+}
 
 const SettingsPage: React.FC = () => {
   const { data: settings } = useGetSettingsQuery(undefined)
@@ -13,6 +47,9 @@ const SettingsPage: React.FC = () => {
   const [command, setCommand] = React.useState('{}')
   const user = useAppSelector((s) => s.auth.user)
   const isAdmin = user?.role === 'Admin'
+
+  const overallScore = healthToScore(health?.overall)
+  const deps = health?.dependencies ? Object.entries(health.dependencies) : []
 
   return (
     <Box>
@@ -30,7 +67,9 @@ const SettingsPage: React.FC = () => {
               <Typography variant="body2">Name: {settings?.app_name}</Typography>
               <Typography variant="body2">Version: {settings?.app_version}</Typography>
               <Typography variant="body2">Max upload size: {settings?.max_upload_size}</Typography>
-              <Typography variant="body2">Allowed extensions: {(settings?.allowed_extensions || []).join(', ')}</Typography>
+              <Typography variant="body2">
+                Allowed extensions: {(settings?.allowed_extensions || []).join(', ')}
+              </Typography>
             </Stack>
           </Paper>
         </Grid>
@@ -40,10 +79,16 @@ const SettingsPage: React.FC = () => {
             <Typography variant="h6" gutterBottom>
               Feature Flags
             </Typography>
-            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-              {features && Object.entries(features).map(([k, v]) => (
-                <Chip key={k} label={`${k}: ${v ? 'on' : 'off'}`} color={v ? 'success' : 'default'} size="small" />
-              ))}
+            <Stack spacing={0.5}>
+              {features &&
+                Object.entries(features).map(([k, v]) => (
+                  <FormControlLabel
+                    key={k}
+                    control={<Switch checked={Boolean(v)} disabled size="small" color="success" />}
+                    label={<Typography variant="body2">{k}</Typography>}
+                  />
+                ))}
+              {!features && <Chip label="No flags loaded" size="small" />}
             </Stack>
           </Paper>
         </Grid>
@@ -54,7 +99,6 @@ const SettingsPage: React.FC = () => {
               <Typography variant="h6" gutterBottom>
                 Admin Settings
               </Typography>
-              {/* Note: Backend enforces RBAC; hide in UI if not admin */}
               <Grid container spacing={2}>
                 <Grid item xs={12} md={6}>
                   <Typography variant="subtitle2">Database</Typography>
@@ -80,25 +124,8 @@ const SettingsPage: React.FC = () => {
                   </Stack>
                 </Grid>
                 <Grid item xs={12} md={6}>
-                  <Typography variant="subtitle2">Redis</Typography>
-                  <Stack spacing={0.5}>
-                    <Typography variant="body2">URL: {admin?.redis?.url}</Typography>
-                  </Stack>
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <Typography variant="subtitle2">Ollama</Typography>
-                  <Stack spacing={0.5}>
-                    <Typography variant="body2">Base URL: {admin?.ollama?.base_url}</Typography>
-                    <Typography variant="body2">Model: {admin?.ollama?.model}</Typography>
-                    <Typography variant="body2">Timeout: {admin?.ollama?.timeout}</Typography>
-                  </Stack>
-                </Grid>
-                <Grid item xs={12} md={6}>
                   <Typography variant="subtitle2">Storage</Typography>
-                  <Stack spacing={0.5}>
-                    <Typography variant="body2">Temp: {admin?.storage?.temp_path}</Typography>
-                    <Typography variant="body2">Path: {admin?.storage?.storage_path}</Typography>
-                  </Stack>
+                  <Typography variant="body2">Path: {admin?.storage?.storage_path}</Typography>
                 </Grid>
               </Grid>
             </Paper>
@@ -106,18 +133,47 @@ const SettingsPage: React.FC = () => {
         )}
 
         <Grid item xs={12}>
-          <Paper sx={{ p: 3 }}>
+          <Paper
+            component={motion.div}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            sx={{ p: 3, borderRadius: 3 }}
+          >
             <Typography variant="h6" gutterBottom>
               Dependencies Health
             </Typography>
-            <Typography variant="body2" sx={{ mb: 1 }}>Overall: {health?.overall}</Typography>
-            <Divider sx={{ mb: 1 }} />
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3, alignItems: 'center', mb: 2 }}>
+              <PrecisionDial
+                value={overallScore}
+                label="Overall"
+                unit="%"
+                precision={0}
+                size={150}
+                status={healthStatus(overallScore)}
+              />
+              <Typography variant="body2" color="text.secondary">
+                Live dependency telemetry · {String(health?.overall || 'unknown')}
+              </Typography>
+            </Box>
+            <Divider sx={{ mb: 2 }} />
             <Grid container spacing={2}>
-              {health?.dependencies && Object.entries(health.dependencies).map(([name, status]) => (
-                <Grid key={name} item>
-                  <Chip label={`${name}: ${status}`} color={String(status) === 'healthy' ? 'success' : 'warning'} size="small" />
-                </Grid>
-              ))}
+              {deps.map(([name, status]) => {
+                const score = healthToScore(status)
+                return (
+                  <Grid key={name} item xs={6} sm={4} md={3} lg={2}>
+                    <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+                      <NeedleGauge
+                        value={score}
+                        label={name}
+                        displayValue={String(status)}
+                        size={110}
+                        status={healthStatus(score)}
+                      />
+                    </Box>
+                  </Grid>
+                )
+              })}
+              {deps.length === 0 && <Chip label="No dependency data" size="small" />}
             </Grid>
           </Paper>
         </Grid>
