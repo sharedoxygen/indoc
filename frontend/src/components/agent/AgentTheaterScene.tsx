@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { Box, Typography, useTheme } from '@mui/material'
+import { Box, Chip, Stack, Tooltip, Typography, useTheme } from '@mui/material'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import type { AgentStep, AgentStreamStatus } from '../../hooks/useAgentStream'
+import HelpTip from '../HelpTip'
+import { AGENT_HELP, TOOL_HELP } from './agentHelp'
 
 const DEFAULT_TOOLS = [
   'list_documents',
@@ -11,15 +13,6 @@ const DEFAULT_TOOLS = [
   'compare_documents',
   'finish',
 ]
-
-const TOOL_LABELS: Record<string, string> = {
-  list_documents: 'LIST',
-  search_documents: 'SEARCH',
-  read_document: 'READ',
-  summarize_document: 'SUM',
-  compare_documents: 'CMP',
-  finish: 'FINISH',
-}
 
 interface AgentTheaterSceneProps {
   status: AgentStreamStatus
@@ -85,6 +78,15 @@ export const AgentTheaterScene: React.FC<AgentTheaterSceneProps> = ({
       ? 'radial-gradient(ellipse at 50% 20%, #1a2744 0%, #0b1020 55%, #070a12 100%)'
       : 'radial-gradient(ellipse at 50% 15%, #d9e8ff 0%, #eef3f8 45%, #d5dde8 100%)'
 
+  const radioText = isError
+    ? 'Error talking to the agent. Check the message below or try again.'
+    : latest?.thought ||
+      (isRunning
+        ? 'Thinking — choosing the next tool…'
+        : isDone
+          ? 'Done. Final answer is on the Arrival card / board.'
+          : 'Ready. Enter a goal above and press Launch.')
+
   return (
     <Box
       sx={{
@@ -99,6 +101,27 @@ export const AgentTheaterScene: React.FC<AgentTheaterSceneProps> = ({
         boxShadow: theme.shadows[8],
       }}
     >
+      <Tooltip title={AGENT_HELP.radar} arrow placement="top">
+        <Box
+          sx={{
+            position: 'absolute',
+            top: 12,
+            left: 16,
+            zIndex: 2,
+            cursor: 'help',
+            px: 1,
+            py: 0.5,
+            borderRadius: 1,
+            bgcolor: theme.palette.mode === 'dark' ? 'rgba(8,12,22,0.55)' : 'rgba(255,255,255,0.7)',
+            backdropFilter: 'blur(6px)',
+          }}
+        >
+          <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', letterSpacing: 0.6 }}>
+            TOOL RADAR · hover pads for help
+          </Typography>
+        </Box>
+      </Tooltip>
+
       {/* Parallax haze layers */}
       <Box
         component={motion.div}
@@ -190,8 +213,12 @@ export const AgentTheaterScene: React.FC<AgentTheaterSceneProps> = ({
               : theme.palette.mode === 'dark'
                 ? '#1e293b'
                 : '#cbd5e1'
+          const meta = TOOL_HELP[pad.tool]
           return (
             <g key={pad.tool}>
+              <title>
+                {meta ? `${meta.short}: ${meta.help}` : pad.tool}
+              </title>
               <motion.circle
                 cx={pad.x}
                 cy={pad.y}
@@ -199,6 +226,7 @@ export const AgentTheaterScene: React.FC<AgentTheaterSceneProps> = ({
                 fill={fill}
                 stroke={theme.palette.background.paper}
                 strokeWidth={2}
+                style={{ cursor: 'help' }}
                 animate={
                   active && !reduceMotion
                     ? { scale: [1, 1.12, 1], opacity: [0.85, 1, 0.85] }
@@ -213,9 +241,9 @@ export const AgentTheaterScene: React.FC<AgentTheaterSceneProps> = ({
                 fill={theme.palette.text.primary}
                 fontSize={11}
                 fontWeight={700}
-                style={{ letterSpacing: 0.6 }}
+                style={{ letterSpacing: 0.6, cursor: 'help' }}
               >
-                {TOOL_LABELS[pad.tool] || pad.tool.slice(0, 6).toUpperCase()}
+                {meta?.short || pad.tool.slice(0, 6).toUpperCase()}
               </text>
               {active && (
                 <motion.circle
@@ -235,27 +263,30 @@ export const AgentTheaterScene: React.FC<AgentTheaterSceneProps> = ({
         })}
 
         {/* Center tower hub */}
-        <circle
-          cx={cx}
-          cy={cy}
-          r={34}
-          fill={theme.palette.mode === 'dark' ? '#0f172a' : '#ffffff'}
-          stroke={isError ? theme.palette.error.main : isDone ? theme.palette.success.main : theme.palette.primary.main}
-          strokeWidth={3}
-        />
-        <text
-          x={cx}
-          y={cy - 2}
-          textAnchor="middle"
-          fill={theme.palette.text.primary}
-          fontSize={12}
-          fontWeight={800}
-        >
-          ATC
-        </text>
-        <text x={cx} y={cy + 14} textAnchor="middle" fill={theme.palette.text.secondary} fontSize={9}>
-          AGENT
-        </text>
+        <g style={{ cursor: 'help' }}>
+          <title>{AGENT_HELP.atcHub}</title>
+          <circle
+            cx={cx}
+            cy={cy}
+            r={34}
+            fill={theme.palette.mode === 'dark' ? '#0f172a' : '#ffffff'}
+            stroke={isError ? theme.palette.error.main : isDone ? theme.palette.success.main : theme.palette.primary.main}
+            strokeWidth={3}
+          />
+          <text
+            x={cx}
+            y={cy - 2}
+            textAnchor="middle"
+            fill={theme.palette.text.primary}
+            fontSize={12}
+            fontWeight={800}
+          >
+            AGENT
+          </text>
+          <text x={cx} y={cy + 14} textAnchor="middle" fill={theme.palette.text.secondary} fontSize={9}>
+            PLANNER
+          </text>
+        </g>
 
         {/* Aircraft per step */}
         {steps.map((step, idx) => {
@@ -266,6 +297,9 @@ export const AgentTheaterScene: React.FC<AgentTheaterSceneProps> = ({
           const isLatest = idx === steps.length - 1
           return (
             <g key={`craft-${step.step}`}>
+              <title>
+                Step {step.step}: {TOOL_HELP[step.action]?.short || step.action}
+              </title>
               <motion.path
                 d={`M ${sx} ${sy} Q ${(sx + pad.x) / 2 + 40} ${(sy + pad.y) / 2 - 50} ${pad.x} ${pad.y}`}
                 fill="none"
@@ -299,6 +333,7 @@ export const AgentTheaterScene: React.FC<AgentTheaterSceneProps> = ({
             animate={{ rotate: 360 }}
             transition={{ duration: 3.2, repeat: Infinity, ease: 'linear' }}
           >
+            <title>{AGENT_HELP.holding}</title>
             <polygon points={`${cx},${cy - 95} ${cx + 6},${cy - 80} ${cx - 6},${cy - 80}`} fill={theme.palette.warning.main} />
             <circle cx={cx} cy={cy - 88} r={14} fill="none" stroke={theme.palette.warning.main} strokeWidth={1} opacity={0.5} />
           </motion.g>
@@ -332,6 +367,96 @@ export const AgentTheaterScene: React.FC<AgentTheaterSceneProps> = ({
         )}
       </svg>
 
+      {/* HTML hover targets over tool pads (MUI tooltips; SVG titles as fallback) */}
+      {pads.map((pad) => {
+        const meta = TOOL_HELP[pad.tool]
+        const active = activeTool === pad.tool
+        const used = steps.some((s) => s.action === pad.tool)
+        return (
+          <Tooltip
+            key={`tip-${pad.tool}`}
+            arrow
+            title={
+              <Box sx={{ maxWidth: 260 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                  {meta?.short || pad.tool} · {pad.tool}
+                </Typography>
+                <Typography variant="body2" sx={{ mt: 0.5, lineHeight: 1.4 }}>
+                  {meta?.help || pad.tool}
+                </Typography>
+                <Typography variant="caption" sx={{ display: 'block', mt: 0.75, opacity: 0.85 }}>
+                  {active ? 'In use now' : used ? 'Used earlier this run' : 'Not used yet'}
+                </Typography>
+              </Box>
+            }
+          >
+            <Box
+              sx={{
+                position: 'absolute',
+                left: `${(pad.x / W) * 100}%`,
+                top: `${(pad.y / H) * 100}%`,
+                width: 44,
+                height: 52,
+                transform: 'translate(-50%, -40%)',
+                cursor: 'help',
+                zIndex: 3,
+              }}
+              aria-label={meta?.help || pad.tool}
+            />
+          </Tooltip>
+        )
+      })}
+
+      <Tooltip title={AGENT_HELP.atcHub} arrow>
+        <Box
+          sx={{
+            position: 'absolute',
+            left: `${(cx / W) * 100}%`,
+            top: `${(cy / H) * 100}%`,
+            width: 68,
+            height: 68,
+            transform: 'translate(-50%, -50%)',
+            cursor: 'help',
+            zIndex: 3,
+            borderRadius: '50%',
+          }}
+          aria-label="Agent planner"
+        />
+      </Tooltip>
+
+      {/* Tool legend */}
+      <Stack
+        direction="row"
+        spacing={0.75}
+        useFlexGap
+        flexWrap="wrap"
+        sx={{
+          position: 'absolute',
+          top: 40,
+          right: 16,
+          maxWidth: 280,
+          zIndex: 2,
+          justifyContent: 'flex-end',
+        }}
+      >
+        {activeTools.map((t) => {
+          const meta = TOOL_HELP[t]
+          const active = activeTool === t
+          const used = steps.some((s) => s.action === t)
+          return (
+            <Tooltip key={`leg-${t}`} title={meta?.help || t} arrow>
+              <Chip
+                size="small"
+                label={meta?.short || t}
+                color={active ? 'warning' : used ? 'success' : 'default'}
+                variant={active || used ? 'filled' : 'outlined'}
+                sx={{ cursor: 'help', height: 22, fontSize: 11, fontWeight: 700 }}
+              />
+            </Tooltip>
+          )
+        })}
+      </Stack>
+
       {/* Thought radio glass panel */}
       <Box
         sx={{
@@ -345,13 +470,14 @@ export const AgentTheaterScene: React.FC<AgentTheaterSceneProps> = ({
           bgcolor: theme.palette.mode === 'dark' ? 'rgba(8,12,22,0.72)' : 'rgba(255,255,255,0.78)',
           backdropFilter: 'blur(10px)',
           border: `1px solid ${theme.palette.divider}`,
+          zIndex: 2,
         }}
       >
         <Typography
           variant="caption"
           sx={{ color: 'text.secondary', fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase' }}
         >
-          Tower Radio
+          <HelpTip title={AGENT_HELP.towerRadio}>Agent thinking</HelpTip>
         </Typography>
         <AnimatePresence mode="wait">
           <Typography
@@ -362,35 +488,31 @@ export const AgentTheaterScene: React.FC<AgentTheaterSceneProps> = ({
             exit={{ opacity: 0 }}
             sx={{ mt: 0.5, fontSize: 13, lineHeight: 1.45, color: 'text.primary', minHeight: 40 }}
           >
-            {isError
-              ? 'Signal lost — agent channel error.'
-              : latest?.thought ||
-                (isRunning
-                  ? 'Holding pattern… awaiting next clearance.'
-                  : isDone
-                    ? 'Runway clear. Arrival board updating.'
-                    : 'Airfield ready. Issue a goal to launch.')}
+            {radioText}
           </Typography>
         </AnimatePresence>
         {latest?.observation && (
-          <Typography
-            variant="caption"
-            sx={{
-              display: 'block',
-              mt: 1,
-              color: 'text.secondary',
-              maxHeight: 48,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-            }}
-          >
-            Cargo: {latest.observation.slice(0, 160)}
-            {latest.observation.length > 160 ? '…' : ''}
-          </Typography>
+          <Tooltip title={AGENT_HELP.cargo} arrow>
+            <Typography
+              variant="caption"
+              sx={{
+                display: 'block',
+                mt: 1,
+                color: 'text.secondary',
+                maxHeight: 48,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                cursor: 'help',
+              }}
+            >
+              Last tool result: {latest.observation.slice(0, 160)}
+              {latest.observation.length > 160 ? '…' : ''}
+            </Typography>
+          </Tooltip>
         )}
       </Box>
 
-      {/* Arrival board */}
+      {/* Final answer card */}
       {finalAnswer && (
         <Box
           component={motion.div}
@@ -399,17 +521,20 @@ export const AgentTheaterScene: React.FC<AgentTheaterSceneProps> = ({
           sx={{
             position: 'absolute',
             right: 16,
-            top: 16,
+            top: 72,
             maxWidth: 320,
             p: 1.5,
             borderRadius: 2,
             bgcolor: theme.palette.mode === 'dark' ? 'rgba(12,28,18,0.85)' : 'rgba(232,245,233,0.92)',
             border: `1px solid ${theme.palette.success.main}`,
             backdropFilter: 'blur(8px)',
+            zIndex: 2,
           }}
         >
           <Typography variant="caption" sx={{ fontWeight: 800, color: 'success.main', letterSpacing: 1 }}>
-            ARRIVAL
+            <HelpTip title={AGENT_HELP.arrival} underline={false}>
+              FINAL ANSWER
+            </HelpTip>
           </Typography>
           <Typography sx={{ mt: 0.5, fontSize: 13, lineHeight: 1.4, maxHeight: 120, overflow: 'auto' }}>
             {finalAnswer.slice(0, 420)}
