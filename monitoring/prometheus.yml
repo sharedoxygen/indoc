@@ -14,7 +14,7 @@ scrape_configs:
   - job_name: 'indoc-backend'
     static_configs:
       # scrape the locally running non-containerized backend
-      - targets: ['host.docker.internal:8000']
+      - targets: ['host.docker.internal:8001']
     metrics_path: '/api/v1/metrics'
     # Refresh business metrics before each scrape
     metric_relabel_configs:

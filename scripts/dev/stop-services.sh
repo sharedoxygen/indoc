@@ -55,7 +55,7 @@ echo -e "${BLUE}3. Stopping services on known ports...${NC}"
 kill_port 8000 "Backend API"
 
 # Frontend
-kill_port 5173 "Frontend Dev Server"
+kill_port 5193 "Frontend Dev Server"
 kill_port 3000 "Frontend (alternate)"
 
 # Elasticsearch
@@ -135,7 +135,7 @@ fi
 
 # Check ports
 all_clear=true
-for port in 8000 5173 9200 8080 6379 5432 5555 3000 9090; do
+for port in 8000 5193 9200 8080 6379 5432 5555 3000 9090; do
     if lsof -ti:$port > /dev/null 2>&1; then
         echo -e "${YELLOW}⚠️  Port $port is still in use${NC}"
         all_clear=false

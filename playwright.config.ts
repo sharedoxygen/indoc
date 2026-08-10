@@ -34,7 +34,7 @@ export default defineConfig({
   /* Shared settings for all the projects below */
   use: {
     /* Base URL to use in actions like `await page.goto('/')`. */
-    baseURL: process.env.E2E_BASE_URL || 'http://localhost:5173',
+    baseURL: process.env.E2E_BASE_URL || 'http://localhost:5193',
     
     /* API base URL */
     apiURL: process.env.E2E_API_URL || 'http://localhost:8000',
@@ -84,7 +84,7 @@ export default defineConfig({
   webServer: process.env.SKIP_WEBSERVER ? undefined : [
     {
       command: 'cd frontend && npm run dev',
-      url: 'http://localhost:5173',
+      url: 'http://localhost:5193',
       reuseExistingServer: !process.env.CI,
       timeout: 120 * 1000,
       stdout: 'pipe',

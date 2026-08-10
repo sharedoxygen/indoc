@@ -87,15 +87,17 @@ flowchart LR
 
 ## 🚀 Quick start
 
+Postgres and Redis are **external shared services** (local Homebrew or cloud managed). The Docker stack is compute/search only — scale API/workers horizontally against that shared data plane.
+
 ```bash
 git clone https://github.com/sharedoxygen/indoc.git && cd indoc
-cp .env.example .env          # set JWT_SECRET_KEY + FIELD_ENCRYPTION_KEY
-docker-compose up -d          # Elasticsearch, Qdrant, Redis, Celery
-pip install -r requirements.txt && uvicorn app.main:app --reload
+cp .env.example .env          # JWT_SECRET_KEY, FIELD_ENCRYPTION_KEY, POSTGRES_*, REDIS_*
+# Local isolation (once): psql -U postgres -f scripts/setup/ensure_baremetal_isolation.sql
+docker compose up -d          # ES, Qdrant, backend, monitoring — not Postgres/Redis
 cd frontend && npm install && npm run dev
 ```
 
-App → **http://localhost:5173** · API docs → **http://localhost:8000/api/v1/docs**
+App → **http://localhost:5193** · API docs → **http://localhost:8001/api/v1/docs** (host `:8000` reserved for PATi)
 
 ---
 

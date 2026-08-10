@@ -1,9 +1,16 @@
-services:
-  # REMOVED PostgreSQL - Using existing localhost:5432 instance
-  # Make sure your existing PostgreSQL has:
-  # - Database: indoc
-  # - User: indoc_user (or update .env with your credentials)
+# inDoc application stack — compute only.
+#
+# SCALE MODEL: Postgres + Redis are external shared data services, not part of
+# this Compose file. Point POSTGRES_* / REDIS_* at:
+#   - local Homebrew (127.0.0.1 / host.docker.internal), or
+#   - cloud managed offerings (RDS, Cloud SQL, ElastiCache, Memorystore, …)
+# Backend + Celery replicas can then scale horizontally against that shared
+# data plane without shipping a database container per instance.
+#
+# Isolation (local): database `indoc` / role `indoc_user`; Redis logical DB `/2`
+# Bootstrap: psql -U postgres -f scripts/setup/ensure_baremetal_isolation.sql
 
+services:
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
     container_name: indoc-elasticsearch
@@ -39,68 +46,65 @@ services:
       retries: 5
     restart: unless-stopped
 
-  redis:
-    image: redis:7-alpine
-    container_name: indoc-redis
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
   celery_worker:
-    build: ./backend
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: indoc-celery-worker
     command: celery -A app.core.celery_app worker --loglevel=info --concurrency=4
+    env_file:
+      - .env
     environment:
-      # Using host.docker.internal to connect to localhost PostgreSQL from Docker
-      - DATABASE_URL=postgresql://indoc_user:${POSTGRES_PASSWORD:-indoc_dev_password}@host.docker.internal:5432/indoc
       - POSTGRES_HOST=host.docker.internal
-      - REDIS_URL=redis://redis:6379/0
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-indoc_user}:${POSTGRES_PASSWORD:-indoc_dev_password}@host.docker.internal:5432/${POSTGRES_DB:-indoc}
+      - REDIS_URL=redis://host.docker.internal:6379/2
+      - CELERY_BROKER_URL=redis://host.docker.internal:6379/2
+      - CELERY_RESULT_BACKEND=redis://host.docker.internal:6379/2
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+      - QDRANT_URL=http://qdrant:6333
       - OLLAMA_BASE_URL=http://host.docker.internal:11434
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
-      - redis
+      - elasticsearch
+      - qdrant
     volumes:
-      - ./backend:/app
+      - ./app:/app/app
+      - ./config:/app/config
       - ./data/uploads:/app/uploads
 
   celery_beat:
-    build: ./backend
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: indoc-celery-beat
     command: celery -A app.core.celery_app beat --loglevel=info
+    env_file:
+      - .env
     environment:
-      - DATABASE_URL=postgresql://indoc_user:${POSTGRES_PASSWORD:-indoc_dev_password}@host.docker.internal:5432/indoc
       - POSTGRES_HOST=host.docker.internal
-      - REDIS_URL=redis://redis:6379/0
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-indoc_user}:${POSTGRES_PASSWORD:-indoc_dev_password}@host.docker.internal:5432/${POSTGRES_DB:-indoc}
+      - REDIS_URL=redis://host.docker.internal:6379/2
+      - CELERY_BROKER_URL=redis://host.docker.internal:6379/2
+      - CELERY_RESULT_BACKEND=redis://host.docker.internal:6379/2
       - OLLAMA_BASE_URL=http://host.docker.internal:11434
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    depends_on:
-      - redis
     volumes:
-      - ./backend:/app
+      - ./app:/app/app
+      - ./config:/app/config
 
   flower:
     image: mher/flower:2.0
     container_name: indoc-flower
-    command: celery --broker=redis://redis:6379/0 flower --port=5555
+    command: celery --broker=redis://host.docker.internal:6379/2 flower --port=5555
     ports:
       - "5555:5555"
     environment:
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/0
-    depends_on:
-      - redis
+      - CELERY_BROKER_URL=redis://host.docker.internal:6379/2
+      - CELERY_RESULT_BACKEND=redis://host.docker.internal:6379/2
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   prometheus:
     image: prom/prometheus:latest
@@ -129,35 +133,41 @@ services:
       - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
     depends_on:
       - prometheus
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
-  # Backend API (optional - can run locally instead)
-  # Uncomment if you want to run backend in Docker
-  # backend:
-  #   build: ./backend
-  #   container_name: indoc-backend
-  #   ports:
-  #     - "8000:8000"
-  #   environment:
-  #     - DATABASE_URL=postgresql://indoc_user:${POSTGRES_PASSWORD:-indoc_dev_password}@host.docker.internal:5432/indoc
-  #     - POSTGRES_HOST=host.docker.internal
-  #     - REDIS_URL=redis://redis:6379/0
-  #     - ELASTICSEARCH_URL=http://elasticsearch:9200
-  #     - WEAVIATE_URL=http://weaviate:8080
-  #     - OLLAMA_BASE_URL=http://host.docker.internal:11434
-  #   extra_hosts:
-  #     - "host.docker.internal:host-gateway"
-  #   depends_on:
-  #     - elasticsearch
-  #     - weaviate
-  #     - redis
-  #   volumes:
-  #     - ./backend:/app
-  #     - ./data/uploads:/app/uploads
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: indoc-backend
+    ports:
+      # Host 8000 is reserved by PATi (trader-main-runtime). Publish inDoc on 8001.
+      - "8001:8000"
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_HOST=host.docker.internal
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-indoc_user}:${POSTGRES_PASSWORD:-indoc_dev_password}@host.docker.internal:5432/${POSTGRES_DB:-indoc}
+      - REDIS_URL=redis://host.docker.internal:6379/2
+      - CELERY_BROKER_URL=redis://host.docker.internal:6379/2
+      - CELERY_RESULT_BACKEND=redis://host.docker.internal:6379/2
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+      - QDRANT_URL=http://qdrant:6333
+      - OLLAMA_BASE_URL=http://host.docker.internal:11434
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - elasticsearch
+      - qdrant
+    volumes:
+      - ./app:/app/app
+      - ./config:/app/config
+      - ./data/uploads:/app/uploads
+    restart: unless-stopped
 
 volumes:
-  # Removed postgres_data as we're using existing PostgreSQL
   elasticsearch_data:
   qdrant_data:
-  redis_data:
   prometheus_data:
   grafana_data:

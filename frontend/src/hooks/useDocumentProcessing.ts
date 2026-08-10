@@ -44,7 +44,7 @@ export const useDocumentProcessing = () => {
         const connectWebSocket = () => {
             // Get JWT token from localStorage or Redux store
             const token = localStorage.getItem('token') || '';
-            const websocket = new WebSocket(`ws://localhost:8000/ws/processing?token=${token}`);
+            const websocket = new WebSocket(`ws://localhost:8001/ws/processing?token=${token}`);
             
             websocket.onopen = () => {
                 console.log('📡 Processing WebSocket connected');
