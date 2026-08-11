@@ -8,9 +8,13 @@ import {
   Paper,
   Slider,
   Stack,
+  Tab,
+  Tabs,
   TextField,
   Tooltip,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material'
 import {
   AutoAwesome as RunIcon,
@@ -54,13 +58,17 @@ export const AgentModePanel: React.FC<AgentModePanelProps> = ({
   onFinalAnswer,
   onAskFollowUp,
 }) => {
+  const theme = useTheme()
+  const stacked = useMediaQuery(theme.breakpoints.down('lg'))
   const agent = useAgentStream()
   const [goal, setGoal] = useState('')
   const [maxSteps, setMaxSteps] = useState(6)
   const [priorRuns, setPriorRuns] = useState<AgentRunRecord[]>(() => loadRuns())
   const [focusRunId, setFocusRunId] = useState<string | null>(null)
+  const [mobileTab, setMobileTab] = useState(0)
   const lastHandledRef = useRef<string | null>(null)
   const running = agent.status === 'running' || agent.status === 'connecting'
+  const isLive = running
 
   const boardRuns = useMemo(() => {
     if (!agent.finalAnswer) return priorRuns
@@ -79,6 +87,7 @@ export const AgentModePanel: React.FC<AgentModePanelProps> = ({
     const trimmed = goal.trim()
     if (!trimmed || running) return
     lastHandledRef.current = null
+    if (stacked) setMobileTab(0)
     await agent.run({ goal: trimmed, documentIds, maxSteps })
   }
 
@@ -96,13 +105,22 @@ export const AgentModePanel: React.FC<AgentModePanelProps> = ({
       steps: agent.steps.length || agent.iterations,
     }
     setFocusRunId(run.id)
+    if (stacked) setMobileTab(1)
     setPriorRuns((prev) => {
       const next = [run, ...prev].slice(0, 20)
       saveRuns(next)
       return next
     })
     onFinalAnswer?.(agent.goal, agent.finalAnswer, run)
-  }, [agent.status, agent.finalAnswer, agent.goal, agent.iterations, agent.steps.length, onFinalAnswer])
+  }, [
+    agent.status,
+    agent.finalAnswer,
+    agent.goal,
+    agent.iterations,
+    agent.steps.length,
+    onFinalAnswer,
+    stacked,
+  ])
 
   const clearBriefs = () => {
     setPriorRuns([])
@@ -110,39 +128,71 @@ export const AgentModePanel: React.FC<AgentModePanelProps> = ({
     sessionStorage.removeItem(RUNS_KEY)
   }
 
+  const consolePane = (
+    <Box sx={{ height: '100%', minHeight: 0, minWidth: 0, overflow: 'hidden' }}>
+      <AgentTheater
+        status={agent.status}
+        phase={agent.phase}
+        tools={agent.tools}
+        steps={agent.steps}
+        holding={agent.holding}
+        finalAnswer={agent.finalAnswer}
+        maxSteps={agent.maxSteps}
+        iterations={agent.iterations}
+        stoppedReason={agent.stoppedReason}
+        error={agent.error}
+        goal={agent.goal}
+        activeAction={agent.activeAction}
+        activeThought={agent.activeThought}
+        startedAt={agent.startedAt}
+      />
+    </Box>
+  )
+
+  const briefPane = (
+    <Box sx={{ height: '100%', minHeight: 0, minWidth: 0 }}>
+      <BriefBoard
+        runs={boardRuns}
+        focusRunId={agent.finalAnswer ? 'live' : focusRunId}
+        onAskFollowUp={onAskFollowUp}
+        onReuseGoal={setGoal}
+        onClear={clearBriefs}
+      />
+    </Box>
+  )
+
   return (
     <Box
       sx={{
         display: 'flex',
         flexDirection: 'column',
         height: '100%',
-        gap: 1.5,
+        gap: 1.25,
         minHeight: 0,
       }}
     >
+      {/* Compact command bar */}
       <Paper
         component={motion.div as any}
-        initial={{ opacity: 0, y: -8 }}
+        initial={{ opacity: 0, y: -6 }}
         animate={{ opacity: 1, y: 0 }}
         sx={{
-          p: 1.75,
-          borderRadius: 2.5,
+          px: 1.5,
+          py: 1.1,
+          borderRadius: 2,
           border: '1px solid',
           borderColor: 'divider',
-          background: (t) =>
-            t.palette.mode === 'dark'
-              ? 'linear-gradient(135deg, rgba(56,189,248,0.08) 0%, rgba(18,24,34,0.95) 40%, rgba(12,16,22,0.95) 100%)'
-              : 'linear-gradient(135deg, rgba(14,165,233,0.08) 0%, rgba(255,255,255,0.95) 45%, rgba(248,250,252,0.95) 100%)',
-          backdropFilter: 'blur(14px)',
+          flexShrink: 0,
+          bgcolor: (t) =>
+            t.palette.mode === 'dark' ? 'rgba(18,24,34,0.92)' : 'rgba(255,255,255,0.96)',
         }}
       >
-        <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} alignItems={{ md: 'center' }}>
+        <Stack direction="row" spacing={1} alignItems="flex-start">
           <Tooltip title={AGENT_HELP.missionGoal} arrow>
             <TextField
               fullWidth
               size="small"
-              label="Research objective"
-              placeholder="e.g. Summarize key risks across these contracts"
+              placeholder="Research objective — e.g. Summarize key risks across these contracts"
               value={goal}
               onChange={(e) => setGoal(e.target.value)}
               onKeyDown={(e) => {
@@ -155,58 +205,71 @@ export const AgentModePanel: React.FC<AgentModePanelProps> = ({
               helperText={
                 documentIds.length === 0
                   ? 'Include documents in corpus scope'
-                  : `${documentIds.length} document${documentIds.length === 1 ? '' : 's'} in corpus`
+                  : `${documentIds.length} doc${documentIds.length === 1 ? '' : 's'} · max ${maxSteps} steps`
               }
+              FormHelperTextProps={{ sx: { mx: 0.5, mt: 0.4 } }}
+              sx={{
+                '& .MuiOutlinedInput-root': { borderRadius: 1.5 },
+              }}
             />
           </Tooltip>
-          <Tooltip
-            title={
-              !goal.trim()
-                ? 'Enter an objective first'
-                : documentIds.length === 0
-                  ? 'Confirm corpus scope first'
-                  : AGENT_HELP.launch
-            }
-          >
-            <span>
-              <Button
-                variant="contained"
-                color="primary"
-                startIcon={<RunIcon />}
-                onClick={handleLaunch}
-                disabled={!goal.trim() || running || documentIds.length === 0}
-                sx={{
-                  minWidth: 140,
-                  whiteSpace: 'nowrap',
-                  borderRadius: 999,
-                  textTransform: 'none',
-                  fontWeight: 750,
-                  boxShadow: '0 10px 28px rgba(25,118,210,0.35)',
-                }}
-              >
-                {running ? 'Running…' : 'Run'}
-              </Button>
-            </span>
-          </Tooltip>
-          {running && (
-            <Tooltip title={AGENT_HELP.abort}>
-              <Button variant="outlined" color="inherit" startIcon={<StopIcon />} onClick={agent.stop}>
-                Stop
-              </Button>
+          <Stack direction="row" spacing={0.75} sx={{ pt: 0.15 }} flexShrink={0}>
+            <Tooltip
+              title={
+                !goal.trim()
+                  ? 'Enter an objective first'
+                  : documentIds.length === 0
+                    ? 'Confirm corpus scope first'
+                    : AGENT_HELP.launch
+              }
+            >
+              <span>
+                <Button
+                  variant="contained"
+                  startIcon={<RunIcon />}
+                  onClick={handleLaunch}
+                  disabled={!goal.trim() || running || documentIds.length === 0}
+                  sx={{
+                    minWidth: 96,
+                    borderRadius: 1.5,
+                    textTransform: 'none',
+                    fontWeight: 750,
+                  }}
+                >
+                  {running ? 'Running…' : 'Run'}
+                </Button>
+              </span>
             </Tooltip>
-          )}
+            {running && (
+              <Tooltip title={AGENT_HELP.abort}>
+                <Button
+                  variant="outlined"
+                  color="inherit"
+                  startIcon={<StopIcon />}
+                  onClick={agent.stop}
+                  sx={{ borderRadius: 1.5, textTransform: 'none' }}
+                >
+                  Stop
+                </Button>
+              </Tooltip>
+            )}
+          </Stack>
         </Stack>
-        <Accordion disableGutters elevation={0} sx={{ mt: 1, bgcolor: 'transparent', '&:before': { display: 'none' } }}>
-          <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ minHeight: 36, px: 0 }}>
+        <Accordion
+          disableGutters
+          elevation={0}
+          sx={{ mt: 0.25, bgcolor: 'transparent', '&:before': { display: 'none' } }}
+        >
+          <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ minHeight: 28, px: 0.25, '& .MuiAccordionSummary-content': { my: 0.5 } }}>
             <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600 }}>
               <HelpTip title={AGENT_HELP.advanced} underline={false}>
-                Advanced · max steps {maxSteps} · scope {documentIds.length || 0} docs
+                Advanced
               </HelpTip>
             </Typography>
           </AccordionSummary>
-          <AccordionDetails sx={{ px: 0 }}>
-            <Typography variant="caption" color="text.secondary" component="div">
-              <HelpTip title={AGENT_HELP.maxSteps}>Max reasoning steps</HelpTip>
+          <AccordionDetails sx={{ px: 0.25, pt: 0, pb: 0.5 }}>
+            <Typography variant="caption" color="text.secondary" component="div" sx={{ mb: 0.5 }}>
+              <HelpTip title={AGENT_HELP.maxSteps}>Max reasoning steps: {maxSteps}</HelpTip>
             </Typography>
             <Slider
               value={maxSteps}
@@ -217,34 +280,17 @@ export const AgentModePanel: React.FC<AgentModePanelProps> = ({
               valueLabelDisplay="auto"
               onChange={(_, v) => setMaxSteps(v as number)}
               disabled={running}
+              size="small"
             />
           </AccordionDetails>
         </Accordion>
       </Paper>
 
-      <Box sx={{ flex: '1 1 42%', minHeight: { xs: 260, md: 300 }, overflow: 'hidden' }}>
-        <AgentTheater
-          status={agent.status}
-          phase={agent.phase}
-          tools={agent.tools}
-          steps={agent.steps}
-          holding={agent.holding}
-          finalAnswer={agent.finalAnswer}
-          maxSteps={agent.maxSteps}
-          iterations={agent.iterations}
-          stoppedReason={agent.stoppedReason}
-          error={agent.error}
-          goal={agent.goal}
-          activeAction={agent.activeAction}
-          activeThought={agent.activeThought}
-          startedAt={agent.startedAt}
-        />
-      </Box>
-
       {agent.error && (
         <Paper
           sx={{
-            p: 1.5,
+            px: 1.5,
+            py: 1,
             borderRadius: 2,
             border: '1px solid',
             borderColor: 'error.main',
@@ -252,24 +298,47 @@ export const AgentModePanel: React.FC<AgentModePanelProps> = ({
             flexShrink: 0,
           }}
         >
-          <Typography variant="caption" sx={{ fontWeight: 700, color: 'error.main', letterSpacing: 0.6 }}>
-            RUN FAILED
+          <Typography variant="caption" sx={{ fontWeight: 700, color: 'error.main' }}>
+            Run failed
           </Typography>
-          <Typography variant="body2" sx={{ mt: 0.5, whiteSpace: 'pre-wrap' }}>
+          <Typography variant="body2" sx={{ mt: 0.35, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
             {agent.error}
           </Typography>
         </Paper>
       )}
 
-      <Box sx={{ flex: '1.15 1 46%', minHeight: { xs: 300, md: 340 }, minWidth: 0 }}>
-        <BriefBoard
-          runs={boardRuns}
-          focusRunId={agent.finalAnswer ? 'live' : focusRunId}
-          onAskFollowUp={onAskFollowUp}
-          onReuseGoal={setGoal}
-          onClear={clearBriefs}
-        />
-      </Box>
+      {/* Desktop: console | briefs side-by-side. Mobile: tabs. */}
+      {stacked ? (
+        <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+          <Tabs
+            value={mobileTab}
+            onChange={(_, v) => setMobileTab(v)}
+            sx={{
+              minHeight: 36,
+              flexShrink: 0,
+              mb: 1,
+              '& .MuiTab-root': { minHeight: 36, textTransform: 'none', fontWeight: 700 },
+            }}
+          >
+            <Tab label={isLive ? 'Console · live' : 'Console'} />
+            <Tab label={`Briefs${boardRuns.length ? ` · ${boardRuns.length}` : ''}`} />
+          </Tabs>
+          <Box sx={{ flex: 1, minHeight: 0 }}>{mobileTab === 0 ? consolePane : briefPane}</Box>
+        </Box>
+      ) : (
+        <Box
+          sx={{
+            flex: 1,
+            minHeight: 0,
+            display: 'grid',
+            gridTemplateColumns: 'minmax(0, 1.05fr) minmax(0, 1fr)',
+            gap: 1.25,
+          }}
+        >
+          {consolePane}
+          {briefPane}
+        </Box>
+      )}
     </Box>
   )
 }

@@ -197,7 +197,7 @@ const ChatPage: React.FC = () => {
         pb: 2,
         position: 'relative',
         overflow: 'hidden',
-        gap: 1.5,
+        gap: 1.25,
       }}
     >
       <Box
@@ -212,78 +212,34 @@ const ChatPage: React.FC = () => {
         }}
       />
 
-      {/* Masthead */}
-      <Box
-        sx={{
-          position: 'relative',
-          zIndex: 1,
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'flex-start',
-          flexWrap: 'wrap',
-          gap: 1.5,
-        }}
-      >
-        <Box>
-          <Typography
-            sx={{
-              fontWeight: 750,
-              letterSpacing: '-0.045em',
-              fontSize: { xs: '1.7rem', md: '2.1rem' },
-              lineHeight: 1.05,
-              background: dark
-                ? 'linear-gradient(120deg, #f8fafc 0%, #93c5fd 45%, #67e8f9 100%)'
-                : 'linear-gradient(120deg, #0f172a 0%, #1d4ed8 50%, #0891b2 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-            }}
-          >
-            <HelpTip title={AGENT_HELP.pageTitle} underline={false}>
-              {AGENT_HELP.productName}
-            </HelpTip>
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.6, maxWidth: 560 }}>
-            {AGENT_HELP.pageSubtitle}
-          </Typography>
-        </Box>
-        <Tooltip title={AGENT_HELP.followUpHistory}>
-          <Button
-            variant="outlined"
-            startIcon={<HistoryIcon />}
-            onClick={() => setHistoryOpen(true)}
-            sx={{ borderRadius: 999, textTransform: 'none', fontWeight: 650 }}
-          >
-            Follow-ups
-          </Button>
-        </Tooltip>
-      </Box>
-
-      {/* Calm corpus strip — not a document wall */}
+      {/* Compact masthead + corpus scope */}
       <Paper
         component={motion.div}
-        initial={{ opacity: 0, y: 8 }}
+        initial={{ opacity: 0, y: 6 }}
         animate={{ opacity: 1, y: 0 }}
         sx={{
           position: 'relative',
           zIndex: 1,
-          px: 2,
-          py: 1.5,
-          borderRadius: 2.5,
+          px: 1.75,
+          py: 1.15,
+          borderRadius: 2,
           ...glass(dark),
+          flexShrink: 0,
         }}
       >
         <Stack
           direction={{ xs: 'column', md: 'row' }}
-          spacing={1.75}
+          spacing={1.25}
           alignItems={{ md: 'center' }}
           justifyContent="space-between"
+          sx={{ minWidth: 0 }}
         >
-          <Stack direction="row" spacing={1.5} alignItems="center" sx={{ minWidth: 0, flex: 1 }}>
+          <Stack direction="row" spacing={1.25} alignItems="center" sx={{ minWidth: 0, flex: 1 }}>
             <Box
               sx={{
-                width: 44,
-                height: 44,
-                borderRadius: 2,
+                width: 36,
+                height: 36,
+                borderRadius: 1.5,
                 display: 'grid',
                 placeItems: 'center',
                 background: dark
@@ -293,30 +249,51 @@ const ChatPage: React.FC = () => {
                 flexShrink: 0,
               }}
             >
-              <LibraryIcon />
+              <LibraryIcon sx={{ fontSize: 20 }} />
             </Box>
             <Box sx={{ minWidth: 0, flex: 1 }}>
-              <Typography variant="subtitle1" sx={{ fontWeight: 750, letterSpacing: '-0.02em', lineHeight: 1.2 }}>
-                <HelpTip title={AGENT_HELP.scope}>
-                  {usingAllIndexed ? 'Entire indexed corpus' : 'Custom corpus'}
-                </HelpTip>
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.15 }}>
-                {isLoading
-                  ? 'Loading indexed documents…'
-                  : usingAllIndexed
-                    ? `${selectedDocuments.length} documents ready for research`
-                    : `${selectedDocuments.length} of ${availableDocuments.length || '—'} indexed documents selected`}
-              </Typography>
+              <Stack direction="row" spacing={1} alignItems="baseline" sx={{ minWidth: 0 }}>
+                <Typography
+                  variant="subtitle1"
+                  sx={{
+                    fontWeight: 750,
+                    letterSpacing: '-0.02em',
+                    lineHeight: 1.2,
+                    flexShrink: 0,
+                  }}
+                >
+                  <HelpTip title={AGENT_HELP.pageTitle} underline={false}>
+                    {AGENT_HELP.productName}
+                  </HelpTip>
+                </Typography>
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    minWidth: 0,
+                  }}
+                >
+                  <HelpTip title={AGENT_HELP.scope} underline={false}>
+                    {isLoading
+                      ? 'Loading corpus…'
+                      : usingAllIndexed
+                        ? `Entire corpus · ${selectedDocuments.length} docs`
+                        : `Custom · ${selectedDocuments.length}/${availableDocuments.length || '—'} docs`}
+                  </HelpTip>
+                </Typography>
+              </Stack>
               {!usingAllIndexed && selectedPreviews.length > 0 && (
-                <Stack direction="row" spacing={0.75} sx={{ mt: 0.85, flexWrap: 'wrap' }} useFlexGap>
-                  {selectedPreviews.map((doc: any) => (
+                <Stack direction="row" spacing={0.5} sx={{ mt: 0.6, minWidth: 0 }} useFlexGap flexWrap="wrap">
+                  {selectedPreviews.slice(0, 3).map((doc: any) => (
                     <Chip
                       key={doc.uuid}
                       size="small"
                       avatar={
-                        <Avatar sx={{ bgcolor: getFileColor(doc.file_type), width: 18, height: 18 }}>
-                          <FileTypeIcon fileType={doc.file_type} iconProps={{ sx: { fontSize: 11 } }} />
+                        <Avatar sx={{ bgcolor: getFileColor(doc.file_type), width: 16, height: 16 }}>
+                          <FileTypeIcon fileType={doc.file_type} iconProps={{ sx: { fontSize: 10 } }} />
                         </Avatar>
                       }
                       label={doc.title || doc.filename}
@@ -325,18 +302,18 @@ const ChatPage: React.FC = () => {
                         setDetailsDrawerOpen(true)
                       }}
                       sx={{
-                        maxWidth: 180,
-                        height: 26,
+                        maxWidth: 140,
+                        height: 22,
                         borderRadius: 1,
                         '& .MuiChip-label': { overflow: 'hidden', textOverflow: 'ellipsis' },
                       }}
                     />
                   ))}
-                  {selectedDocuments.length > selectedPreviews.length && (
+                  {selectedDocuments.length > 3 && (
                     <Chip
                       size="small"
-                      label={`+${selectedDocuments.length - selectedPreviews.length} more`}
-                      sx={{ height: 26, borderRadius: 1, fontWeight: 650 }}
+                      label={`+${selectedDocuments.length - 3}`}
+                      sx={{ height: 22, borderRadius: 1, fontWeight: 650 }}
                       onClick={openRefine}
                     />
                   )}
@@ -345,19 +322,13 @@ const ChatPage: React.FC = () => {
             </Box>
           </Stack>
 
-          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
-            <Box sx={{ width: { xs: '100%', sm: 120 }, mr: { sm: 0.5 } }}>
-              <Typography
-                variant="caption"
-                sx={{ color: 'text.disabled', fontWeight: 650, letterSpacing: 0.6, display: 'block', mb: 0.35 }}
-              >
-                COVERAGE
-              </Typography>
+          <Stack direction="row" spacing={0.75} alignItems="center" flexShrink={0} flexWrap="wrap" useFlexGap>
+            <Box sx={{ width: 88, display: { xs: 'none', sm: 'block' } }}>
               <LinearProgress
                 variant="determinate"
                 value={scopeProgress}
                 sx={{
-                  height: 4,
+                  height: 3,
                   borderRadius: 2,
                   bgcolor: dark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
                   '& .MuiLinearProgress-bar': {
@@ -369,36 +340,36 @@ const ChatPage: React.FC = () => {
                 }}
               />
             </Box>
-            <Chip
-              size="small"
-              color={selectedDocuments.length > 0 ? 'success' : 'default'}
-              label={`${selectedDocuments.length} in run`}
-              sx={{ fontWeight: 750, borderRadius: 1 }}
-            />
             {!usingAllIndexed && (
               <Button
                 size="small"
                 startIcon={<DoneAllIcon />}
                 onClick={useAllIndexed}
-                sx={{ borderRadius: 999, textTransform: 'none', fontWeight: 650 }}
+                sx={{ borderRadius: 1.5, textTransform: 'none', fontWeight: 650 }}
               >
                 Use all
               </Button>
             )}
             <Button
               size="small"
-              variant="contained"
+              variant="outlined"
               startIcon={<TuneIcon />}
               onClick={openRefine}
-              sx={{
-                borderRadius: 999,
-                textTransform: 'none',
-                fontWeight: 700,
-                boxShadow: '0 8px 22px rgba(25,118,210,0.28)',
-              }}
+              sx={{ borderRadius: 1.5, textTransform: 'none', fontWeight: 700 }}
             >
-              Refine scope
+              Scope
             </Button>
+            <Tooltip title={AGENT_HELP.followUpHistory}>
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={<HistoryIcon />}
+                onClick={() => setHistoryOpen(true)}
+                sx={{ borderRadius: 1.5, textTransform: 'none', fontWeight: 650 }}
+              >
+                Follow-ups
+              </Button>
+            </Tooltip>
           </Stack>
         </Stack>
       </Paper>
@@ -408,7 +379,7 @@ const ChatPage: React.FC = () => {
         <AgentModePanel
           documentIds={selectedDocuments}
           onFinalAnswer={(_goal, _answer, run) => {
-            enqueueSnackbar('Brief ready — open it on the Brief Board below', { variant: 'success' })
+            enqueueSnackbar('Brief ready — see Briefs panel', { variant: 'success' })
             setFollowUpBrief(run)
           }}
           onAskFollowUp={openFollowUp}
