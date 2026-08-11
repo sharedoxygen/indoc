@@ -17,11 +17,10 @@ import {
   Drawer,
   IconButton,
   Divider,
-  ToggleButton,
-  ToggleButtonGroup,
   Tooltip,
   Collapse,
   Stack,
+  useTheme,
 } from '@mui/material'
 import { DocumentChat } from '../components/DocumentChat'
 import ChatHistory from '../components/ChatHistory'
@@ -50,7 +49,24 @@ type InteractionMode = 'chat' | 'agent'
 
 const MODE_KEY = 'indoc.chat.mode'
 
+const glass = (dark: boolean) =>
+  dark
+    ? {
+        background: 'linear-gradient(180deg, rgba(22,28,38,0.92) 0%, rgba(12,16,22,0.88) 100%)',
+        border: '1px solid rgba(255,255,255,0.08)',
+        boxShadow: '0 18px 50px rgba(0,0,0,0.35)',
+        backdropFilter: 'blur(18px)',
+      }
+    : {
+        background: 'linear-gradient(180deg, rgba(255,255,255,0.92) 0%, rgba(247,249,252,0.88) 100%)',
+        border: '1px solid rgba(15,23,42,0.08)',
+        boxShadow: '0 18px 40px rgba(15,23,42,0.08)',
+        backdropFilter: 'blur(18px)',
+      }
+
 const ChatPage: React.FC = () => {
+  const theme = useTheme()
+  const dark = theme.palette.mode === 'dark'
   const { enqueueSnackbar } = useSnackbar()
   const [selectedDocuments, setSelectedDocuments] = useState<string[]>([])
   const [selectedConversationId, setSelectedConversationId] = useState<string | undefined>()
@@ -137,7 +153,7 @@ const ChatPage: React.FC = () => {
       ) : availableDocuments.length === 0 ? (
         <Typography color="text.secondary">No indexed documents.</Typography>
       ) : (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
           {availableDocuments.map((doc: any) => {
             const isSelected = selectedDocuments.includes(doc.uuid)
             return (
@@ -151,10 +167,12 @@ const ChatPage: React.FC = () => {
                   alignItems: 'center',
                   gap: 1,
                   px: 1,
-                  py: 0.75,
-                  borderRadius: 1.5,
+                  py: 0.7,
+                  borderRadius: 1.25,
                   cursor: 'pointer',
-                  bgcolor: isSelected ? 'action.selected' : 'transparent',
+                  border: '1px solid',
+                  borderColor: isSelected ? 'primary.main' : 'transparent',
+                  bgcolor: isSelected ? (dark ? 'rgba(25,118,210,0.14)' : 'rgba(25,118,210,0.08)') : 'transparent',
                   '&:hover': { bgcolor: 'action.hover' },
                 }}
               >
@@ -183,7 +201,7 @@ const ChatPage: React.FC = () => {
                 >
                   {doc.title || doc.filename}
                 </Typography>
-                <Typography variant="caption" color="text.disabled">
+                <Typography variant="caption" color="text.disabled" sx={{ fontVariantNumeric: 'tabular-nums' }}>
                   {format(new Date(doc.created_at), 'MMM dd')}
                 </Typography>
               </Box>
@@ -195,10 +213,59 @@ const ChatPage: React.FC = () => {
   )
 
   return (
-    <Box sx={{ p: 3, height: 'calc(100vh - 64px)', display: 'flex', flexDirection: 'column' }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
+    <Box
+      sx={{
+        height: 'calc(100vh - 64px)',
+        display: 'flex',
+        flexDirection: 'column',
+        mx: { xs: -2, md: -3 },
+        mt: { xs: -2, md: -3 },
+        px: { xs: 2, md: 3 },
+        pt: { xs: 2, md: 2.5 },
+        pb: 2,
+        position: 'relative',
+        overflow: 'hidden',
+      }}
+    >
+      {/* Ambient field */}
+      <Box
+        aria-hidden
+        sx={{
+          position: 'absolute',
+          inset: 0,
+          pointerEvents: 'none',
+          background: dark
+            ? 'radial-gradient(800px 420px at 18% 0%, rgba(56,189,248,0.12), transparent 60%), radial-gradient(700px 380px at 88% 8%, rgba(99,102,241,0.14), transparent 55%)'
+            : 'radial-gradient(800px 420px at 18% 0%, rgba(14,165,233,0.1), transparent 60%), radial-gradient(700px 380px at 88% 8%, rgba(99,102,241,0.08), transparent 55%)',
+        }}
+      />
+
+      <Box
+        sx={{
+          position: 'relative',
+          zIndex: 1,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          mb: 2,
+          flexWrap: 'wrap',
+          gap: 1.5,
+        }}
+      >
         <Box>
-          <Typography variant="h4" sx={{ fontWeight: 700 }}>
+          <Typography
+            sx={{
+              fontWeight: 750,
+              letterSpacing: '-0.04em',
+              fontSize: { xs: '1.65rem', md: '2rem' },
+              lineHeight: 1.1,
+              background: dark
+                ? 'linear-gradient(120deg, #f8fafc 0%, #93c5fd 45%, #67e8f9 100%)'
+                : 'linear-gradient(120deg, #0f172a 0%, #1d4ed8 50%, #0891b2 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+            }}
+          >
             {mode === 'agent' ? (
               <HelpTip title={AGENT_HELP.pageTitle} underline={false}>
                 {AGENT_HELP.productName}
@@ -207,55 +274,96 @@ const ChatPage: React.FC = () => {
               'Document Chat'
             )}
           </Typography>
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, maxWidth: 560 }}>
             {mode === 'agent' ? AGENT_HELP.pageSubtitle : 'Conversational Q&A over indexed documents'}
           </Typography>
         </Box>
-        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-          <ToggleButtonGroup
-            exclusive
-            size="small"
-            value={mode}
-            onChange={(_, v) => v && setMode(v)}
-            sx={{ bgcolor: 'background.paper' }}
+
+        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+          <Box
+            sx={{
+              display: 'inline-flex',
+              p: 0.4,
+              borderRadius: 999,
+              ...glass(dark),
+              gap: 0.4,
+            }}
           >
-            <Tooltip title={AGENT_HELP.modeAgent}>
-              <ToggleButton value="agent">
-                <InsightIcon sx={{ mr: 0.75, fontSize: 18 }} /> Insight
-              </ToggleButton>
-            </Tooltip>
-            <Tooltip title={AGENT_HELP.modeChat}>
-              <ToggleButton value="chat">
-                <ChatIcon sx={{ mr: 0.75, fontSize: 18 }} /> Chat
-              </ToggleButton>
-            </Tooltip>
-          </ToggleButtonGroup>
+            {(
+              [
+                { id: 'agent' as const, label: 'Insight', icon: <InsightIcon sx={{ fontSize: 16 }} />, tip: AGENT_HELP.modeAgent },
+                { id: 'chat' as const, label: 'Chat', icon: <ChatIcon sx={{ fontSize: 16 }} />, tip: AGENT_HELP.modeChat },
+              ] as const
+            ).map((item) => {
+              const active = mode === item.id
+              return (
+                <Tooltip key={item.id} title={item.tip}>
+                  <Button
+                    size="small"
+                    onClick={() => setMode(item.id)}
+                    startIcon={item.icon}
+                    sx={{
+                      borderRadius: 999,
+                      px: 1.5,
+                      minHeight: 32,
+                      textTransform: 'none',
+                      fontWeight: 700,
+                      color: active ? '#fff' : 'text.secondary',
+                      bgcolor: active ? 'primary.main' : 'transparent',
+                      boxShadow: active ? '0 8px 20px rgba(25,118,210,0.35)' : 'none',
+                      '&:hover': { bgcolor: active ? 'primary.dark' : 'action.hover' },
+                    }}
+                  >
+                    {item.label}
+                  </Button>
+                </Tooltip>
+              )
+            })}
+          </Box>
+
           {mode === 'chat' && (
             <Button
               variant="contained"
               startIcon={<ChatIcon />}
               onClick={() => setSelectedConversationId(undefined)}
+              sx={{ borderRadius: 999, textTransform: 'none', fontWeight: 700 }}
             >
               New Chat
             </Button>
           )}
           <Tooltip title={AGENT_HELP.history}>
-            <Button variant="outlined" startIcon={<HistoryIcon />} onClick={() => setHistoryOpen(true)}>
+            <Button
+              variant="outlined"
+              startIcon={<HistoryIcon />}
+              onClick={() => setHistoryOpen(true)}
+              sx={{ borderRadius: 999, textTransform: 'none', fontWeight: 650 }}
+            >
               History
             </Button>
           </Tooltip>
-        </Box>
+        </Stack>
       </Box>
 
       {mode === 'agent' ? (
-        <Box sx={{ flexGrow: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-          {/* Compact corpus bar — replaces the busy checkbox wall */}
-          <Paper sx={{ px: 2, py: 1.25, borderRadius: 3 }}>
+        <Box sx={{ position: 'relative', zIndex: 1, flexGrow: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+          <Paper sx={{ px: 2, py: 1.25, borderRadius: 2.5, ...glass(dark) }}>
             <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} alignItems={{ md: 'center' }}>
-              <Stack direction="row" spacing={1} alignItems="center" sx={{ flex: 1, minWidth: 0 }}>
-                <CorpusIcon color="primary" fontSize="small" />
+              <Stack direction="row" spacing={1.25} alignItems="center" sx={{ flex: 1, minWidth: 0 }}>
+                <Box
+                  sx={{
+                    width: 34,
+                    height: 34,
+                    borderRadius: 1.25,
+                    display: 'grid',
+                    placeItems: 'center',
+                    bgcolor: dark ? 'rgba(56,189,248,0.12)' : 'rgba(14,165,233,0.1)',
+                    color: 'primary.main',
+                  }}
+                >
+                  <CorpusIcon fontSize="small" />
+                </Box>
                 <Box sx={{ minWidth: 0 }}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 750, letterSpacing: '-0.01em' }}>
                     <HelpTip title={AGENT_HELP.scope}>Corpus scope</HelpTip>
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
@@ -268,11 +376,16 @@ const ChatPage: React.FC = () => {
                   size="small"
                   color={selectedDocuments.length > 0 ? 'success' : 'default'}
                   label={`${selectedDocuments.length} in run`}
-                  sx={{ fontWeight: 700 }}
+                  sx={{ fontWeight: 750, borderRadius: 1 }}
                 />
               </Stack>
-              <Stack direction="row" spacing={1} flexWrap="wrap">
-                <Button size="small" variant={allIndexedSelected ? 'contained' : 'outlined'} onClick={useAllIndexed}>
+              <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                <Button
+                  size="small"
+                  variant={allIndexedSelected ? 'contained' : 'outlined'}
+                  onClick={useAllIndexed}
+                  sx={{ borderRadius: 999, textTransform: 'none', fontWeight: 650 }}
+                >
                   Use all indexed
                 </Button>
                 <Button
@@ -281,6 +394,7 @@ const ChatPage: React.FC = () => {
                   color="inherit"
                   endIcon={refineOpen ? <ExpandLessIcon /> : <ExpandMoreIcon />}
                   onClick={() => setRefineOpen((v) => !v)}
+                  sx={{ borderRadius: 999, textTransform: 'none', fontWeight: 650 }}
                 >
                   Refine
                 </Button>
@@ -336,14 +450,18 @@ const ChatPage: React.FC = () => {
           </Box>
         </Box>
       ) : (
-        <Grid container spacing={2} sx={{ flexGrow: 1, height: 'calc(100% - 72px)', minHeight: 0 }}>
+        <Grid
+          container
+          spacing={2}
+          sx={{ position: 'relative', zIndex: 1, flexGrow: 1, minHeight: 0, height: 'calc(100% - 72px)' }}
+        >
           <Grid item xs={12} md={4} sx={{ height: '100%', minHeight: 0 }}>
-            <Paper sx={{ p: 2, borderRadius: 3, height: '100%', display: 'flex', flexDirection: 'column' }}>
+            <Paper sx={{ p: 2, borderRadius: 2.5, height: '100%', display: 'flex', flexDirection: 'column', ...glass(dark) }}>
               <Box sx={{ mb: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1rem' }}>
-                  Documents
+                <Typography variant="subtitle1" sx={{ fontWeight: 750, letterSpacing: '-0.02em' }}>
+                  Corpus
                 </Typography>
-                <Button size="small" onClick={handleSelectAll} disabled={availableDocuments.length === 0}>
+                <Button size="small" onClick={handleSelectAll} disabled={availableDocuments.length === 0} sx={{ textTransform: 'none' }}>
                   {selectedInView === availableDocuments.length && availableDocuments.length > 0
                     ? 'Clear shown'
                     : 'All shown'}
@@ -385,7 +503,7 @@ const ChatPage: React.FC = () => {
                     <MenuItem value="file_size">Size</MenuItem>
                   </Select>
                 </FormControl>
-                <Chip label={`${selectedDocuments.length} selected`} size="small" />
+                <Chip label={`${selectedDocuments.length} selected`} size="small" sx={{ fontWeight: 650 }} />
               </Box>
               {docList}
             </Paper>
@@ -394,11 +512,11 @@ const ChatPage: React.FC = () => {
           <Grid item xs={12} md={8} sx={{ height: '100%', minHeight: 0, display: 'flex' }}>
             <Box sx={{ flex: 1, minHeight: 0, width: '100%', display: 'flex', flexDirection: 'column', gap: 1 }}>
               {lastAgentAnswer && (
-                <Paper sx={{ p: 1.5, borderRadius: 2, border: '1px solid', borderColor: 'success.main' }}>
-                  <Typography variant="caption" sx={{ fontWeight: 700, color: 'success.main' }}>
+                <Paper sx={{ p: 1.5, borderRadius: 2, ...glass(dark), borderColor: 'success.main' }}>
+                  <Typography variant="caption" sx={{ fontWeight: 750, color: 'success.main', letterSpacing: 0.8 }}>
                     LAST INSIGHT BRIEF
                   </Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 600 }} noWrap>
+                  <Typography variant="body2" sx={{ fontWeight: 650 }} noWrap>
                     {lastAgentAnswer.goal}
                   </Typography>
                   <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
@@ -423,10 +541,12 @@ const ChatPage: React.FC = () => {
         anchor="right"
         open={historyOpen}
         onClose={() => setHistoryOpen(false)}
-        sx={{ '& .MuiDrawer-paper': { width: 400, p: 2 } }}
+        sx={{ '& .MuiDrawer-paper': { width: 400, p: 2, ...glass(dark) } }}
       >
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-          <Typography variant="h6">Chat History</Typography>
+          <Typography variant="h6" sx={{ fontWeight: 700 }}>
+            Chat History
+          </Typography>
           <IconButton onClick={() => setHistoryOpen(false)}>
             <CloseIcon />
           </IconButton>

@@ -122,24 +122,54 @@ class LLMService:
             # All providers failed - return graceful degradation
             return self._fallback_response(ollama_error)
 
-    def _resolve_ollama_model(self, model: Optional[str], available: List[str]) -> str:
-        """Prefer explicit model, then configured OLLAMA_MODEL, then first available."""
-        if model:
-            return model
-        configured = (getattr(settings, "OLLAMA_MODEL", None) or "").strip()
-        if configured:
-            if available:
-                if configured in available:
-                    return configured
-                # Tolerate tag drift (name vs name:tag)
-                stem = configured.split(":")[0]
-                for name in available:
-                    if name == stem or name.startswith(f"{stem}:"):
-                        return name
-            return configured
-        if not available:
-            raise LLMConnectionError("No Ollama models available")
+    @staticmethod
+    def _match_available_model(candidate: str, available: List[str]) -> Optional[str]:
+        """Return an installed model name matching candidate, or None."""
+        if not candidate or not available:
+            return None
+        if candidate in available:
+            return candidate
+        stem = candidate.split(":")[0]
+        for name in available:
+            if name == stem or name.startswith(f"{stem}:"):
+                return name
+        return None
+
+    @staticmethod
+    def _pick_fallback_model(available: List[str]) -> str:
+        """Prefer a fast local chat model when the configured one is missing."""
+        for name in available:
+            low = name.lower()
+            if any(token in low for token in ("flash", "nano", "mini", "small")):
+                return name
         return available[0]
+
+    def _resolve_ollama_model(self, model: Optional[str], available: List[str]) -> str:
+        """Prefer explicit/configured model when installed; never 404 on a missing tag."""
+        if not available:
+            # Last resort: let the caller try the configured name (e.g. remote-only).
+            configured = (getattr(settings, "OLLAMA_MODEL", None) or "").strip()
+            chosen = model or configured
+            if not chosen:
+                raise LLMConnectionError("No Ollama models available")
+            return chosen
+
+        for candidate in (model, (getattr(settings, "OLLAMA_MODEL", None) or "").strip()):
+            matched = self._match_available_model(candidate, available)
+            if matched:
+                return matched
+
+        fallback = self._pick_fallback_model(available)
+        requested = (model or getattr(settings, "OLLAMA_MODEL", None) or "").strip()
+        if requested:
+            logger.warning(
+                "Ollama model %r is not installed; using available model %r instead. "
+                "Installed: %s",
+                requested,
+                fallback,
+                ", ".join(available[:8]),
+            )
+        return fallback
 
     def _compose_prompt(self, prompt: str, context: Optional[str], raw: bool) -> str:
         if raw:
@@ -164,10 +194,13 @@ class LLMService:
         
         full_prompt = self._compose_prompt(prompt, context, raw)
         
-        # Prepare request payload
+        # think=false is required for modern reasoning models: with the default
+        # (think on), num_predict is often spent entirely in `thinking` and
+        # `response` comes back empty — which breaks the agent planner.
         payload = {
             "model": selected_model,
             "prompt": full_prompt,
+            "think": False,
             "options": {
                 "num_predict": max_tokens,
                 "temperature": temperature,
@@ -185,7 +218,7 @@ class LLMService:
         response.raise_for_status()
         
         result = response.json()
-        response_text = result.get("response", "").strip()
+        response_text = self._extract_ollama_text(result)
 
         # Empty completions are not usable — one hard retry before giving up.
         if not response_text:
@@ -195,7 +228,7 @@ class LLMService:
                 json=payload,
             )
             response.raise_for_status()
-            response_text = response.json().get("response", "").strip()
+            response_text = self._extract_ollama_text(response.json())
         
         # Guardrail: if model claims lack of documents, nudge with explicit reminder
         if context and not raw:
@@ -216,10 +249,18 @@ class LLMService:
                     json=payload
                 )
                 response.raise_for_status()
-                result = response.json()
-                response_text = result.get("response", "").strip()
+                response_text = self._extract_ollama_text(response.json())
         
         return response_text
+
+    @staticmethod
+    def _extract_ollama_text(result: Dict[str, Any]) -> str:
+        """Prefer visible response; fall back to thinking if the model only filled that."""
+        response_text = (result.get("response") or "").strip()
+        if response_text:
+            return response_text
+        thinking = (result.get("thinking") or "").strip()
+        return thinking
     
     async def _openai_generate(
         self,

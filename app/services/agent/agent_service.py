@@ -30,6 +30,12 @@ MAX_OBSERVATION_CHARS = 1800
 DEFAULT_MAX_STEPS = 6
 HARD_MAX_STEPS = 12
 
+# LLMService returns this prose when every provider fails. Treat as outage, not a brief.
+_LLM_UNAVAILABLE_MARKERS = (
+    "ai service is temporarily unavailable",
+    "all llm providers failed",
+)
+
 
 @dataclass
 class AgentStep:
@@ -128,6 +134,14 @@ class AgentService:
             action = decision.get("action", "")
             action_input = decision.get("action_input") or {}
 
+            if decision.get("stopped_reason") == "llm_unavailable":
+                message = (
+                    action_input.get("answer")
+                    or "The AI service is unavailable. Check Ollama and the configured model."
+                )
+                yield {"type": "error", "message": message}
+                return
+
             # Terminal action: the agent believes it can answer.
             if action == "finish":
                 final_answer = (
@@ -184,6 +198,13 @@ class AgentService:
         # Budget exhausted without an explicit finish - synthesize a final
         # answer from everything gathered so far rather than returning nothing.
         final_answer = await self._synthesize(goal, scratchpad)
+        if self._looks_like_llm_outage(final_answer):
+            yield {
+                "type": "error",
+                "message": (final_answer or "").strip()
+                or "The AI service is unavailable. Check Ollama and the configured model.",
+            }
+            return
         yield {
             "type": "final",
             "final_answer": final_answer,
@@ -207,6 +228,9 @@ class AgentService:
             temperature=PLANNER_TEMPERATURE,
             raw=True,
         )
+        if self._looks_like_llm_outage(raw):
+            return self._llm_unavailable_decision(raw)
+
         decision = self._parse_decision(raw)
         if decision is not None:
             return decision
@@ -220,6 +244,9 @@ class AgentService:
             temperature=0.0,
             raw=True,
         )
+        if self._looks_like_llm_outage(retry):
+            return self._llm_unavailable_decision(retry)
+
         decision = self._parse_decision(retry)
         if decision is not None:
             return decision
@@ -233,6 +260,8 @@ class AgentService:
                 len(scratchpad),
             )
             answer = (await self._synthesize(goal, scratchpad) or "").strip()
+            if self._looks_like_llm_outage(answer):
+                return self._llm_unavailable_decision(answer)
             return {
                 "thought": "Could not produce a structured next action; synthesizing from evidence.",
                 "action": "finish",
@@ -251,6 +280,25 @@ class AgentService:
                 "answer": prose or "The agent could not complete the task."
             },
             "stopped_reason": "planning_failed",
+        }
+
+    @staticmethod
+    def _looks_like_llm_outage(text: Optional[str]) -> bool:
+        if not text:
+            return False
+        lower = text.lower()
+        return any(marker in lower for marker in _LLM_UNAVAILABLE_MARKERS)
+
+    @staticmethod
+    def _llm_unavailable_decision(detail: str) -> Dict[str, Any]:
+        return {
+            "thought": "LLM provider unavailable.",
+            "action": "finish",
+            "action_input": {
+                "answer": (detail or "").strip()
+                or "The AI service is unavailable. Check that Ollama is running and a chat model is installed."
+            },
+            "stopped_reason": "llm_unavailable",
         }
 
     def _build_planner_prompt(

@@ -188,8 +188,24 @@ class Settings(BaseSettings):
             'S3_PREFIX': g(['object_storage','s3','prefix'], 'file-storage'),
         })
 
-        # env/kwargs should override YAML
+        # env/kwargs should override YAML. Explicit kwargs win; otherwise honor
+        # process env / .env for keys YAML also sets (BaseSettings won't re-read
+        # env for fields already present in **mapped).
         mapped.update(kwargs)
+        for env_key in (
+            "OLLAMA_MODEL",
+            "OLLAMA_BASE_URL",
+            "OPENAI_API_KEY",
+            "OPENAI_MODEL",
+            "REDIS_URL",
+            "ELASTICSEARCH_URL",
+            "QDRANT_URL",
+        ):
+            if env_key in kwargs:
+                continue
+            env_val = os.getenv(env_key)
+            if env_val is not None and str(env_val).strip() != "":
+                mapped[env_key] = env_val
         super().__init__(**mapped)
         # Initialize production keys if not provided
         self._initialize_production_keys()

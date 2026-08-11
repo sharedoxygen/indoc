@@ -42,7 +42,13 @@ export const LiveTicker: React.FC<LiveTickerProps> = ({ value, label, accent, li
           key={key}
           initial={reduceMotion ? false : { opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
-          sx={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums', lineHeight: 1.2 }}
+          sx={{
+            fontWeight: 650,
+            fontVariantNumeric: 'tabular-nums',
+            lineHeight: 1.2,
+            letterSpacing: '-0.02em',
+            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+          }}
         >
           {value}
         </Typography>
