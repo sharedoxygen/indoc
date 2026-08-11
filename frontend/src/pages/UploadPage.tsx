@@ -793,6 +793,12 @@ const UploadPage: React.FC = () => {
                                 precision={0}
                                 size={72}
                                 status="active"
+                                help={{
+                                  title: 'Upload progress',
+                                  body: 'Bytes transferred for this file. After 100% the document enters the processing pipeline.',
+                                  reading: `${Math.round(uploadFile.progress)}%`,
+                                  details: [{ label: 'File', value: uploadFile.file.name }],
+                                }}
                               />
                             </Box>
                           ) : uploadFile.error ? (

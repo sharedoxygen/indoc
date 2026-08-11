@@ -150,6 +150,15 @@ export const DocumentsList: React.FC<DocumentsListProps> = ({ documents, isLoadi
                                                     precision={0}
                                                     size={72}
                                                     status={doc.status === 'failed' ? 'error' : 'active'}
+                                                    help={{
+                                                        title: 'Document status',
+                                                        body: 'Pipeline progress for this document. Indexed = searchable; failed needs attention.',
+                                                        reading: `${doc.status} · ${statusProgress(doc.status)}%`,
+                                                        details: [
+                                                            { label: 'Title', value: doc.title || doc.filename || 'document' },
+                                                            { label: 'Status', value: String(doc.status || 'unknown') },
+                                                        ],
+                                                    }}
                                                 />
                                             </Box>
                                         )}

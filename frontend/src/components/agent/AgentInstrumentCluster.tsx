@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Box, Paper, Stack, Typography, useTheme } from '@mui/material'
 import { motion, useReducedMotion } from 'framer-motion'
-import { ArcMeter, LiveTicker, NeedleGauge, PrecisionDial, SegmentRing } from '../instruments'
+import { ArcMeter, InstrumentTooltip, LiveTicker, NeedleGauge, PrecisionDial, SegmentRing } from '../instruments'
 import type { SegmentStatus } from '../instruments'
 import type { AgentPhase, AgentStep, AgentStreamStatus } from '../../hooks/useAgentStream'
-import { TOOL_HELP } from './agentHelp'
+import { INSTRUMENT_HELP, TOOL_HELP } from './agentHelp'
 
 const PIPELINE = [
   'list_documents',
@@ -32,6 +32,13 @@ function formatClock(totalSeconds: number) {
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
+function statusWord(status: AgentStreamStatus, isLive: boolean, isDone: boolean, isError: boolean) {
+  if (isError) return 'error'
+  if (isDone) return 'complete'
+  if (isLive) return 'live'
+  return status || 'idle'
+}
+
 /** Live precision cluster — budget, tempo, coverage, instrument pipeline. */
 export const AgentInstrumentCluster: React.FC<AgentInstrumentClusterProps> = ({
   status,
@@ -50,7 +57,6 @@ export const AgentInstrumentCluster: React.FC<AgentInstrumentClusterProps> = ({
   const isDone = status === 'completed'
   const isError = status === 'error'
 
-  // Smooth soft needle so the cluster never looks frozen between SSE events
   const [pulse, setPulse] = useState(0)
   useEffect(() => {
     if (!isLive || reduceMotion) {
@@ -64,9 +70,12 @@ export const AgentInstrumentCluster: React.FC<AgentInstrumentClusterProps> = ({
   const catalog = tools.length ? tools : [...PIPELINE]
   const used = useMemo(() => new Set(steps.map((s) => s.action)), [steps])
   const toolCoverage = catalog.length ? (used.size / catalog.length) * 100 : 0
+  const stepsPerMin = elapsed > 0 ? steps.length / Math.max(elapsed / 60, 0.01) : 0
   const tempo =
-    elapsed > 0 ? Math.min(100, (steps.length / Math.max(elapsed / 60, 0.15)) * 12) : isLive ? 8 + (pulse % 12) : 0
+    elapsed > 0 ? Math.min(100, stepsPerMin * 12) : isLive ? 8 + (pulse % 12) : 0
   const liveBudget = Math.min(99, progress + (isLive && phase === 'planning' ? (pulse % 5) * 0.35 : 0))
+  const budgetValue = isDone ? 100 : liveBudget
+  const runState = statusWord(status, isLive, isDone, isError)
 
   const segments = PIPELINE.map((tool) => {
     let segStatus: SegmentStatus = 'pending'
@@ -75,11 +84,29 @@ export const AgentInstrumentCluster: React.FC<AgentInstrumentClusterProps> = ({
     else if (used.has(tool) || (isDone && tool === 'finish')) segStatus = 'complete'
     const short = TOOL_HELP[tool]?.short || tool.slice(0, 4).toUpperCase()
     const hits = steps.filter((s) => s.action === tool).length
+    const toolHelp = TOOL_HELP[tool]
     return {
       key: tool,
       label: short,
       status: segStatus,
       value: hits || (segStatus === 'complete' || segStatus === 'active' ? 1 : 0),
+      help: {
+        title: `${short} · ${tool.replace(/_/g, ' ')}`,
+        body: toolHelp?.help || 'Research instrument in the agent pipeline.',
+        reading: `Status: ${segStatus}${hits ? ` · ${hits} call${hits === 1 ? '' : 's'}` : ''}`,
+        details: [
+          { label: 'Calls this run', value: String(hits) },
+          { label: 'State', value: segStatus },
+        ],
+        footer:
+          segStatus === 'pending'
+            ? 'Not used yet in this run — the planner may still choose it.'
+            : segStatus === 'active'
+              ? 'Currently engaged by the agent.'
+              : segStatus === 'failed'
+                ? 'This tool call failed; check the activity log.'
+                : 'Already used at least once in this run.',
+      },
     }
   })
 
@@ -90,6 +117,8 @@ export const AgentInstrumentCluster: React.FC<AgentInstrumentClusterProps> = ({
       : phase === 'tool'
         ? 'EXECUTING'
         : status.toUpperCase()
+
+  const tempoReadout = elapsed > 0 ? `${stepsPerMin.toFixed(1)}/m` : '—'
 
   return (
     <Paper
@@ -108,7 +137,6 @@ export const AgentInstrumentCluster: React.FC<AgentInstrumentClusterProps> = ({
         overflow: 'hidden',
       }}
     >
-      {/* Ambient sweep while live */}
       {isLive && !reduceMotion && (
         <Box
           component={motion.div}
@@ -120,8 +148,7 @@ export const AgentInstrumentCluster: React.FC<AgentInstrumentClusterProps> = ({
             top: 0,
             bottom: 0,
             width: '28%',
-            background:
-              'linear-gradient(90deg, transparent, rgba(56,189,248,0.07), transparent)',
+            background: 'linear-gradient(90deg, transparent, rgba(56,189,248,0.07), transparent)',
             pointerEvents: 'none',
           }}
         />
@@ -135,12 +162,26 @@ export const AgentInstrumentCluster: React.FC<AgentInstrumentClusterProps> = ({
         flexWrap="wrap"
         gap={1}
       >
-        <Typography
-          variant="caption"
-          sx={{ fontWeight: 750, letterSpacing: 1.2, color: 'text.secondary' }}
+        <InstrumentTooltip
+          help={{
+            title: 'Live instrument cluster',
+            body: INSTRUMENT_HELP.cluster,
+            reading: `Run · ${runState}`,
+            details: [
+              { label: 'Phase', value: phaseLabel },
+              { label: 'Elapsed', value: formatClock(elapsed) },
+              { label: 'Steps', value: `${steps.length}/${maxSteps}` },
+            ],
+            footer: 'Hover any dial, meter, ticker, or stage label for a full readout.',
+          }}
         >
-          LIVE INSTRUMENT CLUSTER
-        </Typography>
+          <Typography
+            variant="caption"
+            sx={{ fontWeight: 750, letterSpacing: 1.2, color: 'text.secondary', cursor: 'help' }}
+          >
+            LIVE INSTRUMENT CLUSTER
+          </Typography>
+        </InstrumentTooltip>
         <Stack direction="row" spacing={1.5} alignItems="center">
           <LiveTicker
             label="Phase"
@@ -155,13 +196,43 @@ export const AgentInstrumentCluster: React.FC<AgentInstrumentClusterProps> = ({
                     ? 'warning.main'
                     : 'primary.main'
             }
+            help={{
+              ...INSTRUMENT_HELP.phase,
+              reading: phaseLabel,
+              details: [
+                { label: 'Stream status', value: status },
+                { label: 'Active tool', value: activeAction || '—' },
+              ],
+            }}
           />
-          <LiveTicker label="Elapsed" value={formatClock(elapsed)} live={isLive} accent="info.main" />
+          <LiveTicker
+            label="Elapsed"
+            value={formatClock(elapsed)}
+            live={isLive}
+            accent="info.main"
+            help={{
+              ...INSTRUMENT_HELP.elapsed,
+              reading: formatClock(elapsed),
+              details: [
+                { label: 'Seconds', value: String(elapsed) },
+                { label: 'Steps/min', value: elapsed > 0 ? stepsPerMin.toFixed(2) : '—' },
+              ],
+            }}
+          />
           <LiveTicker
             label="Steps"
             value={`${steps.length}/${maxSteps}`}
             live={false}
             accent="text.secondary"
+            help={{
+              ...INSTRUMENT_HELP.steps,
+              reading: `${steps.length} of ${maxSteps}`,
+              details: [
+                { label: 'Completed', value: String(steps.length) },
+                { label: 'Budget left', value: String(Math.max(0, maxSteps - steps.length)) },
+                { label: 'Budget used', value: `${Math.round(budgetValue)}%` },
+              ],
+            }}
           />
         </Stack>
       </Stack>
@@ -180,22 +251,40 @@ export const AgentInstrumentCluster: React.FC<AgentInstrumentClusterProps> = ({
       >
         <Box sx={{ display: 'flex', justifyContent: 'center' }}>
           <PrecisionDial
-            value={isDone ? 100 : liveBudget}
+            value={budgetValue}
             label="Budget"
             unit="%"
             precision={0}
             size={128}
             status={dialStatus}
             animate
+            help={{
+              ...INSTRUMENT_HELP.budget,
+              reading: `${Math.round(budgetValue)}% · ${runState}`,
+              details: [
+                { label: 'Steps used', value: `${steps.length}/${maxSteps}` },
+                { label: 'Phase', value: phaseLabel },
+                { label: 'Status', value: dialStatus },
+              ],
+            }}
           />
         </Box>
         <Box sx={{ display: 'flex', justifyContent: 'center' }}>
           <NeedleGauge
             value={Math.min(100, tempo)}
             label="Tempo"
-            displayValue={elapsed > 0 ? `${(steps.length / Math.max(elapsed / 60, 0.01)).toFixed(1)}/m` : '—'}
+            displayValue={tempoReadout}
             size={120}
             status={isLive ? 'active' : isDone ? 'ok' : 'idle'}
+            help={{
+              ...INSTRUMENT_HELP.tempo,
+              reading: `${tempoReadout} · needle ${Math.round(Math.min(100, tempo))}%`,
+              details: [
+                { label: 'Steps', value: String(steps.length) },
+                { label: 'Elapsed', value: formatClock(elapsed) },
+                { label: 'Rate', value: elapsed > 0 ? `${stepsPerMin.toFixed(2)} steps/min` : 'warming up' },
+              ],
+            }}
           />
         </Box>
         <Box sx={{ display: 'flex', justifyContent: 'center' }}>
@@ -207,6 +296,16 @@ export const AgentInstrumentCluster: React.FC<AgentInstrumentClusterProps> = ({
             precision={0}
             size={118}
             status={toolCoverage >= 50 ? 'ok' : isLive ? 'warn' : 'idle'}
+            help={{
+              ...INSTRUMENT_HELP.coverage,
+              reading: `${Math.round(toolCoverage)}% · ${used.size}/${catalog.length} tools`,
+              details: [
+                { label: 'Used', value: used.size ? [...used].join(', ') : '—' },
+                { label: 'Catalog', value: String(catalog.length) },
+                { label: 'Unused', value: String(Math.max(0, catalog.length - used.size)) },
+              ],
+              footer: INSTRUMENT_HELP.coverage.footer,
+            }}
           />
         </Box>
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 0 }}>
@@ -216,6 +315,20 @@ export const AgentInstrumentCluster: React.FC<AgentInstrumentClusterProps> = ({
             centerLabel={isLive ? 'Live' : isDone ? 'Done' : 'Idle'}
             centerValue={String(steps.length)}
             showLegend={false}
+            help={{
+              ...INSTRUMENT_HELP.stageRing,
+              reading: `${steps.length} steps · ${runState}`,
+              details: [
+                {
+                  label: 'Active',
+                  value: activeAction
+                    ? TOOL_HELP[activeAction]?.short || activeAction
+                    : '—',
+                },
+                { label: 'Complete arcs', value: String(segments.filter((s) => s.status === 'complete').length) },
+                { label: 'Pending arcs', value: String(segments.filter((s) => s.status === 'pending').length) },
+              ],
+            }}
           />
           <Stack
             direction="row"
@@ -226,25 +339,27 @@ export const AgentInstrumentCluster: React.FC<AgentInstrumentClusterProps> = ({
             sx={{ mt: 0.75, maxWidth: 280 }}
           >
             {segments.map((seg) => (
-              <Typography
-                key={seg.key}
-                variant="caption"
-                sx={{
-                  fontSize: 10,
-                  fontWeight: seg.status === 'active' ? 800 : 600,
-                  color:
-                    seg.status === 'complete'
-                      ? 'success.main'
-                      : seg.status === 'active'
-                        ? 'warning.main'
-                        : seg.status === 'failed'
-                          ? 'error.main'
-                          : 'text.disabled',
-                  letterSpacing: 0.4,
-                }}
-              >
-                {seg.label}
-              </Typography>
+              <InstrumentTooltip key={seg.key} help={seg.help} placement="bottom">
+                <Typography
+                  variant="caption"
+                  sx={{
+                    fontSize: 10,
+                    fontWeight: seg.status === 'active' ? 800 : 600,
+                    color:
+                      seg.status === 'complete'
+                        ? 'success.main'
+                        : seg.status === 'active'
+                          ? 'warning.main'
+                          : seg.status === 'failed'
+                            ? 'error.main'
+                            : 'text.disabled',
+                    letterSpacing: 0.4,
+                    cursor: 'help',
+                  }}
+                >
+                  {seg.label}
+                </Typography>
+              </InstrumentTooltip>
             ))}
           </Stack>
         </Box>
