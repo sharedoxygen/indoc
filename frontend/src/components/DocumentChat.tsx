@@ -49,25 +49,26 @@ interface DocumentChatProps {
   documentIds?: string[];
   conversationId?: string;
   onNewConversation?: (conversationId: string) => void;
+  /** Optional banner above the thread (e.g. Insight brief context). */
+  contextBanner?: string;
+  /** Prefill the composer once when the panel opens. */
+  initialDraft?: string;
 }
 
 export const DocumentChat: React.FC<DocumentChatProps> = ({
   documentIds,
   conversationId: initialConversationId,
-  onNewConversation
+  onNewConversation,
+  contextBanner,
+  initialDraft,
 }) => {
   const [messages, setMessages] = useState<Message[]>([]);
-  const [inputMessage, setInputMessage] = useState('');
+  const [inputMessage, setInputMessage] = useState(initialDraft || '');
+  const draftAppliedRef = useRef<string | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(false);
   const [loadingStage, setLoadingStage] = useState<'searching' | 'analyzing' | 'generating' | 'done'>('searching');
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [conversationId, setConversationId] = useState(initialConversationId);
-
-  // CRITICAL FIX: Update local state when prop changes
-  useEffect(() => {
-    console.log('🔄 Prop conversationId changed from parent:', initialConversationId);
-    setConversationId(initialConversationId);
-  }, [initialConversationId]);
   const [isTyping, setIsTyping] = useState(false);
   const [selectedModel, setSelectedModel] = useState('');
   const [availableModels, setAvailableModels] = useState<OllamaModel[]>([]);
@@ -84,6 +85,17 @@ export const DocumentChat: React.FC<DocumentChatProps> = ({
   const { sendMessage, lastMessage, readyState } = useWebSocket(
     conversationId ? `/api/v1/chat/ws/chat/${conversationId}` : null
   );
+
+  useEffect(() => {
+    setConversationId(initialConversationId);
+  }, [initialConversationId]);
+
+  useEffect(() => {
+    if (!initialDraft) return
+    if (draftAppliedRef.current === initialDraft) return
+    draftAppliedRef.current = initialDraft
+    setInputMessage(initialDraft)
+  }, [initialDraft]);
 
   useEffect(() => {
     console.log('🔄 conversationId changed:', conversationId);
@@ -385,7 +397,7 @@ export const DocumentChat: React.FC<DocumentChatProps> = ({
       >
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1, gap: 1, flexWrap: 'wrap' }}>
           <Typography variant="h6" sx={{ fontWeight: 750, letterSpacing: '-0.03em' }}>
-            {documentIds && documentIds.length > 0 ? `Chat · ${documentIds.length} docs` : 'AI Assistant'}
+            {documentIds && documentIds.length > 0 ? `Follow-up · ${documentIds.length} docs` : 'Follow-up'}
           </Typography>
           {/* Intent Indicator */}
           {detectedIntent && detectedIntent !== 'general' && (
@@ -448,6 +460,11 @@ export const DocumentChat: React.FC<DocumentChatProps> = ({
         </Box>
         {documentIds && documentIds.length > 0 && (
           <Chip icon={<AttachFileIcon />} label={`${documentIds.length} document(s) attached`} size="small" color="primary" />
+        )}
+        {contextBanner && (
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1, lineHeight: 1.4 }}>
+            {contextBanner}
+          </Typography>
         )}
         {/* Connection indicator (subtle) + progress */}
         <Box sx={{ mt: 1, display: 'flex', gap: 1, alignItems: 'center' }}>
