@@ -1,10 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react'
-import { Box, Chip, Stack, Typography, useTheme } from '@mui/material'
-import { motion } from 'framer-motion'
+import React, { useEffect, useState } from 'react'
+import { Box, Chip, Stack, Typography } from '@mui/material'
 import HelpTip from '../HelpTip'
 import AgentTheaterScene from './AgentTheaterScene'
 import AgentInstrumentCluster from './AgentInstrumentCluster'
-import { AGENT_HELP, TOOL_HELP } from './agentHelp'
+import { AGENT_HELP } from './agentHelp'
 import type { AgentPhase, AgentStep, AgentStreamStatus } from '../../hooks/useAgentStream'
 
 interface AgentTheaterProps {
@@ -40,7 +39,6 @@ export const AgentTheater: React.FC<AgentTheaterProps> = ({
   activeThought,
   startedAt,
 }) => {
-  const theme = useTheme()
   const [elapsed, setElapsed] = useState(0)
   const isLive = status === 'running' || status === 'connecting'
 
@@ -65,31 +63,56 @@ export const AgentTheater: React.FC<AgentTheaterProps> = ({
   const progress = status === 'completed' ? 100 : Math.min(99, hardProgress + softBoost)
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', gap: 1.25, minHeight: 0 }}>
-      <Stack direction="row" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={1}>
-        <Box sx={{ minWidth: 0 }}>
-          <Typography variant="overline" sx={{ color: 'text.secondary', letterSpacing: 1.1, fontWeight: 700 }}>
-            <HelpTip title={AGENT_HELP.controlTower}>Research console</HelpTip>
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', gap: 1, minHeight: 0 }}>
+      <Stack
+        direction="row"
+        alignItems="center"
+        justifyContent="space-between"
+        gap={1}
+        sx={{ minWidth: 0, flexShrink: 0 }}
+      >
+        <Box sx={{ minWidth: 0, flex: 1 }}>
+          <Typography
+            variant="caption"
+            sx={{ color: 'text.secondary', letterSpacing: 0.7, fontWeight: 750, textTransform: 'uppercase' }}
+          >
+            <HelpTip title={AGENT_HELP.controlTower}>Console</HelpTip>
           </Typography>
-          <Typography variant="body2" sx={{ color: 'text.secondary', maxWidth: 640 }} noWrap>
-            {goal || 'Set an objective above, then Run — instruments update as the agent works'}
+          <Typography
+            variant="body2"
+            title={goal || undefined}
+            sx={{
+              color: 'text.secondary',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {goal || 'Run an objective to watch instruments and reasoning'}
           </Typography>
         </Box>
-        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+        <Stack direction="row" spacing={0.75} alignItems="center" flexShrink={0}>
           {isLive && (
             <Chip
               size="small"
               color={phase === 'tool' ? 'warning' : 'info'}
-              label={phase === 'tool' ? 'TOOL LIVE' : 'PLANNING'}
-              sx={{ fontWeight: 750 }}
+              label={phase === 'tool' ? 'Tool' : 'Planning'}
+              sx={{ fontWeight: 750, height: 22 }}
             />
           )}
-          {stoppedReason && <Chip size="small" label={stoppedReason} variant="outlined" />}
+          {stoppedReason && (
+            <Chip
+              size="small"
+              label={stoppedReason}
+              variant="outlined"
+              sx={{ height: 22, maxWidth: 120, '& .MuiChip-label': { overflow: 'hidden', textOverflow: 'ellipsis' } }}
+            />
+          )}
           <Chip
             size="small"
             variant="outlined"
-            label={`iter ${iterations || steps.length}`}
-            sx={{ fontVariantNumeric: 'tabular-nums' }}
+            label={`${iterations || steps.length}/${maxSteps}`}
+            sx={{ fontVariantNumeric: 'tabular-nums', height: 22 }}
           />
         </Stack>
       </Stack>
@@ -122,38 +145,9 @@ export const AgentTheater: React.FC<AgentTheaterProps> = ({
       </Box>
 
       {error && (
-        <Typography color="error" variant="body2">
+        <Typography color="error" variant="body2" sx={{ flexShrink: 0, wordBreak: 'break-word' }}>
           {error}
         </Typography>
-      )}
-
-      {steps.length > 0 && (
-        <Box sx={{ display: 'flex', gap: 1, overflowX: 'auto', pb: 0.5 }}>
-          {steps.map((s) => (
-            <Box
-              key={s.step}
-              component={motion.div}
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              sx={{
-                minWidth: 160,
-                p: 1.1,
-                borderRadius: 1.5,
-                border: '1px solid',
-                borderColor: 'divider',
-                bgcolor:
-                  theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.03)' : 'background.paper',
-              }}
-            >
-              <Typography variant="caption" sx={{ fontWeight: 800, color: 'primary.main' }}>
-                {s.step} · {TOOL_HELP[s.action]?.short || s.action}
-              </Typography>
-              <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary', mt: 0.35 }} noWrap>
-                {s.observation?.slice(0, 72) || s.thought?.slice(0, 72)}
-              </Typography>
-            </Box>
-          ))}
-        </Box>
       )}
     </Box>
   )
