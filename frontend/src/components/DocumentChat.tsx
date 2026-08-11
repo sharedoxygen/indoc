@@ -537,8 +537,17 @@ export const DocumentChat: React.FC<DocumentChatProps> = ({
               >
                 <Box
                   sx={{
+                    fontSize: '1rem',
+                    lineHeight: 1.7,
+                    '& p': { my: 0.85 },
+                    '& h1, & h2, & h3': { fontWeight: 750, mt: 1.5, mb: 0.75, lineHeight: 1.35 },
+                    '& h1': { fontSize: '1.25rem' },
+                    '& h2': { fontSize: '1.15rem' },
+                    '& h3': { fontSize: '1.05rem' },
+                    '& ul, & ol': { my: 0.85, pl: 2.5 },
+                    '& li': { mb: 0.55 },
                     '& table': { width: '100%', borderCollapse: 'collapse', my: 1 },
-                    '& th, & td': { border: '1px solid', borderColor: 'divider', p: 1, verticalAlign: 'top' },
+                    '& th, & td': { border: '1px solid', borderColor: 'divider', p: 1.1, verticalAlign: 'top', fontSize: '0.95rem' },
                     '& pre': {
                       p: 1.5,
                       overflowX: 'auto',
@@ -550,6 +559,7 @@ export const DocumentChat: React.FC<DocumentChatProps> = ({
                     '& code': {
                       fontFamily:
                         'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+                      fontSize: '0.9em',
                     },
                   }}
                   ref={message.role === 'assistant' ? lastAssistantRef : undefined}
