@@ -406,8 +406,8 @@ export const AgentTheaterScene: React.FC<AgentTheaterSceneProps> = ({
               bgcolor: theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.28)' : 'rgba(255,255,255,0.65)',
               border: `1px solid ${theme.palette.divider}`,
               fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
-              fontSize: 13,
-              lineHeight: 1.55,
+              fontSize: 14.5,
+              lineHeight: 1.6,
               color: 'text.primary',
               overflow: 'auto',
             }}
@@ -497,11 +497,12 @@ export const AgentTheaterScene: React.FC<AgentTheaterSceneProps> = ({
                     }}
                   />
                   <Typography
-                    variant="caption"
+                    variant="body2"
                     sx={{
                       color: 'text.primary',
                       fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
-                      lineHeight: 1.4,
+                      fontSize: '0.875rem',
+                      lineHeight: 1.45,
                     }}
                   >
                     {item.text}

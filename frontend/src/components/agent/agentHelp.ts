@@ -101,6 +101,8 @@ export const AGENT_HELP = {
   arrival: 'Final brief from this run.',
   arrivalBoard:
     'Session briefs sit beside the console. Pick a run in the list, read the full answer, then follow up, copy, or reuse the objective. Cleared when you clear the board or close the tab.',
+  briefFilter:
+    'Narrow the brief list by objective text and status (Complete / Partial). The reader stays on the selected brief even if it is temporarily filtered out.',
   flightStep: 'One tool call: action name plus a short thought or observation preview.',
   atcHub: 'The planner (ReAct loop). It chooses the next tool, reads the result, then continues until FINISH.',
   radar:

@@ -331,7 +331,7 @@ export const AgentModePanel: React.FC<AgentModePanelProps> = ({
             flex: 1,
             minHeight: 0,
             display: 'grid',
-            gridTemplateColumns: 'minmax(0, 1.05fr) minmax(0, 1fr)',
+            gridTemplateColumns: 'minmax(0, 0.85fr) minmax(0, 1.25fr)',
             gap: 1.25,
           }}
         >
