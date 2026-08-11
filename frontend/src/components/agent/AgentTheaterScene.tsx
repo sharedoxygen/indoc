@@ -250,22 +250,41 @@ export const AgentTheaterScene: React.FC<AgentTheaterSceneProps> = ({
             </Typography>
           </Stack>
         </Stack>
-        <LinearProgress
-          variant="determinate"
-          value={barPct}
-          sx={{
-            height: 4,
-            borderRadius: 2,
-            bgcolor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
-            '& .MuiLinearProgress-bar': {
+        <Box sx={{ position: 'relative' }}>
+          <LinearProgress
+            variant="determinate"
+            value={barPct}
+            sx={{
+              height: 7,
               borderRadius: 2,
-              background: isDone
-                ? theme.palette.success.main
-                : `linear-gradient(90deg, ${accent}, ${theme.palette.info.main})`,
-              transition: 'transform 0.35s ease',
-            },
-          }}
-        />
+              bgcolor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
+              '& .MuiLinearProgress-bar': {
+                borderRadius: 2,
+                background: isDone
+                  ? theme.palette.success.main
+                  : `linear-gradient(90deg, ${accent}, ${theme.palette.info.main}, ${theme.palette.success.light})`,
+                transition: 'transform 0.35s ease',
+                boxShadow: isLive ? `0 0 12px ${accent}66` : 'none',
+              },
+            }}
+          />
+          {isLive && !reduceMotion && (
+            <Box
+              component={motion.div}
+              animate={{ left: [`${Math.max(0, barPct - 8)}%`, `${Math.min(96, barPct + 2)}%`] }}
+              transition={{ duration: 1.1, repeat: Infinity, ease: 'easeInOut' }}
+              sx={{
+                position: 'absolute',
+                top: -3,
+                width: 12,
+                height: 12,
+                borderRadius: '50%',
+                bgcolor: accent,
+                boxShadow: `0 0 10px ${accent}`,
+              }}
+            />
+          )}
+        </Box>
       </Box>
 
       {/* Horizontal instrument pipeline — compact technical steps, not cartoon nodes */}
