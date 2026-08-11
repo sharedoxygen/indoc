@@ -407,11 +407,10 @@ conda-env: ## Create conda environment 'indoc' (python 3.11)
 	@echo "$(GREEN)✅ Conda environment ready: $(ENV_NAME)$(NC)"
 
 conda-install: conda-env ## Install dependencies in conda environment
-	@echo "$(BLUE)Installing backend dependencies into conda env...$(NC)"
-	@cd app && $(CONDA_RUN) python -m pip install -r ../requirements.txt
-	@echo "$(BLUE)Installing frontend dependencies...$(NC)"
-	@cd frontend && npm install
-	@echo "$(GREEN)✅ Dependencies installed$(NC)"
+	@echo "$(BLUE)Ensuring dependencies (quiet)...$(NC)"
+	@cd app && $(CONDA_RUN) python -m pip install -q -r ../requirements.txt
+	@cd frontend && npm install --silent --no-fund --no-audit
+	@echo "$(GREEN)✅ Dependencies ready$(NC)"
 
 install: conda-install ## Alias for conda-install
 
