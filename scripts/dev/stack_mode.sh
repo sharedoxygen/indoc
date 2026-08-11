@@ -20,6 +20,35 @@ port_in_use() {
   fi
 }
 
+port_holders() {
+  local port="$1"
+  if command -v lsof >/dev/null 2>&1; then
+    lsof -iTCP:"$port" -sTCP:LISTEN -nP 2>/dev/null || true
+  fi
+}
+
+# Kill LISTENers on a port (needed for uvicorn --reload multiprocessing orphans).
+free_port() {
+  local port="$1"
+  local pids
+  [ -n "$port" ] || return 0
+  if ! command -v lsof >/dev/null 2>&1; then
+    return 0
+  fi
+  pids="$(lsof -tiTCP:"$port" -sTCP:LISTEN 2>/dev/null || true)"
+  if [ -z "$pids" ]; then
+    return 0
+  fi
+  # shellcheck disable=SC2086
+  kill -TERM $pids 2>/dev/null || true
+  sleep 0.5
+  pids="$(lsof -tiTCP:"$port" -sTCP:LISTEN 2>/dev/null || true)"
+  if [ -n "$pids" ]; then
+    # shellcheck disable=SC2086
+    kill -KILL $pids 2>/dev/null || true
+  fi
+}
+
 pidfile_alive() {
   local f="$1"
   [ -f "$f" ] || return 1
@@ -90,7 +119,9 @@ assert_can_start() {
       clear_mode
     fi
     if port_in_use "$DEV_API_PORT"; then
-      die "dev API port :$DEV_API_PORT already in use. Run: make stop"
+      echo "ERROR: dev API port :$DEV_API_PORT already in use. Run: make stop" >&2
+      port_holders "$DEV_API_PORT" >&2 || true
+      exit 1
     fi
   elif [ "$want" = "saas" ]; then
     if dev_live; then
@@ -101,7 +132,9 @@ assert_can_start() {
       clear_mode
     fi
     if port_in_use "$SAAS_API_PORT"; then
-      die "saas API port :$SAAS_API_PORT already in use. Run: make stop"
+      echo "ERROR: saas API port :$SAAS_API_PORT already in use. Run: make stop" >&2
+      port_holders "$SAAS_API_PORT" >&2 || true
+      exit 1
     fi
     if saas_live; then
       die "saas containers already running. Run: make stop"
@@ -135,7 +168,10 @@ case "$cmd" in
   detect) detect_mode ;;
   dev-live) dev_live ;;
   saas-live) saas_live ;;
+  free-port) free_port "${2:-}" ;;
+  port-in-use) port_in_use "${2:-}" ;;
+  port-holders) port_holders "${2:-}" ;;
   *)
-    die "usage: $0 {assert-can-start|write|clear|read|detect|dev-live|saas-live} ..."
+    die "usage: $0 {assert-can-start|write|clear|read|detect|dev-live|saas-live|free-port|port-in-use|port-holders} ..."
     ;;
 esac

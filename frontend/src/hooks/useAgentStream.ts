@@ -10,9 +10,11 @@ export interface AgentStep {
 }
 
 export type AgentStreamStatus = 'idle' | 'connecting' | 'running' | 'completed' | 'error'
+export type AgentPhase = 'idle' | 'connecting' | 'planning' | 'tool' | 'completed' | 'error'
 
 export interface AgentStreamState {
   status: AgentStreamStatus
+  phase: AgentPhase
   goal: string
   tools: string[]
   steps: AgentStep[]
@@ -22,10 +24,15 @@ export interface AgentStreamState {
   error: string | null
   maxSteps: number
   holding: boolean
+  activeAction: string | null
+  activeThought: string | null
+  planningStep: number
+  startedAt: number | null
 }
 
 const initialState: AgentStreamState = {
   status: 'idle',
+  phase: 'idle',
   goal: '',
   tools: [],
   steps: [],
@@ -35,6 +42,10 @@ const initialState: AgentStreamState = {
   error: null,
   maxSteps: 6,
   holding: false,
+  activeAction: null,
+  activeThought: null,
+  planningStep: 0,
+  startedAt: null,
 }
 
 export function useAgentStream() {
@@ -57,9 +68,11 @@ export function useAgentStream() {
       setState({
         ...initialState,
         status: 'connecting',
+        phase: 'connecting',
         goal: params.goal,
         maxSteps,
         holding: true,
+        startedAt: Date.now(),
       })
 
       const token = TokenManager.getToken()
@@ -84,7 +97,7 @@ export function useAgentStream() {
           throw new Error(text || `Agent stream failed (${response.status})`)
         }
 
-        setState((prev) => ({ ...prev, status: 'running', holding: true }))
+        setState((prev) => ({ ...prev, status: 'running', phase: 'planning', holding: true }))
 
         const reader = response.body.getReader()
         const decoder = new TextDecoder()
@@ -115,9 +128,31 @@ export function useAgentStream() {
                 setState((prev) => ({
                   ...prev,
                   status: 'running',
+                  phase: 'planning',
                   tools: event.tools_available || [],
                   goal: event.goal || prev.goal,
                   holding: true,
+                  planningStep: 1,
+                }))
+              } else if (event.type === 'planning') {
+                setState((prev) => ({
+                  ...prev,
+                  status: 'running',
+                  phase: 'planning',
+                  holding: true,
+                  planningStep: event.step || prev.planningStep + 1,
+                  activeAction: null,
+                  activeThought: null,
+                }))
+              } else if (event.type === 'tool_start') {
+                setState((prev) => ({
+                  ...prev,
+                  status: 'running',
+                  phase: 'tool',
+                  holding: true,
+                  planningStep: event.step || prev.planningStep,
+                  activeAction: event.action || null,
+                  activeThought: event.thought || null,
                 }))
               } else if (event.type === 'step') {
                 const step: AgentStep = {
@@ -131,20 +166,26 @@ export function useAgentStream() {
                   ...prev,
                   steps: [...prev.steps, step],
                   holding: true,
+                  phase: 'planning',
+                  activeAction: step.action,
+                  activeThought: step.thought,
                 }))
               } else if (event.type === 'final') {
                 setState((prev) => ({
                   ...prev,
                   status: 'completed',
+                  phase: 'completed',
                   finalAnswer: event.final_answer || '',
                   iterations: event.iterations || prev.steps.length,
                   stoppedReason: event.stopped_reason || 'completed',
                   holding: false,
+                  activeAction: 'finish',
                 }))
               } else if (event.type === 'error') {
                 setState((prev) => ({
                   ...prev,
                   status: 'error',
+                  phase: 'error',
                   error: event.message || 'Agent error',
                   holding: false,
                 }))
@@ -157,7 +198,8 @@ export function useAgentStream() {
           if (prev.status === 'running') {
             return {
               ...prev,
-              status: prev.finalAnswer ? 'completed' : 'completed',
+              status: 'completed',
+              phase: 'completed',
               holding: false,
               stoppedReason: prev.stoppedReason || 'stream_ended',
             }
@@ -169,6 +211,7 @@ export function useAgentStream() {
         setState((prev) => ({
           ...prev,
           status: 'error',
+          phase: 'error',
           error: err?.message || 'Failed to run agent',
           holding: false,
         }))
@@ -180,7 +223,12 @@ export function useAgentStream() {
   const stop = useCallback(() => {
     abortRef.current?.abort()
     abortRef.current = null
-    setState((prev) => ({ ...prev, status: prev.finalAnswer ? 'completed' : 'idle', holding: false }))
+    setState((prev) => ({
+      ...prev,
+      status: prev.finalAnswer ? 'completed' : 'idle',
+      phase: prev.finalAnswer ? 'completed' : 'idle',
+      holding: false,
+    }))
   }, [])
 
   return { ...state, run, reset, stop }
