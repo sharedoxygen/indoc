@@ -82,6 +82,8 @@ async def stream_agent(
 
     Event stream (one JSON object per `data:` line):
       {"type": "start",  "goal", "tools_available"}
+      {"type": "planning", "step"}
+      {"type": "tool_start", "step", "thought", "action", "action_input"}
       {"type": "step",   "step", "thought", "action", "action_input", "observation"}
       {"type": "final",  "final_answer", "iterations", "stopped_reason"}
     """
