@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { Box, Tooltip, Typography, useTheme } from '@mui/material'
+import { Box, Stack, Typography, useTheme, LinearProgress, Chip } from '@mui/material'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import type { AgentPhase, AgentStep, AgentStreamStatus } from '../../hooks/useAgentStream'
-import { AGENT_HELP, TOOL_HELP } from './agentHelp'
+import { TOOL_HELP } from './agentHelp'
 
 const DEFAULT_TOOLS = [
   'list_documents',
@@ -22,11 +22,30 @@ interface AgentTheaterSceneProps {
   finalAnswer: string | null
   activeAction?: string | null
   activeThought?: string | null
+  elapsed?: number
+  maxSteps?: number
 }
 
-function toolPosition(index: number, total: number, cx: number, cy: number, r: number) {
-  const angle = -Math.PI / 2 + (index / Math.max(total, 1)) * Math.PI * 2
-  return { x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle), angle }
+type FeedItem = { id: string; t: number; kind: 'sys' | 'plan' | 'tool' | 'ok' | 'err'; text: string }
+
+function useTypewriter(text: string, active: boolean, cps = 42) {
+  const [shown, setShown] = useState('')
+  useEffect(() => {
+    if (!active) {
+      setShown(text || '')
+      return
+    }
+    setShown('')
+    if (!text) return
+    let i = 0
+    const id = window.setInterval(() => {
+      i += 1
+      setShown(text.slice(0, i))
+      if (i >= text.length) window.clearInterval(id)
+    }, Math.max(12, 1000 / cps))
+    return () => window.clearInterval(id)
+  }, [text, active, cps])
+  return shown
 }
 
 export const AgentTheaterScene: React.FC<AgentTheaterSceneProps> = ({
@@ -38,73 +57,158 @@ export const AgentTheaterScene: React.FC<AgentTheaterSceneProps> = ({
   finalAnswer,
   activeAction,
   activeThought,
+  elapsed = 0,
+  maxSteps = 6,
 }) => {
   const theme = useTheme()
   const reduceMotion = useReducedMotion()
-  const [visible, setVisible] = useState(true)
-  const [tick, setTick] = useState(0)
-  const W = 960
-  const H = 540
-  const cx = W / 2
-  const cy = H / 2 + 10
-  const ringR = 175
-
-  useEffect(() => {
-    const onVis = () => setVisible(document.visibilityState === 'visible')
-    document.addEventListener('visibilitychange', onVis)
-    return () => document.removeEventListener('visibilitychange', onVis)
-  }, [])
-
-  // Drive subtle UI pulse clock while running (paused when tab hidden)
-  useEffect(() => {
-    if (!visible || reduceMotion || (status !== 'running' && status !== 'connecting')) return
-    const id = window.setInterval(() => setTick((t) => t + 1), 80)
-    return () => window.clearInterval(id)
-  }, [visible, reduceMotion, status])
-
-  const activeTools = tools.length ? tools : DEFAULT_TOOLS
-  const pads = useMemo(
-    () => activeTools.map((t, i) => ({ tool: t, ...toolPosition(i, activeTools.length, cx, cy, ringR) })),
-    [activeTools, cx, cy, ringR]
-  )
-
-  const latest = steps[steps.length - 1]
-  const liveAction = activeAction || latest?.action || null
-  const isRunning = status === 'running' || status === 'connecting'
+  const isLive = status === 'running' || status === 'connecting'
   const isPlanning = phase === 'planning' || phase === 'connecting'
   const isTool = phase === 'tool'
   const isDone = status === 'completed'
   const isError = status === 'error'
 
-  const particles = useMemo(
-    () =>
-      Array.from({ length: reduceMotion || !visible ? 10 : 42 }, (_, i) => ({
-        id: i,
-        x: (i * 97 + tick * (0.4 + (i % 3) * 0.15)) % W,
-        y: (i * 53 + Math.sin((tick + i) * 0.08) * 8) % H,
-        r: 1 + (i % 3) * 0.4,
-      })),
-    [reduceMotion, visible, tick]
+  const catalog = tools.length ? tools : DEFAULT_TOOLS
+  const liveAction = activeAction || steps[steps.length - 1]?.action || null
+  const typedThought = useTypewriter(
+    activeThought || steps[steps.length - 1]?.thought || '',
+    isLive && !reduceMotion
   )
 
-  const sky =
+  const planningLines = useMemo(
+    () => [
+      'Resolving corpus access…',
+      'Building retrieval plan…',
+      'Ranking candidate instruments…',
+      'Estimating evidence coverage…',
+      'Committing next action…',
+    ],
+    []
+  )
+
+  const [feed, setFeed] = useState<FeedItem[]>([
+    { id: 'boot', t: 0, kind: 'sys', text: 'Console ready — waiting for a run' },
+  ])
+  const [planIdx, setPlanIdx] = useState(0)
+
+  // Continuous planning chatter so the UI never goes silent between SSE events
+  useEffect(() => {
+    if (!isLive) return
+    if (isPlanning) {
+      const id = window.setInterval(() => {
+        setPlanIdx((p) => {
+          const next = (p + 1) % planningLines.length
+          setFeed((prev) =>
+            [
+              {
+                id: `plan-${Date.now()}`,
+                t: Date.now(),
+                kind: 'plan' as const,
+                text: planningLines[next],
+              },
+              ...prev,
+            ].slice(0, 40)
+          )
+          return next
+        })
+      }, 1600)
+      return () => window.clearInterval(id)
+    }
+  }, [isLive, isPlanning, planningLines])
+
+  // Mirror real phase/tool/step events into the feed
+  useEffect(() => {
+    if (status === 'connecting' || status === 'running') {
+      setFeed((prev) => {
+        if (prev[0]?.text === 'Run started') return prev
+        const item: FeedItem = {
+          id: `start-${Date.now()}`,
+          t: Date.now(),
+          kind: 'sys',
+          text: 'Run started',
+        }
+        return [item, ...prev].slice(0, 40)
+      })
+    }
+  }, [status])
+
+  useEffect(() => {
+    if (!isTool || !liveAction) return
+    const label = TOOL_HELP[liveAction]?.short || liveAction
+    setFeed((prev) =>
+      [
+        {
+          id: `tool-${liveAction}-${Date.now()}`,
+          t: Date.now(),
+          kind: 'tool' as const,
+          text: `Instrument ${label} engaged`,
+        },
+        ...prev,
+      ].slice(0, 40)
+    )
+  }, [isTool, liveAction])
+
+  useEffect(() => {
+    if (!steps.length) return
+    const s = steps[steps.length - 1]
+    const label = TOOL_HELP[s.action]?.short || s.action
+    setFeed((prev) =>
+      [
+        {
+          id: `step-${s.step}-${Date.now()}`,
+          t: Date.now(),
+          kind: 'ok' as const,
+          text: `Step ${s.step} · ${label} returned ${Math.min(s.observation?.length || 0, 9999)} chars`,
+        },
+        ...prev,
+      ].slice(0, 40)
+    )
+  }, [steps.length])
+
+  useEffect(() => {
+    if (isDone) {
+      setFeed((prev) =>
+        [{ id: `done-${Date.now()}`, t: Date.now(), kind: 'ok' as const, text: 'Brief finalized' }, ...prev].slice(0, 40)
+      )
+    }
+    if (isError) {
+      setFeed((prev) =>
+        [{ id: `err-${Date.now()}`, t: Date.now(), kind: 'err' as const, text: 'Run failed' }, ...prev].slice(0, 40)
+      )
+    }
+  }, [isDone, isError])
+
+  const nodeState = (tool: string): 'idle' | 'active' | 'done' | 'error' => {
+    if (isError && liveAction === tool) return 'error'
+    if (liveAction === tool && isLive) return 'active'
+    if (steps.some((s) => s.action === tool) || (isDone && tool === 'finish')) return 'done'
+    return 'idle'
+  }
+
+  const hardPct = maxSteps > 0 ? (steps.length / maxSteps) * 100 : 0
+  const softPct = isLive && steps.length === 0 ? Math.min(18, elapsed * 2) : isLive ? Math.min(6, 2 + (elapsed % 8)) : 0
+  const barPct = isDone ? 100 : Math.min(99, hardPct + softPct)
+
+  const accent = theme.palette.primary.main
+  const surface =
     theme.palette.mode === 'dark'
-      ? 'radial-gradient(ellipse at 50% 18%, #1c2f52 0%, #0b1224 52%, #060912 100%)'
-      : 'radial-gradient(ellipse at 50% 12%, #d7e7ff 0%, #eef3f8 48%, #d5dde8 100%)'
+      ? 'linear-gradient(180deg, #121722 0%, #0c1018 100%)'
+      : 'linear-gradient(180deg, #f7f9fc 0%, #eef2f7 100%)'
 
-  const radioText = isError
-    ? 'Signal interrupted — research channel error.'
-    : activeThought ||
-      latest?.thought ||
-      (isPlanning && isRunning
-        ? 'Planner deliberating — selecting the next instrument…'
-        : isTool
-          ? `Executing ${TOOL_HELP[liveAction || '']?.short || liveAction || 'tool'}…`
-          : isDone
-            ? 'Brief complete. Delivery on the board below.'
-            : 'Ready. Set an objective and press Run.')
-
-  const activePad = pads.find((p) => p.tool === liveAction)
+  const kindColor = (kind: FeedItem['kind']) => {
+    switch (kind) {
+      case 'plan':
+        return theme.palette.info.main
+      case 'tool':
+        return theme.palette.warning.main
+      case 'ok':
+        return theme.palette.success.main
+      case 'err':
+        return theme.palette.error.main
+      default:
+        return theme.palette.text.secondary
+    }
+  }
 
   return (
     <Box
@@ -112,395 +216,327 @@ export const AgentTheaterScene: React.FC<AgentTheaterSceneProps> = ({
         position: 'relative',
         width: '100%',
         height: '100%',
-        minHeight: 460,
-        borderRadius: 3,
+        minHeight: 420,
+        borderRadius: 2,
         overflow: 'hidden',
-        background: sky,
+        background: surface,
         border: `1px solid ${theme.palette.divider}`,
-        boxShadow: theme.shadows[10],
+        display: 'grid',
+        gridTemplateRows: 'auto auto 1fr auto',
+        gap: 0,
       }}
     >
-      {/* Ambient energy field */}
-      <Box
-        component={motion.div}
-        animate={
-          reduceMotion || !visible
-            ? undefined
-            : {
-                opacity: isRunning ? [0.35, 0.65, 0.35] : [0.2, 0.35, 0.2],
-                scale: isRunning ? [1, 1.04, 1] : [1, 1.01, 1],
-              }
-        }
-        transition={{ duration: isRunning ? 3.2 : 8, repeat: Infinity, ease: 'easeInOut' }}
-        sx={{
-          position: 'absolute',
-          inset: '-15%',
-          background:
-            theme.palette.mode === 'dark'
-              ? 'radial-gradient(circle at 35% 40%, rgba(56,140,255,0.22), transparent 42%), radial-gradient(circle at 70% 55%, rgba(0,200,170,0.14), transparent 38%)'
-              : 'radial-gradient(circle at 35% 40%, rgba(25,118,210,0.14), transparent 42%), radial-gradient(circle at 70% 55%, rgba(0,150,120,0.1), transparent 38%)',
-          pointerEvents: 'none',
-        }}
-      />
-
-      <Tooltip title={AGENT_HELP.radar} arrow placement="top">
-        <Box
-          sx={{
-            position: 'absolute',
-            top: 12,
-            left: 16,
-            zIndex: 2,
-            cursor: 'help',
-            px: 1.25,
-            py: 0.5,
-            borderRadius: 1,
-            bgcolor: theme.palette.mode === 'dark' ? 'rgba(8,12,22,0.6)' : 'rgba(255,255,255,0.75)',
-            backdropFilter: 'blur(8px)',
-          }}
-        >
-          <Typography variant="caption" sx={{ fontWeight: 800, color: 'text.secondary', letterSpacing: 0.8 }}>
-            LIVE ORCHESTRATION
+      {/* Top progress rail */}
+      <Box sx={{ px: 2, pt: 1.5, pb: 1 }}>
+        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 0.75 }}>
+          <Typography variant="caption" sx={{ fontWeight: 700, letterSpacing: 1, color: 'text.secondary' }}>
+            EXECUTION RAIL
           </Typography>
-        </Box>
-      </Tooltip>
-
-      <svg viewBox={`0 0 ${W} ${H}`} width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
-        <defs>
-          <radialGradient id="hubGlow" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor={theme.palette.primary.main} stopOpacity="0.55" />
-            <stop offset="100%" stopColor={theme.palette.primary.main} stopOpacity="0" />
-          </radialGradient>
-          <filter id="softGlow" x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur stdDeviation="3.5" result="b" />
-            <feMerge>
-              <feMergeNode in="b" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-        </defs>
-
-        {/* Grid rings */}
-        <g opacity={theme.palette.mode === 'dark' ? 0.28 : 0.2}>
-          {[55, 110, 165, 220].map((r) => (
-            <circle key={r} cx={cx} cy={cy} r={r} fill="none" stroke={theme.palette.info.main} strokeWidth={0.7} />
-          ))}
-          {[0, 30, 60, 90, 120, 150].map((a) => {
-            const rad = (a * Math.PI) / 180
-            return (
-              <line
-                key={a}
-                x1={cx - 240 * Math.cos(rad)}
-                y1={cy - 240 * Math.sin(rad)}
-                x2={cx + 240 * Math.cos(rad)}
-                y2={cy + 240 * Math.sin(rad)}
-                stroke={theme.palette.info.main}
-                strokeWidth={0.45}
+          <Stack direction="row" spacing={1} alignItems="center">
+            {isLive && (
+              <Chip
+                size="small"
+                color={isTool ? 'warning' : 'info'}
+                label={isTool ? `${TOOL_HELP[liveAction || '']?.short || 'TOOL'} LIVE` : 'PLANNING'}
+                sx={{ fontWeight: 700, height: 22 }}
               />
+            )}
+            <Typography variant="caption" sx={{ fontVariantNumeric: 'tabular-nums', color: 'text.secondary' }}>
+              {elapsed}s · {steps.length}/{maxSteps}
+            </Typography>
+          </Stack>
+        </Stack>
+        <LinearProgress
+          variant="determinate"
+          value={barPct}
+          sx={{
+            height: 4,
+            borderRadius: 2,
+            bgcolor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
+            '& .MuiLinearProgress-bar': {
+              borderRadius: 2,
+              background: isDone
+                ? theme.palette.success.main
+                : `linear-gradient(90deg, ${accent}, ${theme.palette.info.main})`,
+              transition: 'transform 0.35s ease',
+            },
+          }}
+        />
+      </Box>
+
+      {/* Horizontal instrument pipeline */}
+      <Box sx={{ px: 2, pb: 1.5 }}>
+        <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ position: 'relative' }}>
+          {catalog.map((tool, i) => {
+            const state = nodeState(tool)
+            const short = TOOL_HELP[tool]?.short || tool.slice(0, 4).toUpperCase()
+            const color =
+              state === 'active'
+                ? theme.palette.warning.main
+                : state === 'done'
+                  ? theme.palette.success.main
+                  : state === 'error'
+                    ? theme.palette.error.main
+                    : theme.palette.mode === 'dark'
+                      ? 'rgba(255,255,255,0.18)'
+                      : 'rgba(0,0,0,0.16)'
+            return (
+              <React.Fragment key={tool}>
+                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 1, minWidth: 56 }}>
+                  <Box sx={{ position: 'relative' }}>
+                    {state === 'active' && !reduceMotion && (
+                      <Box
+                        component={motion.div}
+                        animate={{ scale: [1, 1.55, 1], opacity: [0.55, 0, 0.55] }}
+                        transition={{ duration: 1.1, repeat: Infinity }}
+                        sx={{
+                          position: 'absolute',
+                          inset: -6,
+                          borderRadius: '50%',
+                          border: `2px solid ${color}`,
+                        }}
+                      />
+                    )}
+                    <Box
+                      component={motion.div}
+                      animate={state === 'active' && !reduceMotion ? { scale: [1, 1.08, 1] } : { scale: 1 }}
+                      transition={{ duration: 0.9, repeat: state === 'active' ? Infinity : 0 }}
+                      sx={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: '50%',
+                        bgcolor: state === 'idle' ? 'transparent' : `${color}22`,
+                        border: `2px solid ${color}`,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: 10,
+                        fontWeight: 800,
+                        color: state === 'idle' ? 'text.secondary' : color,
+                        letterSpacing: 0.4,
+                      }}
+                    >
+                      {short.slice(0, 3)}
+                    </Box>
+                  </Box>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      mt: 0.5,
+                      fontWeight: state === 'active' ? 800 : 600,
+                      color: state === 'active' ? color : 'text.secondary',
+                      fontSize: 10,
+                    }}
+                  >
+                    {short}
+                  </Typography>
+                </Box>
+                {i < catalog.length - 1 && (
+                  <Box sx={{ flex: 1, height: 2, mx: 0.5, position: 'relative', overflow: 'hidden', borderRadius: 1 }}>
+                    <Box
+                      sx={{
+                        position: 'absolute',
+                        inset: 0,
+                        bgcolor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
+                      }}
+                    />
+                    {(nodeState(catalog[i]) === 'done' || nodeState(catalog[i]) === 'active') && (
+                      <Box
+                        component={motion.div}
+                        animate={
+                          reduceMotion || !isLive
+                            ? { x: '0%' }
+                            : { x: ['-60%', '120%'] }
+                        }
+                        transition={{ duration: 1.4, repeat: Infinity, ease: 'linear' }}
+                        sx={{
+                          position: 'absolute',
+                          top: 0,
+                          bottom: 0,
+                          width: '40%',
+                          background: `linear-gradient(90deg, transparent, ${accent}, transparent)`,
+                        }}
+                      />
+                    )}
+                  </Box>
+                )}
+              </React.Fragment>
             )
           })}
-        </g>
+        </Stack>
+      </Box>
 
-        {/* Sweep — faster while planning/tool */}
-        {!reduceMotion && visible && (
-          <motion.g
-            style={{ transformOrigin: `${cx}px ${cy}px` }}
-            animate={{ rotate: 360 }}
-            transition={{
-              duration: isTool ? 2.4 : isPlanning && isRunning ? 3.2 : 9,
-              repeat: Infinity,
-              ease: 'linear',
-            }}
-          >
-            <path
-              d={`M ${cx} ${cy} L ${cx} ${cy - 250} A 250 250 0 0 1 ${cx + 140} ${cy - 208} Z`}
-              fill={
-                theme.palette.mode === 'dark'
-                  ? 'rgba(120,190,255,0.16)'
-                  : 'rgba(25,118,210,0.12)'
-              }
-            />
-          </motion.g>
-        )}
-
-        {/* Energy beam to active tool */}
-        {activePad && isRunning && (
-          <motion.line
-            x1={cx}
-            y1={cy}
-            x2={activePad.x}
-            y2={activePad.y}
-            stroke={isTool ? theme.palette.warning.main : theme.palette.primary.light}
-            strokeWidth={2.5}
-            strokeLinecap="round"
-            filter="url(#softGlow)"
-            initial={{ pathLength: 0, opacity: 0 }}
-            animate={{
-              opacity: [0.35, 1, 0.35],
-              strokeDashoffset: [0, -24],
-            }}
-            transition={{ duration: 1.1, repeat: Infinity, ease: 'easeInOut' }}
-            strokeDasharray="8 6"
-          />
-        )}
-
-        {/* Tool nodes */}
-        {pads.map((pad) => {
-          const active = liveAction === pad.tool && isRunning
-          const used = steps.some((s) => s.action === pad.tool) || (isDone && pad.tool === 'finish')
-          const meta = TOOL_HELP[pad.tool]
-          const fill = active
-            ? theme.palette.warning.main
-            : used
-              ? theme.palette.success.main
-              : theme.palette.mode === 'dark'
-                ? '#1e293b'
-                : '#cbd5e1'
-          return (
-            <g key={pad.tool}>
-              {active && !reduceMotion && (
-                <>
-                  <motion.circle
-                    cx={pad.x}
-                    cy={pad.y}
-                    r={34}
-                    fill="none"
-                    stroke={theme.palette.warning.main}
-                    strokeWidth={2}
-                    initial={{ opacity: 0.9, scale: 0.7 }}
-                    animate={{ opacity: 0, scale: 1.8 }}
-                    transition={{ duration: 1.2, repeat: Infinity }}
-                  />
-                  <motion.circle
-                    cx={pad.x}
-                    cy={pad.y}
-                    r={26}
-                    fill="none"
-                    stroke={theme.palette.secondary.main}
-                    strokeWidth={1.5}
-                    initial={{ opacity: 0.7, scale: 0.85 }}
-                    animate={{ opacity: 0, scale: 1.55 }}
-                    transition={{ duration: 1.2, repeat: Infinity, delay: 0.35 }}
-                  />
-                </>
-              )}
-              <motion.circle
-                cx={pad.x}
-                cy={pad.y}
-                r={active ? 24 : used ? 18 : 15}
-                fill={fill}
-                stroke={theme.palette.background.paper}
-                strokeWidth={2}
-                filter={active ? 'url(#softGlow)' : undefined}
-                animate={
-                  active && !reduceMotion
-                    ? { scale: [1, 1.14, 1] }
-                    : { scale: 1 }
-                }
-                transition={{ duration: 0.9, repeat: active ? Infinity : 0 }}
-              />
-              <text
-                x={pad.x}
-                y={pad.y + 40}
-                textAnchor="middle"
-                fill={theme.palette.text.primary}
-                fontSize={11}
-                fontWeight={800}
-                style={{ letterSpacing: 0.7 }}
-              >
-                {meta?.short || pad.tool.slice(0, 6).toUpperCase()}
-              </text>
-              <title>{meta?.help || pad.tool}</title>
-            </g>
-          )
-        })}
-
-        {/* Planner hub */}
-        <circle cx={cx} cy={cy} r={58} fill="url(#hubGlow)" opacity={isPlanning && isRunning ? 0.95 : 0.55} />
-        <motion.circle
-          cx={cx}
-          cy={cy}
-          r={36}
-          fill={theme.palette.mode === 'dark' ? '#0f172a' : '#ffffff'}
-          stroke={
-            isError
-              ? theme.palette.error.main
-              : isDone
-                ? theme.palette.success.main
-                : isTool
-                  ? theme.palette.warning.main
-                  : theme.palette.primary.main
-          }
-          strokeWidth={3.5}
-          filter="url(#softGlow)"
-          animate={
-            isPlanning && isRunning && !reduceMotion
-              ? { scale: [1, 1.08, 1], rotate: [0, 6, -6, 0] }
-              : { scale: 1 }
-          }
-          transition={{ duration: 1.6, repeat: isPlanning && isRunning ? Infinity : 0 }}
-          style={{ transformOrigin: `${cx}px ${cy}px` }}
-        />
-        <text x={cx} y={cy - 4} textAnchor="middle" fill={theme.palette.text.primary} fontSize={11} fontWeight={800}>
-          {isPlanning && isRunning ? 'PLANNING' : isTool ? 'EXECUTING' : isDone ? 'COMPLETE' : 'PLANNER'}
-        </text>
-        <text x={cx} y={cy + 12} textAnchor="middle" fill={theme.palette.text.secondary} fontSize={9}>
-          INSIGHT BRIDGE
-        </text>
-
-        {/* Packet / craft traveling to active pad */}
-        {activePad && isRunning && !reduceMotion && (
-          <motion.g
-            animate={{
-              x: [cx, (cx + activePad.x) / 2 + 20, activePad.x],
-              y: [cy, (cy + activePad.y) / 2 - 30, activePad.y],
-            }}
-            transition={{ duration: 1.35, repeat: Infinity, ease: 'easeInOut' }}
-          >
-            <polygon
-              points="0,-9 7,7 0,3 -7,7"
-              fill={isTool ? theme.palette.warning.main : theme.palette.info.main}
-              stroke={theme.palette.background.paper}
-              strokeWidth={1}
-            />
-          </motion.g>
-        )}
-
-        {/* Completed flight trails */}
-        {steps.map((step, idx) => {
-          const pad = pads.find((p) => p.tool === step.action) || pads[idx % pads.length]
-          return (
-            <motion.path
-              key={`trail-${step.step}`}
-              d={`M ${cx} ${cy} Q ${(cx + pad.x) / 2 + 35} ${(cy + pad.y) / 2 - 45} ${pad.x} ${pad.y}`}
-              fill="none"
-              stroke={theme.palette.info.main}
-              strokeWidth={1.4}
-              strokeDasharray="5 5"
-              initial={{ pathLength: 0, opacity: 0 }}
-              animate={{ pathLength: 1, opacity: 0.45 }}
-              transition={{ duration: 0.8 }}
-            />
-          )
-        })}
-
-        {/* Particles */}
-        {particles.map((p) => (
-          <circle key={p.id} cx={p.x} cy={p.y} r={p.r} fill={theme.palette.info.light} opacity={0.35} />
-        ))}
-
-        {isDone && (
-          <motion.rect
-            x={0}
-            y={0}
-            width={W}
-            height={H}
-            fill={theme.palette.success.main}
-            initial={{ opacity: 0.28 }}
-            animate={{ opacity: 0 }}
-            transition={{ duration: 1.5 }}
-          />
-        )}
-      </svg>
-
-      {/* Thinking panel */}
+      {/* Main split: thought + feed */}
       <Box
         sx={{
-          position: 'absolute',
-          left: 16,
-          bottom: 16,
-          right: { xs: 16, md: 'auto' },
-          maxWidth: 440,
-          p: 1.5,
-          borderRadius: 2,
-          bgcolor: theme.palette.mode === 'dark' ? 'rgba(8,12,22,0.78)' : 'rgba(255,255,255,0.82)',
-          backdropFilter: 'blur(12px)',
-          border: `1px solid ${theme.palette.divider}`,
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', md: '1.35fr 1fr' },
+          gap: 0,
+          minHeight: 0,
+          borderTop: `1px solid ${theme.palette.divider}`,
         }}
       >
-        <Typography
-          variant="caption"
-          sx={{ color: 'text.secondary', fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase' }}
+        <Box
+          sx={{
+            p: 2,
+            borderRight: { md: `1px solid ${theme.palette.divider}` },
+            display: 'flex',
+            flexDirection: 'column',
+            minHeight: 0,
+          }}
         >
-          {isPlanning && isRunning ? 'Planner' : isTool ? 'Instrument feed' : 'Status'}
-        </Typography>
-        <AnimatePresence mode="wait">
-          <Typography
-            component={motion.div}
-            key={radioText.slice(0, 48)}
-            initial={reduceMotion ? false : { opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            sx={{ mt: 0.5, fontSize: 13, lineHeight: 1.45, minHeight: 40 }}
-          >
-            {radioText}
+          <Typography variant="caption" sx={{ fontWeight: 700, letterSpacing: 1, color: 'text.secondary', mb: 1 }}>
+            REASONING STREAM
           </Typography>
-        </AnimatePresence>
-        {latest?.observation && (
-          <Typography
-            variant="caption"
+          <Box
             sx={{
-              display: 'block',
-              mt: 1,
-              color: 'text.secondary',
-              maxHeight: 52,
-              overflow: 'hidden',
+              flex: 1,
+              minHeight: 140,
+              p: 1.5,
+              borderRadius: 1.5,
+              bgcolor: theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.28)' : 'rgba(255,255,255,0.65)',
+              border: `1px solid ${theme.palette.divider}`,
+              fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+              fontSize: 13,
+              lineHeight: 1.55,
+              color: 'text.primary',
+              overflow: 'auto',
             }}
           >
-            Result: {latest.observation.slice(0, 180)}
-            {latest.observation.length > 180 ? '…' : ''}
+            {isLive && !typedThought && (
+              <Typography component="span" sx={{ color: 'text.secondary' }}>
+                {planningLines[planIdx]}
+                {!reduceMotion && (
+                  <Box
+                    component={motion.span}
+                    animate={{ opacity: [0.2, 1, 0.2] }}
+                    transition={{ duration: 0.9, repeat: Infinity }}
+                    sx={{ ml: 0.25 }}
+                  >
+                    ▍
+                  </Box>
+                )}
+              </Typography>
+            )}
+            {typedThought && (
+              <Typography component="span">
+                {typedThought}
+                {isLive && !reduceMotion && typedThought.length < (activeThought || '').length && (
+                  <Box component="span" sx={{ opacity: 0.7 }}>
+                    ▍
+                  </Box>
+                )}
+              </Typography>
+            )}
+            {!isLive && !typedThought && (
+              <Typography component="span" sx={{ color: 'text.secondary' }}>
+                Idle. Set an objective and press Run — this stream fills as the model reasons.
+              </Typography>
+            )}
+          </Box>
+
+          {steps[steps.length - 1]?.observation && (
+            <Box sx={{ mt: 1.25 }}>
+              <Typography variant="caption" sx={{ fontWeight: 700, letterSpacing: 1, color: 'text.secondary' }}>
+                LAST OBSERVATION
+              </Typography>
+              <Typography
+                variant="body2"
+                sx={{
+                  mt: 0.5,
+                  color: 'text.secondary',
+                  display: '-webkit-box',
+                  WebkitLineClamp: 3,
+                  WebkitBoxOrient: 'vertical',
+                  overflow: 'hidden',
+                }}
+              >
+                {steps[steps.length - 1].observation}
+              </Typography>
+            </Box>
+          )}
+        </Box>
+
+        <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+          <Typography variant="caption" sx={{ fontWeight: 700, letterSpacing: 1, color: 'text.secondary', mb: 1 }}>
+            ACTIVITY
+          </Typography>
+          <Box sx={{ flex: 1, overflow: 'auto', minHeight: 140, pr: 0.5 }}>
+            <AnimatePresence initial={false}>
+              {feed.map((item) => (
+                <Box
+                  component={motion.div}
+                  key={item.id}
+                  initial={reduceMotion ? false : { opacity: 0, x: 8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  sx={{
+                    display: 'flex',
+                    gap: 1,
+                    alignItems: 'flex-start',
+                    py: 0.65,
+                    borderBottom: `1px solid ${theme.palette.divider}`,
+                  }}
+                >
+                  <Box
+                    sx={{
+                      mt: 0.6,
+                      width: 6,
+                      height: 6,
+                      borderRadius: '50%',
+                      bgcolor: kindColor(item.kind),
+                      flexShrink: 0,
+                    }}
+                  />
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: 'text.primary',
+                      fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+                      lineHeight: 1.4,
+                    }}
+                  >
+                    {item.text}
+                  </Typography>
+                </Box>
+              ))}
+            </AnimatePresence>
+          </Box>
+        </Box>
+      </Box>
+
+      {/* Footer brief strip */}
+      <Box
+        sx={{
+          px: 2,
+          py: 1.25,
+          borderTop: `1px solid ${theme.palette.divider}`,
+          bgcolor: theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.22)' : 'rgba(255,255,255,0.5)',
+          minHeight: 48,
+        }}
+      >
+        {finalAnswer ? (
+          <Stack direction="row" spacing={1} alignItems="flex-start">
+            <Chip
+              size="small"
+              color={/could not complete|failed|error/i.test(finalAnswer) ? 'warning' : 'success'}
+              label={/could not complete|failed|error/i.test(finalAnswer) ? 'BRIEF · PARTIAL' : 'BRIEF'}
+              sx={{ fontWeight: 700 }}
+            />
+            <Typography variant="body2" sx={{ color: 'text.secondary', flex: 1 }}>
+              {finalAnswer.slice(0, 220)}
+              {finalAnswer.length > 220 ? '…' : ''}
+            </Typography>
+          </Stack>
+        ) : (
+          <Typography variant="caption" color="text.secondary">
+            {holding && isLive
+              ? isTool
+                ? 'Streaming tool output into the observation buffer…'
+                : 'Model is deliberating — activity log updates every ~1.5s until the next instrument fires.'
+              : 'Brief delivery appears here when the run finishes.'}
           </Typography>
         )}
       </Box>
-
-      {finalAnswer && (
-        <Box
-          component={motion.div}
-          initial={{ opacity: 0, y: 16, scale: 0.98 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          sx={{
-            position: 'absolute',
-            right: 16,
-            top: 16,
-            maxWidth: 340,
-            p: 1.5,
-            borderRadius: 2,
-            bgcolor: theme.palette.mode === 'dark' ? 'rgba(12,28,18,0.88)' : 'rgba(232,245,233,0.94)',
-            border: `1px solid ${theme.palette.success.main}`,
-            backdropFilter: 'blur(10px)',
-          }}
-        >
-          <Typography variant="caption" sx={{ fontWeight: 800, color: 'success.main', letterSpacing: 1 }}>
-            BRIEF DELIVERED
-          </Typography>
-          <Typography sx={{ mt: 0.5, fontSize: 13, lineHeight: 1.4, maxHeight: 140, overflow: 'auto' }}>
-            {finalAnswer.slice(0, 420)}
-            {finalAnswer.length > 420 ? '…' : ''}
-          </Typography>
-        </Box>
-      )}
-
-      {holding && isRunning && (
-        <Box
-          component={motion.div}
-          animate={{ opacity: [0.55, 1, 0.55] }}
-          transition={{ duration: 1.2, repeat: Infinity }}
-          sx={{
-            position: 'absolute',
-            top: 12,
-            right: 16,
-            px: 1.25,
-            py: 0.5,
-            borderRadius: 1,
-            bgcolor: isTool ? 'warning.main' : 'info.main',
-            color: 'common.white',
-            fontSize: 11,
-            fontWeight: 800,
-            letterSpacing: 0.6,
-          }}
-        >
-          {isTool ? 'TOOL LIVE' : 'PLANNING'}
-        </Box>
-      )}
     </Box>
   )
 }
