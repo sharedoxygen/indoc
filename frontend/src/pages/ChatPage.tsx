@@ -408,7 +408,7 @@ const ChatPage: React.FC = () => {
         <AgentModePanel
           documentIds={selectedDocuments}
           onFinalAnswer={(_goal, _answer, run) => {
-            enqueueSnackbar('Brief complete — Ask follow-up from the Brief Board', { variant: 'success' })
+            enqueueSnackbar('Brief ready — open it on the Brief Board below', { variant: 'success' })
             setFollowUpBrief(run)
           }}
           onAskFollowUp={openFollowUp}
