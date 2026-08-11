@@ -13,7 +13,12 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material'
-import { AutoAwesome as RunIcon, ExpandMore as ExpandMoreIcon, Stop as StopIcon } from '@mui/icons-material'
+import {
+  AutoAwesome as RunIcon,
+  ExpandMore as ExpandMoreIcon,
+  Stop as StopIcon,
+  Chat as ChatIcon,
+} from '@mui/icons-material'
 import { motion } from 'framer-motion'
 import { useAgentStream } from '../../hooks/useAgentStream'
 import HelpTip from '../HelpTip'
@@ -33,6 +38,7 @@ export interface AgentRunRecord {
 interface AgentModePanelProps {
   documentIds: string[]
   onFinalAnswer?: (goal: string, answer: string, run: AgentRunRecord) => void
+  onAskFollowUp?: (run: AgentRunRecord) => void
 }
 
 function loadRuns(): AgentRunRecord[] {
@@ -50,7 +56,11 @@ function saveRuns(runs: AgentRunRecord[]) {
   sessionStorage.setItem(RUNS_KEY, JSON.stringify(runs.slice(0, 20)))
 }
 
-export const AgentModePanel: React.FC<AgentModePanelProps> = ({ documentIds, onFinalAnswer }) => {
+export const AgentModePanel: React.FC<AgentModePanelProps> = ({
+  documentIds,
+  onFinalAnswer,
+  onAskFollowUp,
+}) => {
   const agent = useAgentStream()
   const [goal, setGoal] = useState('')
   const [maxSteps, setMaxSteps] = useState(6)
@@ -299,6 +309,21 @@ export const AgentModePanel: React.FC<AgentModePanelProps> = ({ documentIds, onF
                   {run.answer.slice(0, 360)}
                   {run.answer.length > 360 ? '…' : ''}
                 </Typography>
+                {onAskFollowUp && (
+                  <Box sx={{ mt: 1 }}>
+                    <Tooltip title={AGENT_HELP.askFollowUp}>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        startIcon={<ChatIcon />}
+                        onClick={() => onAskFollowUp(run)}
+                        sx={{ borderRadius: 999, textTransform: 'none', fontWeight: 650 }}
+                      >
+                        Ask follow-up
+                      </Button>
+                    </Tooltip>
+                  </Box>
+                )}
               </Box>
             ))}
         </Stack>
