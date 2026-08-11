@@ -1,8 +1,9 @@
 """
 LLM Service with Multi-Provider Support and Fallback Strategy
 
-Primary: Ollama (local, private)
-Fallback: OpenAI (cloud, requires API key)
+Primary: Ollama model (local, private)
+Local fallback: alternate installed Ollama chat models
+Cloud fallback: OpenAI (optional, last resort)
 Final: Graceful degradation message
 
 Per AI Guide §3: Never hallucinate, always ground in sources or abstain
@@ -15,6 +16,8 @@ from app.core.config import settings
 from app.core.cache import cache_service
 
 logger = logging.getLogger(__name__)
+
+_EMBEDDING_MODEL_MARKERS = ("embed", "embedding")
 
 
 class LLMConnectionError(Exception):
@@ -30,10 +33,13 @@ class LLMService:
         self.ollama_base_url = settings.OLLAMA_BASE_URL
         self.ollama_model = None  # Will be dynamically selected
         self.timeout = settings.LLM_TIMEOUT_S
+        self.ollama_fallback_models = list(
+            getattr(settings, "OLLAMA_FALLBACK_MODELS", None) or []
+        )
         
-        # Fallback provider (OpenAI)
+        # Cloud fallback (OpenAI) — only after local models are exhausted
         self.openai_api_key = getattr(settings, 'OPENAI_API_KEY', None)
-        self.openai_model = getattr(settings, 'OPENAI_MODEL', 'gpt-4')
+        self.openai_model = getattr(settings, 'OPENAI_MODEL', 'gpt-4o-mini')
         
         # HTTP clients
         self._http_client = None
@@ -63,13 +69,15 @@ class LLMService:
         raw: bool = False,
     ) -> str:
         """
-        Generate response with multi-provider fallback
-        
+        Generate response with local-first fallback.
+
         Fallback strategy:
-        1. Try Ollama (primary, local, private)
-        2. Try OpenAI (fallback, cloud, requires API key)
-        3. Return graceful degradation message
-        
+        1. Ollama primary model (configured / requested)
+        2. On timeout: one retry on the same primary model
+        3. Other local Ollama chat models (OLLAMA_FALLBACK_MODELS)
+        4. OpenAI (optional cloud last resort)
+        5. Graceful degradation message
+
         Per AI Guide §3: Low temperature (≤0.3) for factual tasks
 
         When raw=True, skip the conversational chat system wrapper so callers
@@ -82,45 +90,116 @@ class LLMService:
         if cached_response:
             logger.info(f"✅ Cache hit for LLM request")
             return cached_response
-        
-        # Try primary provider (Ollama)
+
+        last_error: Optional[Exception] = None
+
+        # 1) Primary local model
         try:
             logger.info("🔵 Attempting Ollama (primary provider)...")
             response_text = await self._ollama_generate(
                 prompt, context, max_tokens, temperature, model, raw=raw
             )
-            
-            # Cache successful non-empty response
             if response_text:
                 await cache_service.cache_llm_response(
                     prompt, context or "", model or ("raw" if raw else "ollama"), response_text
                 )
-            return response_text
-            
+                return response_text
+            last_error = LLMConnectionError("Empty response from primary Ollama model")
+            logger.warning("⚠️ %s", last_error)
         except Exception as ollama_error:
-            logger.warning(f"⚠️ Ollama unavailable: {ollama_error}")
-            
-            # Try fallback provider (OpenAI)
-            if self.openai_api_key:
+            last_error = ollama_error
+            if self._is_timeout_error(ollama_error):
+                logger.warning(
+                    "⚠️ Ollama timed out after %ss; retrying once on primary model: %s",
+                    self.timeout,
+                    ollama_error,
+                )
                 try:
-                    logger.info("🟢 Falling back to OpenAI...")
-                    response_text = await self._openai_generate(
+                    response_text = await self._ollama_generate(
                         prompt, context, max_tokens, temperature, model, raw=raw
                     )
-                    
                     if response_text:
                         await cache_service.cache_llm_response(
-                            prompt, context or "", model or ("raw" if raw else "openai"), response_text
+                            prompt,
+                            context or "",
+                            model or ("raw" if raw else "ollama"),
+                            response_text,
                         )
-                    return response_text
-                    
-                except Exception as openai_error:
-                    logger.error(f"❌ OpenAI fallback failed: {openai_error}")
+                        return response_text
+                    last_error = LLMConnectionError(
+                        "Empty response from primary Ollama model after timeout retry"
+                    )
+                except Exception as retry_error:
+                    logger.warning(f"⚠️ Ollama primary retry failed: {retry_error}")
+                    last_error = retry_error
             else:
-                logger.warning("⚠️ OpenAI API key not configured, can't use fallback")
-            
-            # All providers failed - return graceful degradation
-            return self._fallback_response(ollama_error)
+                logger.warning(f"⚠️ Ollama primary unavailable: {ollama_error}")
+
+        # 2) Other local Ollama chat models before any cloud call
+        for fallback_model in await self._iter_local_fallback_models(primary=model):
+            try:
+                logger.info("🟠 Falling back to local Ollama model %s...", fallback_model)
+                response_text = await self._ollama_generate(
+                    prompt,
+                    context,
+                    max_tokens,
+                    temperature,
+                    fallback_model,
+                    raw=raw,
+                )
+                if response_text:
+                    await cache_service.cache_llm_response(
+                        prompt,
+                        context or "",
+                        fallback_model,
+                        response_text,
+                    )
+                    return response_text
+                last_error = LLMConnectionError(
+                    f"Empty response from local fallback model {fallback_model}"
+                )
+                logger.warning("⚠️ %s", last_error)
+            except Exception as local_fallback_error:
+                logger.warning(
+                    "⚠️ Local Ollama fallback %s failed: %s",
+                    fallback_model,
+                    local_fallback_error,
+                )
+                last_error = local_fallback_error
+
+        # 3) Optional cloud last resort
+        if self.openai_api_key:
+            try:
+                logger.info("🟢 Falling back to OpenAI (cloud last resort)...")
+                response_text = await self._openai_generate(
+                    prompt, context, max_tokens, temperature, None, raw=raw
+                )
+                if response_text:
+                    await cache_service.cache_llm_response(
+                        prompt, context or "", model or ("raw" if raw else "openai"), response_text
+                    )
+                    return response_text
+            except Exception as openai_error:
+                logger.error(f"❌ OpenAI fallback failed: {openai_error}")
+                last_error = openai_error
+        else:
+            logger.warning("⚠️ OpenAI API key not configured; skipping cloud fallback")
+
+        return self._fallback_response(last_error or LLMConnectionError("All LLM providers failed"))
+
+    @staticmethod
+    def _is_timeout_error(error: Exception) -> bool:
+        """True when the failure is an HTTP/connect read timeout, not a hard outage."""
+        if isinstance(error, (httpx.TimeoutException, asyncio.TimeoutError)):
+            return True
+        name = type(error).__name__.lower()
+        msg = str(error).lower()
+        return "timeout" in name or "timed out" in msg or "timeout" in msg
+
+    @staticmethod
+    def _is_embedding_model(name: str) -> bool:
+        low = (name or "").lower()
+        return any(token in low for token in _EMBEDDING_MODEL_MARKERS)
 
     @staticmethod
     def _match_available_model(candidate: str, available: List[str]) -> Optional[str]:
@@ -138,11 +217,43 @@ class LLMService:
     @staticmethod
     def _pick_fallback_model(available: List[str]) -> str:
         """Prefer a fast local chat model when the configured one is missing."""
-        for name in available:
+        chat = [n for n in available if not LLMService._is_embedding_model(n)]
+        pool = chat or available
+        for name in pool:
             low = name.lower()
             if any(token in low for token in ("flash", "nano", "mini", "small")):
                 return name
-        return available[0]
+        return pool[0]
+
+    async def _iter_local_fallback_models(self, primary: Optional[str] = None) -> List[str]:
+        """Installed local chat models to try after the primary fails."""
+        available = await self.list_available_models()
+        if not available:
+            return []
+
+        primary_resolved = self._resolve_ollama_model(primary, available)
+        configured = [
+            self._match_available_model(candidate, available)
+            for candidate in (self.ollama_fallback_models or [])
+        ]
+        ordered: List[str] = []
+        for name in configured:
+            if (
+                name
+                and name != primary_resolved
+                and not self._is_embedding_model(name)
+                and name not in ordered
+            ):
+                ordered.append(name)
+
+        # If config pointed at missing tags, still offer one fast installed chat model.
+        if not ordered:
+            for name in available:
+                if name == primary_resolved or self._is_embedding_model(name):
+                    continue
+                ordered.append(name)
+                break
+        return ordered
 
     def _resolve_ollama_model(self, model: Optional[str], available: List[str]) -> str:
         """Prefer explicit/configured model when installed; never 404 on a missing tag."""
