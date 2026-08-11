@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react'
-import { Box, Grid, Paper, Typography, useTheme, Chip } from '@mui/material'
+import { Box, Grid, Paper, Typography, useTheme } from '@mui/material'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import {
@@ -175,87 +175,99 @@ const DashboardPage: React.FC = () => {
       <Typography variant="h6" sx={{ fontWeight: 600, mb: 2, color: 'text.secondary' }}>
         Instrument Cluster
       </Typography>
-      <Grid container spacing={2} sx={{ mb: 4 }}>
-        <Grid item xs={12} sm={6} md={3}>
-          <Paper
-            component={motion.div}
-            {...tileMotion}
-            onClick={() => navigate('/documents')}
-            sx={{
-              p: 2,
-              borderRadius: 3,
-              cursor: 'pointer',
-              display: 'flex',
-              justifyContent: 'center',
-              '&:hover': { borderColor: 'primary.main' },
-              border: '1px solid',
-              borderColor: 'divider',
-            }}
-          >
-            <PrecisionDial
-              value={indexedPct}
-              label="Indexed"
-              unit="%"
-              precision={1}
-              size={150}
-              status={indexedPct >= 90 ? 'ok' : indexedPct >= 50 ? 'warn' : 'active'}
-            />
-          </Paper>
+      <Paper
+        sx={{
+          p: { xs: 1.5, md: 2 },
+          mb: 4,
+          borderRadius: 2,
+          border: '1px solid',
+          borderColor: 'divider',
+          background:
+            theme.palette.mode === 'dark'
+              ? 'linear-gradient(180deg, rgba(255,255,255,0.02) 0%, transparent 100%)'
+              : 'linear-gradient(180deg, rgba(0,0,0,0.015) 0%, transparent 100%)',
+        }}
+      >
+        <Grid container spacing={1}>
+          <Grid item xs={12} sm={6} md={3}>
+            <Box
+              component={motion.div}
+              {...tileMotion}
+              onClick={() => navigate('/documents')}
+              sx={{
+                py: 1,
+                cursor: 'pointer',
+                display: 'flex',
+                justifyContent: 'center',
+                borderRadius: 1,
+                '&:hover': { bgcolor: 'action.hover' },
+              }}
+            >
+              <PrecisionDial
+                value={indexedPct}
+                label="Indexed"
+                unit="%"
+                precision={1}
+                size={128}
+                status={indexedPct >= 90 ? 'ok' : indexedPct >= 50 ? 'warn' : 'active'}
+              />
+            </Box>
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <Box
+              component={motion.div}
+              {...tileMotion}
+              transition={{ ...tileMotion.transition, delay: 0.05 }}
+              sx={{ py: 1, display: 'flex', justifyContent: 'center' }}
+            >
+              <ArcMeter
+                value={queuePct}
+                label="Queue"
+                subtitle={`${inQueueNow} in flight`}
+                unit="%"
+                precision={0}
+                size={120}
+                status={inQueueNow > 0 ? 'warn' : 'ok'}
+              />
+            </Box>
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <Box
+              component={motion.div}
+              {...tileMotion}
+              transition={{ ...tileMotion.transition, delay: 0.1 }}
+              sx={{ py: 1, display: 'flex', justifyContent: 'center' }}
+            >
+              <NeedleGauge
+                value={failPct}
+                label="Failure rate"
+                unit="%"
+                precision={1}
+                size={120}
+                status={failPct > 5 ? 'error' : failPct > 0 ? 'warn' : 'ok'}
+                displayValue={`${failedNow}`}
+              />
+            </Box>
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <Box
+              component={motion.div}
+              {...tileMotion}
+              transition={{ ...tileMotion.transition, delay: 0.15 }}
+              sx={{ py: 1, display: 'flex', justifyContent: 'center' }}
+            >
+              <NeedleGauge
+                value={processGaugeValue}
+                max={processGaugeMax}
+                label="Avg process"
+                size={120}
+                status="active"
+                displayValue={formatSeconds(Number(avgProcessSecs) || 0)}
+              />
+            </Box>
+          </Grid>
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Paper
-            component={motion.div}
-            {...tileMotion}
-            transition={{ ...tileMotion.transition, delay: 0.05 }}
-            sx={{ p: 2, borderRadius: 3, border: '1px solid', borderColor: 'divider', display: 'flex', justifyContent: 'center' }}
-          >
-            <ArcMeter
-              value={queuePct}
-              label="Queue"
-              subtitle={`${inQueueNow} in flight`}
-              unit="%"
-              precision={0}
-              size={140}
-              status={inQueueNow > 0 ? 'warn' : 'ok'}
-            />
-          </Paper>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Paper
-            component={motion.div}
-            {...tileMotion}
-            transition={{ ...tileMotion.transition, delay: 0.1 }}
-            sx={{ p: 2, borderRadius: 3, border: '1px solid', borderColor: 'divider', display: 'flex', justifyContent: 'center' }}
-          >
-            <NeedleGauge
-              value={failPct}
-              label="Failure rate"
-              unit="%"
-              precision={1}
-              size={140}
-              status={failPct > 5 ? 'error' : failPct > 0 ? 'warn' : 'ok'}
-              displayValue={`${failedNow}`}
-            />
-          </Paper>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Paper
-            component={motion.div}
-            {...tileMotion}
-            transition={{ ...tileMotion.transition, delay: 0.15 }}
-            sx={{ p: 2, borderRadius: 3, border: '1px solid', borderColor: 'divider', display: 'flex', justifyContent: 'center' }}
-          >
-            <NeedleGauge
-              value={processGaugeValue}
-              max={processGaugeMax}
-              label="Avg process"
-              size={140}
-              status="active"
-              displayValue={formatSeconds(Number(avgProcessSecs) || 0)}
-            />
-          </Paper>
-        </Grid>
-      </Grid>
+      </Paper>
 
       <Grid container spacing={2} sx={{ mb: 4 }}>
         <Grid item xs={12} md={4}>
@@ -265,12 +277,14 @@ const DashboardPage: React.FC = () => {
             </Typography>
             <SegmentRing
               segments={pipelineSegments}
-              size={200}
+              size={168}
               centerLabel="Ready"
               centerValue={String(indexedCount)}
             />
             {failedNow > 0 && (
-              <Chip sx={{ mt: 1 }} label={`${failedNow} Failed`} color="error" size="small" />
+              <Typography variant="caption" color="error" sx={{ mt: 1, fontWeight: 600 }}>
+                {failedNow} failed
+              </Typography>
             )}
           </Paper>
         </Grid>
