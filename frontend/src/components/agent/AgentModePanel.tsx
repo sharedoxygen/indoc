@@ -232,8 +232,29 @@ export const AgentModePanel: React.FC<AgentModePanelProps> = ({ documentIds, onF
               >
                 <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5 }}>
                   <Tooltip title="Tool steps taken in this run">
-                    <Chip size="small" label={`${run.steps || 0} steps`} />
+                    <Chip
+                      size="small"
+                      variant="outlined"
+                      label={`${run.steps || 0} steps`}
+                      sx={{ height: 22, borderRadius: 0.75, fontWeight: 600 }}
+                    />
                   </Tooltip>
+                  {/could not complete|planning_failed|failed|error/i.test(run.answer) ? (
+                    <Chip
+                      size="small"
+                      color="warning"
+                      label="PARTIAL"
+                      sx={{ height: 22, borderRadius: 0.75, fontWeight: 700 }}
+                    />
+                  ) : (
+                    <Chip
+                      size="small"
+                      color="success"
+                      variant="outlined"
+                      label="BRIEF"
+                      sx={{ height: 22, borderRadius: 0.75, fontWeight: 700 }}
+                    />
+                  )}
                   <Typography variant="caption" color="text.secondary" noWrap sx={{ flex: 1 }}>
                     {run.goal}
                   </Typography>
