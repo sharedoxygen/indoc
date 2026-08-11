@@ -47,31 +47,30 @@ class AgentTools:
             {
                 "name": "list_documents",
                 "description": (
-                    "List the documents currently in scope for this task "
-                    "(id, title, file type). Use this first to learn what is "
-                    "available before searching or reading."
+                    "Quick catalog peek (capped sample of ids/titles in scope). "
+                    "Optional survey only — NEVER treat the list as items to "
+                    "summarize one-by-one. Prefer search_documents for goals."
                 ),
                 "input_schema": {},
             },
             {
                 "name": "search_documents",
                 "description": (
-                    "Run hybrid keyword + semantic search across the user's "
-                    "accessible documents and get back the most relevant ones "
-                    "with a snippet. Use this to find which documents are "
-                    "relevant to a question."
+                    "PRIMARY tool for corpus-scale goals. Hybrid keyword + "
+                    "semantic search returns the most relevant docs with "
+                    "snippets. Use targeted queries (e.g. liability, indemnity, "
+                    "termination) instead of reading every file."
                 ),
                 "input_schema": {
                     "query": "string (required) - what to search for",
-                    "limit": "integer (optional, default 5)",
+                    "limit": "integer (optional, default 8, max 15)",
                 },
             },
             {
                 "name": "read_document",
                 "description": (
-                    "Read the full text of a single document by its id to "
-                    "extract specific facts. Only works for documents the user "
-                    "can access."
+                    "Read full text of ONE high-value document after search. "
+                    "Do not call this in a loop across the corpus — capped per run."
                 ),
                 "input_schema": {
                     "document_id": "string (required) - the document uuid",
@@ -80,9 +79,9 @@ class AgentTools:
             {
                 "name": "summarize_document",
                 "description": (
-                    "Get a concise summary of one document by its id. Use this "
-                    "instead of read_document when you only need the gist of a "
-                    "long document rather than specific quotes."
+                    "Summarize ONE top search hit when you need the gist. "
+                    "Forbidden as a corpus walk — never summarize every listed "
+                    "document. Capped per run; prefer search snippets."
                 ),
                 "input_schema": {
                     "document_id": "string (required) - the document uuid",
@@ -144,10 +143,17 @@ class AgentTools:
         if scoped_ids is not None and not scoped_ids:
             return "No documents are accessible to you."
 
+        from sqlalchemy import func
+
+        count_q = select(func.count()).select_from(Document)
+        if scoped_ids is not None:
+            count_q = count_q.where(Document.id.in_(scoped_ids))
+        total = int((await self.db.execute(count_q)).scalar() or 0)
+
         query = select(Document.uuid, Document.title, Document.filename, Document.file_type)
         if scoped_ids is not None:
             query = query.where(Document.id.in_(scoped_ids))
-        query = query.limit(50)
+        query = query.limit(20)
 
         rows = (await self.db.execute(query)).all()
         if not rows:
@@ -157,13 +163,18 @@ class AgentTools:
             f"- id={row[0]} | title={row[1] or row[2]} | type={row[3]}"
             for row in rows
         ]
-        return f"{len(rows)} document(s) in scope:\n" + "\n".join(lines)
+        return (
+            f"{total} document(s) in scope (showing {len(rows)} sample titles only).\n"
+            "Do NOT summarize or read each document. Use search_documents with "
+            "goal-focused queries, then deep-dive at most 1–2 top hits, then finish.\n"
+            + "\n".join(lines)
+        )
 
     async def _search_documents(self, action_input: Dict[str, Any]) -> str:
         query = action_input.get("query")
         if not query or not str(query).strip():
             raise ToolError("search_documents requires a non-empty 'query'.")
-        limit = int(action_input.get("limit", 5) or 5)
+        limit = int(action_input.get("limit", 8) or 8)
         limit = max(1, min(limit, 15))
 
         results = await self.search_service.hybrid_search(

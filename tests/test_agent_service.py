@@ -211,6 +211,54 @@ async def test_agent_stream_errors_when_llm_unavailable():
 
 
 @pytest.mark.asyncio
+async def test_agent_blocks_per_document_corpus_walk():
+    """summarize/read must not be allowed to walk the corpus one-by-one."""
+    search = json.dumps({
+        "thought": "search for risks",
+        "action": "search_documents",
+        "action_input": {"query": "liability"},
+    })
+    sum1 = json.dumps({
+        "thought": "summarize hit 1",
+        "action": "summarize_document",
+        "action_input": {"document_id": "d1"},
+    })
+    sum2 = json.dumps({
+        "thought": "summarize hit 2",
+        "action": "summarize_document",
+        "action_input": {"document_id": "d2"},
+    })
+    sum3 = json.dumps({
+        "thought": "summarize hit 3 — would not scale",
+        "action": "summarize_document",
+        "action_input": {"document_id": "d3"},
+    })
+    finish = json.dumps({
+        "thought": "enough evidence",
+        "action": "finish",
+        "action_input": {"answer": "Key risks: liability and indemnity (from search)."},
+    })
+    agent = _make_agent([search, sum1, sum2, sum3, finish])
+
+    async def execute(action, action_input):
+        agent.tools.executed.append((action, action_input))
+        if action == "search_documents":
+            return "Top 3: id=d1, id=d2, id=d3 with liability snippets"
+        if action == "summarize_document":
+            return f"Summary of {action_input.get('document_id')}"
+        return "ok"
+
+    agent.tools.execute = execute  # type: ignore[method-assign]
+
+    result = await agent.run(goal="summarize key risks across contracts", max_steps=6)
+
+    summarize_calls = [a for a, _ in agent.tools.executed if a == "summarize_document"]
+    assert len(summarize_calls) == 2  # third blocked before execute
+    assert any("POLICY BLOCK" in s.observation for s in result.steps)
+    assert "liability" in result.final_answer.lower() or "indemnity" in result.final_answer.lower()
+
+
+@pytest.mark.asyncio
 async def test_agent_synthesizes_when_planner_fails_after_evidence():
     """Empty/unparseable plan after a successful tool must not abort blank."""
     list_plan = json.dumps({
