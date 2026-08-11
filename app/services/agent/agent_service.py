@@ -381,9 +381,14 @@ and "action_input" (an object matching that tool's input).
 3. Take one action at a time. Read observations before deciding the next step.
 4. When you have enough grounded evidence, use the "finish" action with a clear, \
 cited answer that references the documents you used.
-5. Default path: search_documents (maybe 1–2 queries) → optional read/summarize \
+5. Final answers (finish.answer) MUST be Markdown, not one long paragraph: \
+short intro, then categorized bullet/numbered lists (bold category labels), \
+cite each point with document title and id, end with a one-line takeaway. \
+Example shape: intro sentence, then "1. **Category** — detail (Title, `id`)", \
+then a closing sentence. No JSON, no code fences around the whole answer.
+6. Default path: search_documents (maybe 1–2 queries) → optional read/summarize \
 of top hit(s) → finish. Skip list_documents unless you truly need a catalog peek.
-6. If search returns weak hits, try a different query — do not start summarizing \
+7. If search returns weak hits, try a different query — do not start summarizing \
 unrelated resumes or every listed file.
 
 GOAL:
@@ -435,7 +440,9 @@ GOAL:
 
 {history_block}
 
-Write the final answer now."""
+Write the final answer now as Markdown (not one paragraph): short intro, \
+categorized bullet/numbered list with bold labels, cite document titles/ids, \
+one-line takeaway. Do not wrap the whole answer in a code fence."""
         return await self.llm.generate_response(
             prompt=prompt, max_tokens=1200, temperature=0.2, raw=True
         )
