@@ -53,11 +53,20 @@ class Settings(BaseSettings):
     # LLM Providers (per AI Guide: no hard-coding)
     OLLAMA_BASE_URL: str = Field(default="http://localhost:11434")
     OLLAMA_MODEL: str = Field(default="gpt-oss:20b")
-    LLM_TIMEOUT_S: int = Field(default=30, description="LLM request timeout in seconds")
+    # Tried in order when the primary local model errors/times out/returns empty.
+    # Stay on-machine before any cloud fallback.
+    OLLAMA_FALLBACK_MODELS: List[str] = Field(
+        default_factory=lambda: ["glm-4.7-flash:latest", "qwen3.6:27b"],
+        description="Local Ollama models to try after the primary model fails",
+    )
+    # Local 32B+ agent steps (plan/synthesize) routinely need >30s even on a warm,
+    # capacity-rich host. 30s false-failed Insight Bridge and fell through to a
+    # broken OpenAI fallback.
+    LLM_TIMEOUT_S: int = Field(default=180, description="LLM request timeout in seconds")
     
-    # OpenAI Fallback (optional, cloud-based)
+    # OpenAI Fallback (optional, last resort after local models)
     OPENAI_API_KEY: Optional[str] = Field(default=None, description="OpenAI API key for fallback")
-    OPENAI_MODEL: str = Field(default="gpt-4", description="OpenAI model to use")
+    OPENAI_MODEL: str = Field(default="gpt-4o-mini", description="OpenAI model to use")
     
     # Answer Grounding (AI Guide §3: prevent hallucination)
     MIN_REQUIRED_SOURCES: int = Field(default=3, description="Minimum document sources required for grounded answers")
@@ -175,6 +184,12 @@ class Settings(BaseSettings):
             'CELERY_RESULT_BACKEND': g(['celery','result_backend'], 'redis://localhost:6379/0'),
             'OLLAMA_BASE_URL': g(['ollama','base_url'], 'http://localhost:11434'),
             'OLLAMA_MODEL': g(['ollama','model'], 'llama2'),
+            'OLLAMA_FALLBACK_MODELS': g(
+                ['ollama', 'fallback_models'],
+                ["glm-4.7-flash:latest", "qwen3.6:27b"],
+            ),
+            'LLM_TIMEOUT_S': g(['ollama', 'timeout_s'], 180),
+            'OPENAI_MODEL': g(['openai', 'model'], 'gpt-4o-mini'),
             # Object storage
             'STORAGE_BACKEND': g(['object_storage','backend'], 'local'),
             'OBJECT_STORAGE_DUAL_WRITE': g(['object_storage','dual_write'], False),
@@ -195,6 +210,8 @@ class Settings(BaseSettings):
         for env_key in (
             "OLLAMA_MODEL",
             "OLLAMA_BASE_URL",
+            "OLLAMA_FALLBACK_MODELS",
+            "LLM_TIMEOUT_S",
             "OPENAI_API_KEY",
             "OPENAI_MODEL",
             "REDIS_URL",
@@ -435,6 +452,18 @@ class Settings(BaseSettings):
     def ensure_path_type(cls, v):
         # Only convert to Path, do not create directories here
         return Path(v)
+
+    @field_validator("OLLAMA_FALLBACK_MODELS", mode="before")
+    @classmethod
+    def parse_ollama_fallback_models(cls, v):
+        """Accept YAML lists or comma-separated env strings."""
+        if v is None or v == "":
+            return []
+        if isinstance(v, str):
+            return [part.strip() for part in v.split(",") if part.strip()]
+        if isinstance(v, (list, tuple)):
+            return [str(part).strip() for part in v if str(part).strip()]
+        return v
 
 
 settings = Settings()

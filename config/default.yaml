@@ -36,6 +36,16 @@ ollama:
   # Primary chat/agent model for Insight Bridge + document Q&A.
   # qwen3:32b: strong structured tool JSON + contract/risk synthesis; fits multi-step budget.
   model: qwen3:32b
+  # Local fallbacks (tried in order) when primary errors/times out/returns empty.
+  # Prefer a fast installed chat model before any cloud provider.
+  fallback_models:
+    - glm-4.7-flash:latest
+    - qwen3.6:27b
+  # Per-request HTTP timeout. Agent plan/synthesize on a warm local 32B needs minutes, not 30s.
+  timeout_s: 180
+openai:
+  # Last-resort cloud fallback only — local Ollama primary + local fallbacks come first.
+  model: gpt-4o-mini
 cors:
   origins:
     - http://localhost:5193
