@@ -599,7 +599,7 @@ const ChatPage: React.FC = () => {
         onClose={() => setFollowUpOpen(false)}
         sx={{
           '& .MuiDrawer-paper': {
-            width: { xs: '100%', sm: 520, md: 640 },
+            width: { xs: '100%', sm: 420, md: 460 },
             p: 0,
             display: 'flex',
             flexDirection: 'column',
