@@ -139,7 +139,7 @@ class AgentService:
                     "type": "final",
                     "final_answer": final_answer,
                     "iterations": step_num - 1,
-                    "stopped_reason": "completed",
+                    "stopped_reason": decision.get("stopped_reason") or "completed",
                 }
                 return
 
@@ -205,6 +205,7 @@ class AgentService:
             prompt=prompt,
             max_tokens=800,
             temperature=PLANNER_TEMPERATURE,
+            raw=True,
         )
         decision = self._parse_decision(raw)
         if decision is not None:
@@ -217,17 +218,39 @@ class AgentService:
             "single JSON object and nothing else.",
             max_tokens=800,
             temperature=0.0,
+            raw=True,
         )
         decision = self._parse_decision(retry)
         if decision is not None:
             return decision
 
-        # Give up planning gracefully: treat the raw text as a final answer.
+        # Prefer synthesizing from gathered evidence over an empty abort.
+        # Empty/unparseable plans after LIST were producing BRIEF·PARTIAL with
+        # "The agent could not complete the task." despite usable observations.
+        if scratchpad:
+            logger.warning(
+                "Agent planner failed to return JSON after %d step(s); synthesizing.",
+                len(scratchpad),
+            )
+            answer = (await self._synthesize(goal, scratchpad) or "").strip()
+            return {
+                "thought": "Could not produce a structured next action; synthesizing from evidence.",
+                "action": "finish",
+                "action_input": {
+                    "answer": answer
+                    or "Evidence was gathered, but a final structured answer could not be produced."
+                },
+                "stopped_reason": "planning_failed",
+            }
+
+        prose = (retry or raw or "").strip()
         return {
             "thought": "Could not produce a structured action; answering directly.",
             "action": "finish",
-            "action_input": {"answer": (retry or raw or "").strip() or
-                             "The agent could not complete the task."},
+            "action_input": {
+                "answer": prose or "The agent could not complete the task."
+            },
+            "stopped_reason": "planning_failed",
         }
 
     def _build_planner_prompt(
@@ -324,7 +347,7 @@ GOAL:
 
 Write the final answer now."""
         return await self.llm.generate_response(
-            prompt=prompt, max_tokens=1200, temperature=0.2
+            prompt=prompt, max_tokens=1200, temperature=0.2, raw=True
         )
 
     # --- Parsing ----------------------------------------------------------
