@@ -31,15 +31,18 @@ export const AGENT_HELP = {
   productName: 'Insight Bridge',
   pageTitle:
     'Autonomous research over your corpus: plans, searches, reads, and synthesizes a grounded brief from the documents you scope.',
-  pageSubtitle: 'State an objective, confirm corpus scope, then Run. Live orchestration shows each tool as it fires.',
-  modeAgent: 'Multi-step research: plans actions, uses tools, then delivers a brief.',
-  modeChat: 'Conversational Q&A over the selected documents.',
-  history: 'Past chat conversations. Completed briefs also appear on the Brief board below.',
+  pageSubtitle:
+    'Scope the corpus, state an objective, Run. Multi-step research delivers a brief — ask follow-up questions from the Brief Board.',
+  modeAgent: 'Multi-step research: plans actions, uses tools, then delivers a brief over the scoped corpus.',
+  askFollowUp:
+    'Open conversational Q&A over the same scoped documents, with this brief as context. Not a separate research mode.',
+  followUpHistory: 'Prior follow-up conversations from Ask follow-up (not Insight runs).',
+  history: 'Prior follow-up conversations. Insight briefs stay on the Brief Board.',
   scope:
-    'Corpus the agent may use. Defaults to all indexed documents. Open “Refine corpus” only when you need a subset.',
-  scopeMeter: 'Share of the filtered list currently included in scope.',
-  scopeSelectAll: 'Include or clear all documents currently shown in the refine list.',
-  scopeSearch: 'Filter the refine list. Does not drop already-scoped documents outside the filter.',
+    'Documents the research agent may use. Filter/search the list, then check what to include for the run.',
+  scopeMeter: 'Share of the currently filtered list that is selected for the run.',
+  scopeSelectAll: 'Include or clear all documents currently shown in the filtered list.',
+  scopeSearch: 'Filter the scope list. Does not drop already-selected documents that fall outside the filter.',
   missionGoal:
     'Your research objective — e.g. “Summarize key risks across these contracts” or “Compare renewal terms in the selected PDFs.”',
   launch: 'Start research. The agent plans steps and calls tools until it finishes or hits the step limit.',

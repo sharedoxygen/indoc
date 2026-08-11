@@ -18,36 +18,28 @@ import {
   IconButton,
   Divider,
   Tooltip,
-  Collapse,
   Stack,
   useTheme,
 } from '@mui/material'
 import { DocumentChat } from '../components/DocumentChat'
 import ChatHistory from '../components/ChatHistory'
 import DocumentDetailsDrawer from '../components/DocumentDetailsDrawer'
-import AgentModePanel from '../components/agent/AgentModePanel'
+import AgentModePanel, { AgentRunRecord } from '../components/agent/AgentModePanel'
 import { AGENT_HELP } from '../components/agent/agentHelp'
 import HelpTip from '../components/HelpTip'
+import { ArcMeter } from '../components/instruments'
 import { useGetDocumentsQuery } from '../store/api'
 import { format } from 'date-fns'
 import {
   Chat as ChatIcon,
   History as HistoryIcon,
   Close as CloseIcon,
-  AutoAwesome as InsightIcon,
-  ExpandMore as ExpandMoreIcon,
-  ExpandLess as ExpandLessIcon,
-  FolderSpecial as CorpusIcon,
 } from '@mui/icons-material'
 import FileTypeIcon, { getFileColor } from '../components/FileTypeIcon'
 import { Search as SearchIcon } from '@mui/icons-material'
 import { useDebounce } from '../hooks/useDebounce'
 import { motion } from 'framer-motion'
 import { useSnackbar } from 'notistack'
-
-type InteractionMode = 'chat' | 'agent'
-
-const MODE_KEY = 'indoc.chat.mode'
 
 const glass = (dark: boolean) =>
   dark
@@ -64,6 +56,10 @@ const glass = (dark: boolean) =>
         backdropFilter: 'blur(18px)',
       }
 
+/**
+ * Insight Bridge — single research console.
+ * Left: corpus scope. Right: agent. Chat is follow-up only (drawer).
+ */
 const ChatPage: React.FC = () => {
   const theme = useTheme()
   const dark = theme.palette.mode === 'dark'
@@ -71,18 +67,16 @@ const ChatPage: React.FC = () => {
   const [selectedDocuments, setSelectedDocuments] = useState<string[]>([])
   const [selectedConversationId, setSelectedConversationId] = useState<string | undefined>()
   const [historyOpen, setHistoryOpen] = useState(false)
+  const [followUpOpen, setFollowUpOpen] = useState(false)
+  const [followUpBrief, setFollowUpBrief] = useState<AgentRunRecord | null>(null)
   const [detailsDrawerOpen, setDetailsDrawerOpen] = useState(false)
   const [selectedDocumentForDetails, setSelectedDocumentForDetails] = useState<any>(null)
   const [search, setSearch] = useState('')
   const [fileType, setFileType] = useState<'all' | string>('all')
-  const [sortBy, setSortBy] = useState<'created_at' | 'filename' | 'file_type' | 'file_size' | 'updated_at'>('created_at')
+  const [sortBy, setSortBy] = useState<'created_at' | 'filename' | 'file_type' | 'file_size' | 'updated_at'>(
+    'created_at'
+  )
   const [sortOrder] = useState<'asc' | 'desc'>('desc')
-  const [lastAgentAnswer, setLastAgentAnswer] = useState<{ goal: string; answer: string } | null>(null)
-  const [refineOpen, setRefineOpen] = useState(false)
-  const [mode, setMode] = useState<InteractionMode>(() => {
-    const saved = localStorage.getItem(MODE_KEY)
-    return saved === 'chat' || saved === 'agent' ? saved : 'agent'
-  })
   const autoSelectedRef = useRef(false)
 
   const debouncedSearch = useDebounce(search, 500)
@@ -109,10 +103,6 @@ const ChatPage: React.FC = () => {
     }
   }, [availableDocuments, selectedDocuments.length])
 
-  useEffect(() => {
-    localStorage.setItem(MODE_KEY, mode)
-  }, [mode])
-
   const handleDocumentToggle = (docId: string) => {
     setSelectedDocuments((prev) =>
       prev.includes(docId) ? prev.filter((id) => id !== docId) : [...prev, docId]
@@ -137,80 +127,16 @@ const ChatPage: React.FC = () => {
     }
   }
 
-  const useAllIndexed = () => {
-    setSelectedDocuments(availableDocuments.map((d: any) => d.uuid))
-    setRefineOpen(false)
+  const openFollowUp = (run: AgentRunRecord) => {
+    setFollowUpBrief(run)
+    setSelectedConversationId(undefined)
+    setFollowUpOpen(true)
+    setHistoryOpen(false)
   }
 
   const selectedInView = availableDocuments.filter((d: any) => selectedDocuments.includes(d.uuid)).length
-  const allIndexedSelected =
-    availableDocuments.length > 0 && selectedDocuments.length >= availableDocuments.length
-
-  const docList = (
-    <Box sx={{ flexGrow: 1, overflow: 'auto', pr: 0.5, minHeight: 0 }}>
-      {isLoading ? (
-        <Typography color="text.secondary">Loading…</Typography>
-      ) : availableDocuments.length === 0 ? (
-        <Typography color="text.secondary">No indexed documents.</Typography>
-      ) : (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-          {availableDocuments.map((doc: any) => {
-            const isSelected = selectedDocuments.includes(doc.uuid)
-            return (
-              <Box
-                key={doc.uuid}
-                component={motion.div}
-                layout
-                onClick={(e: React.MouseEvent) => handleDocumentClick(doc, e)}
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 1,
-                  px: 1,
-                  py: 0.7,
-                  borderRadius: 1.25,
-                  cursor: 'pointer',
-                  border: '1px solid',
-                  borderColor: isSelected ? 'primary.main' : 'transparent',
-                  bgcolor: isSelected ? (dark ? 'rgba(25,118,210,0.14)' : 'rgba(25,118,210,0.08)') : 'transparent',
-                  '&:hover': { bgcolor: 'action.hover' },
-                }}
-              >
-                <Checkbox
-                  checked={isSelected}
-                  size="small"
-                  sx={{ p: 0.25 }}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    handleDocumentToggle(doc.uuid)
-                  }}
-                />
-                <Avatar sx={{ width: 22, height: 22, bgcolor: getFileColor(doc.file_type), fontSize: 10 }}>
-                  <FileTypeIcon fileType={doc.file_type} iconProps={{ sx: { fontSize: 14 } }} />
-                </Avatar>
-                <Typography
-                  variant="body2"
-                  sx={{
-                    flex: 1,
-                    minWidth: 0,
-                    fontWeight: 500,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {doc.title || doc.filename}
-                </Typography>
-                <Typography variant="caption" color="text.disabled" sx={{ fontVariantNumeric: 'tabular-nums' }}>
-                  {format(new Date(doc.created_at), 'MMM dd')}
-                </Typography>
-              </Box>
-            )
-          })}
-        </Box>
-      )}
-    </Box>
-  )
+  const selectionPct =
+    availableDocuments.length > 0 ? Math.min(100, (selectedInView / availableDocuments.length) * 100) : 0
 
   return (
     <Box
@@ -227,7 +153,6 @@ const ChatPage: React.FC = () => {
         overflow: 'hidden',
       }}
     >
-      {/* Ambient field */}
       <Box
         aria-hidden
         sx={{
@@ -266,211 +191,84 @@ const ChatPage: React.FC = () => {
               WebkitTextFillColor: 'transparent',
             }}
           >
-            {mode === 'agent' ? (
-              <HelpTip title={AGENT_HELP.pageTitle} underline={false}>
-                {AGENT_HELP.productName}
-              </HelpTip>
-            ) : (
-              'Document Chat'
-            )}
+            <HelpTip title={AGENT_HELP.pageTitle} underline={false}>
+              {AGENT_HELP.productName}
+            </HelpTip>
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, maxWidth: 560 }}>
-            {mode === 'agent' ? AGENT_HELP.pageSubtitle : 'Conversational Q&A over indexed documents'}
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, maxWidth: 640 }}>
+            {AGENT_HELP.pageSubtitle}
           </Typography>
         </Box>
 
-        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
-          <Box
-            sx={{
-              display: 'inline-flex',
-              p: 0.4,
-              borderRadius: 999,
-              ...glass(dark),
-              gap: 0.4,
-            }}
-          >
-            {(
-              [
-                { id: 'agent' as const, label: 'Insight', icon: <InsightIcon sx={{ fontSize: 16 }} />, tip: AGENT_HELP.modeAgent },
-                { id: 'chat' as const, label: 'Chat', icon: <ChatIcon sx={{ fontSize: 16 }} />, tip: AGENT_HELP.modeChat },
-              ] as const
-            ).map((item) => {
-              const active = mode === item.id
-              return (
-                <Tooltip key={item.id} title={item.tip}>
-                  <Button
-                    size="small"
-                    onClick={() => setMode(item.id)}
-                    startIcon={item.icon}
-                    sx={{
-                      borderRadius: 999,
-                      px: 1.5,
-                      minHeight: 32,
-                      textTransform: 'none',
-                      fontWeight: 700,
-                      color: active ? '#fff' : 'text.secondary',
-                      bgcolor: active ? 'primary.main' : 'transparent',
-                      boxShadow: active ? '0 8px 20px rgba(25,118,210,0.35)' : 'none',
-                      '&:hover': { bgcolor: active ? 'primary.dark' : 'action.hover' },
-                    }}
-                  >
-                    {item.label}
-                  </Button>
-                </Tooltip>
-              )
-            })}
-          </Box>
-
-          {mode === 'chat' && (
-            <Button
-              variant="contained"
-              startIcon={<ChatIcon />}
-              onClick={() => setSelectedConversationId(undefined)}
-              sx={{ borderRadius: 999, textTransform: 'none', fontWeight: 700 }}
-            >
-              New Chat
-            </Button>
-          )}
-          <Tooltip title={AGENT_HELP.history}>
+        <Stack direction="row" spacing={1} alignItems="center">
+          <Tooltip title={AGENT_HELP.followUpHistory}>
             <Button
               variant="outlined"
               startIcon={<HistoryIcon />}
               onClick={() => setHistoryOpen(true)}
               sx={{ borderRadius: 999, textTransform: 'none', fontWeight: 650 }}
             >
-              History
+              Follow-ups
             </Button>
           </Tooltip>
         </Stack>
       </Box>
 
-      {mode === 'agent' ? (
-        <Box sx={{ position: 'relative', zIndex: 1, flexGrow: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-          <Paper sx={{ px: 2, py: 1.25, borderRadius: 2.5, ...glass(dark) }}>
-            <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} alignItems={{ md: 'center' }}>
-              <Stack direction="row" spacing={1.25} alignItems="center" sx={{ flex: 1, minWidth: 0 }}>
-                <Box
-                  sx={{
-                    width: 34,
-                    height: 34,
-                    borderRadius: 1.25,
-                    display: 'grid',
-                    placeItems: 'center',
-                    bgcolor: dark ? 'rgba(56,189,248,0.12)' : 'rgba(14,165,233,0.1)',
-                    color: 'primary.main',
-                  }}
-                >
-                  <CorpusIcon fontSize="small" />
-                </Box>
-                <Box sx={{ minWidth: 0 }}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 750, letterSpacing: '-0.01em' }}>
-                    <HelpTip title={AGENT_HELP.scope}>Corpus scope</HelpTip>
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    {allIndexedSelected
-                      ? `All indexed documents · ${selectedDocuments.length}`
-                      : `${selectedDocuments.length} of ${availableDocuments.length || '—'} indexed selected`}
-                  </Typography>
-                </Box>
-                <Chip
-                  size="small"
-                  color={selectedDocuments.length > 0 ? 'success' : 'default'}
-                  label={`${selectedDocuments.length} in run`}
-                  sx={{ fontWeight: 750, borderRadius: 1 }}
-                />
-              </Stack>
-              <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                <Button
-                  size="small"
-                  variant={allIndexedSelected ? 'contained' : 'outlined'}
-                  onClick={useAllIndexed}
-                  sx={{ borderRadius: 999, textTransform: 'none', fontWeight: 650 }}
-                >
-                  Use all indexed
-                </Button>
-                <Button
-                  size="small"
-                  variant={refineOpen ? 'contained' : 'outlined'}
-                  color="inherit"
-                  endIcon={refineOpen ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-                  onClick={() => setRefineOpen((v) => !v)}
-                  sx={{ borderRadius: 999, textTransform: 'none', fontWeight: 650 }}
-                >
-                  Refine
-                </Button>
-              </Stack>
-            </Stack>
-
-            <Collapse in={refineOpen}>
-              <Box sx={{ mt: 1.5, pt: 1.5, borderTop: '1px solid', borderColor: 'divider' }}>
-                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ mb: 1 }}>
-                  <TextField
+      <Grid
+        container
+        spacing={2}
+        sx={{ position: 'relative', zIndex: 1, flexGrow: 1, minHeight: 0, height: 'calc(100% - 72px)' }}
+      >
+        <Grid item xs={12} md={3} sx={{ height: '100%', minHeight: 0 }}>
+          <Paper
+            sx={{
+              p: 2,
+              borderRadius: 2.5,
+              height: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              ...glass(dark),
+            }}
+          >
+            <Box sx={{ mb: 1.25, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 750, letterSpacing: '-0.02em' }}>
+                <HelpTip title={AGENT_HELP.scope}>Scope</HelpTip>
+              </Typography>
+              <Tooltip title={AGENT_HELP.scopeSelectAll}>
+                <span>
+                  <Button
                     size="small"
-                    fullWidth
-                    placeholder="Find documents…"
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <SearchIcon fontSize="small" />
-                        </InputAdornment>
-                      ),
-                    }}
-                  />
-                  <FormControl size="small" sx={{ minWidth: 110 }}>
-                    <InputLabel>Type</InputLabel>
-                    <Select label="Type" value={fileType} onChange={(e) => setFileType(e.target.value as any)}>
-                      <MenuItem value="all">All</MenuItem>
-                      <MenuItem value="pdf">PDF</MenuItem>
-                      <MenuItem value="txt">TXT</MenuItem>
-                      <MenuItem value="docx">DOCX</MenuItem>
-                      <MenuItem value="pptx">PPTX</MenuItem>
-                    </Select>
-                  </FormControl>
-                  <Button size="small" onClick={handleSelectAll} disabled={availableDocuments.length === 0}>
+                    onClick={handleSelectAll}
+                    disabled={availableDocuments.length === 0}
+                    sx={{ textTransform: 'none', fontWeight: 650 }}
+                  >
                     {selectedInView === availableDocuments.length && availableDocuments.length > 0
                       ? 'Clear shown'
                       : 'All shown'}
                   </Button>
-                </Stack>
-                <Box sx={{ maxHeight: 220, overflow: 'auto' }}>{docList}</Box>
-              </Box>
-            </Collapse>
-          </Paper>
+                </span>
+              </Tooltip>
+            </Box>
 
-          <Box sx={{ flex: 1, minHeight: 0 }}>
-            <AgentModePanel
-              documentIds={selectedDocuments}
-              onFinalAnswer={(goal, answer) => {
-                setLastAgentAnswer({ goal, answer })
-                enqueueSnackbar('Brief complete — saved on the Brief Board', { variant: 'success' })
-              }}
-            />
-          </Box>
-        </Box>
-      ) : (
-        <Grid
-          container
-          spacing={2}
-          sx={{ position: 'relative', zIndex: 1, flexGrow: 1, minHeight: 0, height: 'calc(100% - 72px)' }}
-        >
-          <Grid item xs={12} md={4} sx={{ height: '100%', minHeight: 0 }}>
-            <Paper sx={{ p: 2, borderRadius: 2.5, height: '100%', display: 'flex', flexDirection: 'column', ...glass(dark) }}>
-              <Box sx={{ mb: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Typography variant="subtitle1" sx={{ fontWeight: 750, letterSpacing: '-0.02em' }}>
-                  Corpus
-                </Typography>
-                <Button size="small" onClick={handleSelectAll} disabled={availableDocuments.length === 0} sx={{ textTransform: 'none' }}>
-                  {selectedInView === availableDocuments.length && availableDocuments.length > 0
-                    ? 'Clear shown'
-                    : 'All shown'}
-                </Button>
+            <Tooltip title={AGENT_HELP.scopeMeter} arrow>
+              <Box sx={{ display: 'flex', justifyContent: 'center', mb: 1, cursor: 'help' }}>
+                <ArcMeter
+                  value={selectionPct}
+                  label="In list"
+                  subtitle={`${selectedDocuments.length} selected · ${availableDocuments.length} shown`}
+                  unit="%"
+                  precision={0}
+                  size={104}
+                  status={selectedDocuments.length > 0 ? 'ok' : 'idle'}
+                />
               </Box>
+            </Tooltip>
+
+            <Tooltip title={AGENT_HELP.scopeSearch}>
               <TextField
                 size="small"
                 fullWidth
-                placeholder="Search…"
+                placeholder="Filter list…"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 sx={{ mb: 1 }}
@@ -482,60 +280,206 @@ const ChatPage: React.FC = () => {
                   ),
                 }}
               />
-              <Box sx={{ display: 'flex', gap: 1, mb: 1, flexWrap: 'wrap' }}>
-                <FormControl size="small" sx={{ minWidth: 100 }}>
-                  <InputLabel>Type</InputLabel>
-                  <Select label="Type" value={fileType} onChange={(e) => setFileType(e.target.value as any)}>
-                    <MenuItem value="all">All</MenuItem>
-                    <MenuItem value="pdf">PDF</MenuItem>
-                    <MenuItem value="txt">TXT</MenuItem>
-                    <MenuItem value="docx">DOCX</MenuItem>
-                    <MenuItem value="pptx">PPTX</MenuItem>
-                  </Select>
-                </FormControl>
-                <FormControl size="small" sx={{ minWidth: 110 }}>
-                  <InputLabel>Sort</InputLabel>
-                  <Select label="Sort" value={sortBy} onChange={(e) => setSortBy(e.target.value as any)}>
-                    <MenuItem value="created_at">Created</MenuItem>
-                    <MenuItem value="updated_at">Updated</MenuItem>
-                    <MenuItem value="filename">Filename</MenuItem>
-                    <MenuItem value="file_type">Type</MenuItem>
-                    <MenuItem value="file_size">Size</MenuItem>
-                  </Select>
-                </FormControl>
-                <Chip label={`${selectedDocuments.length} selected`} size="small" sx={{ fontWeight: 650 }} />
-              </Box>
-              {docList}
-            </Paper>
-          </Grid>
+            </Tooltip>
 
-          <Grid item xs={12} md={8} sx={{ height: '100%', minHeight: 0, display: 'flex' }}>
-            <Box sx={{ flex: 1, minHeight: 0, width: '100%', display: 'flex', flexDirection: 'column', gap: 1 }}>
-              {lastAgentAnswer && (
-                <Paper sx={{ p: 1.5, borderRadius: 2, ...glass(dark), borderColor: 'success.main' }}>
-                  <Typography variant="caption" sx={{ fontWeight: 750, color: 'success.main', letterSpacing: 0.8 }}>
-                    LAST INSIGHT BRIEF
-                  </Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 650 }} noWrap>
-                    {lastAgentAnswer.goal}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                    {lastAgentAnswer.answer.slice(0, 280)}
-                    {lastAgentAnswer.answer.length > 280 ? '…' : ''}
-                  </Typography>
-                </Paper>
-              )}
-              <Box sx={{ flex: 1, minHeight: 0 }}>
-                <DocumentChat
-                  documentIds={selectedDocuments}
-                  conversationId={selectedConversationId}
-                  onNewConversation={(id) => setSelectedConversationId(id)}
-                />
-              </Box>
+            <Box sx={{ display: 'flex', gap: 1, mb: 1, flexWrap: 'wrap' }}>
+              <FormControl size="small" sx={{ minWidth: 100 }}>
+                <InputLabel>Type</InputLabel>
+                <Select label="Type" value={fileType} onChange={(e) => setFileType(e.target.value as any)}>
+                  <MenuItem value="all">All</MenuItem>
+                  <MenuItem value="pdf">PDF</MenuItem>
+                  <MenuItem value="txt">TXT</MenuItem>
+                  <MenuItem value="docx">DOCX</MenuItem>
+                  <MenuItem value="pptx">PPTX</MenuItem>
+                </Select>
+              </FormControl>
+              <FormControl size="small" sx={{ minWidth: 110 }}>
+                <InputLabel>Sort</InputLabel>
+                <Select label="Sort" value={sortBy} onChange={(e) => setSortBy(e.target.value as any)}>
+                  <MenuItem value="created_at">Created</MenuItem>
+                  <MenuItem value="updated_at">Updated</MenuItem>
+                  <MenuItem value="filename">Filename</MenuItem>
+                  <MenuItem value="file_type">Type</MenuItem>
+                  <MenuItem value="file_size">Size</MenuItem>
+                </Select>
+              </FormControl>
+              <Chip
+                label={`${data?.total ?? availableDocuments.length} match`}
+                size="small"
+                sx={{ fontWeight: 650 }}
+              />
+              <Chip
+                color={selectedDocuments.length > 0 ? 'success' : 'default'}
+                label={`${selectedDocuments.length} in run`}
+                size="small"
+                sx={{ fontWeight: 700 }}
+              />
             </Box>
-          </Grid>
+
+            <Box sx={{ flexGrow: 1, overflow: 'auto', pr: 0.5, minHeight: 0 }}>
+              {isLoading ? (
+                <Typography color="text.secondary">Loading…</Typography>
+              ) : availableDocuments.length === 0 ? (
+                <Typography color="text.secondary">No indexed documents.</Typography>
+              ) : (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                  {availableDocuments.map((doc: any) => {
+                    const isSelected = selectedDocuments.includes(doc.uuid)
+                    return (
+                      <Box
+                        key={doc.uuid}
+                        component={motion.div}
+                        layout
+                        onClick={(e: React.MouseEvent) => handleDocumentClick(doc, e)}
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 1,
+                          px: 1,
+                          py: 0.7,
+                          borderRadius: 1.25,
+                          cursor: 'pointer',
+                          border: '1px solid',
+                          borderColor: isSelected ? 'primary.main' : 'transparent',
+                          bgcolor: isSelected
+                            ? dark
+                              ? 'rgba(25,118,210,0.14)'
+                              : 'rgba(25,118,210,0.08)'
+                            : 'transparent',
+                          '&:hover': { bgcolor: 'action.hover' },
+                        }}
+                      >
+                        <Checkbox
+                          checked={isSelected}
+                          size="small"
+                          sx={{ p: 0.25 }}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleDocumentToggle(doc.uuid)
+                          }}
+                        />
+                        <Avatar
+                          sx={{ width: 22, height: 22, bgcolor: getFileColor(doc.file_type), fontSize: 10 }}
+                        >
+                          <FileTypeIcon fileType={doc.file_type} iconProps={{ sx: { fontSize: 14 } }} />
+                        </Avatar>
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            flex: 1,
+                            minWidth: 0,
+                            fontWeight: 500,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {doc.title || doc.filename}
+                        </Typography>
+                        <Typography
+                          variant="caption"
+                          color="text.disabled"
+                          sx={{ fontVariantNumeric: 'tabular-nums' }}
+                        >
+                          {format(new Date(doc.created_at), 'MMM dd')}
+                        </Typography>
+                      </Box>
+                    )
+                  })}
+                </Box>
+              )}
+            </Box>
+          </Paper>
         </Grid>
-      )}
+
+        <Grid item xs={12} md={9} sx={{ height: '100%', minHeight: 0 }}>
+          <AgentModePanel
+            documentIds={selectedDocuments}
+            onFinalAnswer={(_goal, _answer, run) => {
+              enqueueSnackbar('Brief complete — Ask follow-up from the Brief Board', { variant: 'success' })
+              // Keep latest brief handy for one-click follow-up
+              setFollowUpBrief(run)
+            }}
+            onAskFollowUp={openFollowUp}
+          />
+        </Grid>
+      </Grid>
+
+      {/* Follow-up Q&A — folded Chat, not a peer mode */}
+      <Drawer
+        anchor="right"
+        open={followUpOpen}
+        onClose={() => setFollowUpOpen(false)}
+        sx={{
+          '& .MuiDrawer-paper': {
+            width: { xs: '100%', sm: 520, md: 640 },
+            p: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            ...glass(dark),
+          },
+        }}
+      >
+        <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
+          <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
+            <Box sx={{ minWidth: 0 }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 750, display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                <ChatIcon fontSize="small" color="primary" />
+                Ask follow-up
+              </Typography>
+              <Typography variant="caption" color="text.secondary" noWrap>
+                {followUpBrief?.goal || 'Conversational Q&A over the same scoped corpus'}
+              </Typography>
+            </Box>
+            <Stack direction="row" spacing={0.5}>
+              <Tooltip title="Follow-up history">
+                <IconButton
+                  size="small"
+                  onClick={() => {
+                    setHistoryOpen(true)
+                  }}
+                >
+                  <HistoryIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <IconButton size="small" onClick={() => setFollowUpOpen(false)}>
+                <CloseIcon fontSize="small" />
+              </IconButton>
+            </Stack>
+          </Stack>
+          {followUpBrief && (
+            <Paper
+              variant="outlined"
+              sx={{ mt: 1.25, p: 1.25, borderRadius: 1.5, bgcolor: 'action.hover' }}
+            >
+              <Typography variant="caption" sx={{ fontWeight: 700, color: 'success.main', letterSpacing: 0.6 }}>
+                BRIEF CONTEXT
+              </Typography>
+              <Typography variant="body2" sx={{ mt: 0.35, whiteSpace: 'pre-wrap' }}>
+                {followUpBrief.answer.slice(0, 420)}
+                {followUpBrief.answer.length > 420 ? '…' : ''}
+              </Typography>
+            </Paper>
+          )}
+        </Box>
+        <Box sx={{ flex: 1, minHeight: 0, p: 1.5 }}>
+          <DocumentChat
+            documentIds={selectedDocuments}
+            conversationId={selectedConversationId}
+            onNewConversation={(id) => setSelectedConversationId(id)}
+            contextBanner={
+              followUpBrief
+                ? `Follow-up on Insight brief: “${followUpBrief.goal}”. Ground answers in the scoped documents.`
+                : undefined
+            }
+            initialDraft={
+              followUpBrief
+                ? `Regarding the research brief on “${followUpBrief.goal}”: `
+                : undefined
+            }
+          />
+        </Box>
+      </Drawer>
 
       <Drawer
         anchor="right"
@@ -545,7 +489,7 @@ const ChatPage: React.FC = () => {
       >
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
           <Typography variant="h6" sx={{ fontWeight: 700 }}>
-            Chat History
+            Follow-up history
           </Typography>
           <IconButton onClick={() => setHistoryOpen(false)}>
             <CloseIcon />
@@ -555,7 +499,7 @@ const ChatPage: React.FC = () => {
         <ChatHistory
           onConversationSelect={(id) => {
             setSelectedConversationId(id)
-            setMode('chat')
+            setFollowUpOpen(true)
             setHistoryOpen(false)
           }}
           selectedConversationId={selectedConversationId}
