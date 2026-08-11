@@ -3,20 +3,9 @@ import { Box, Typography, useTheme } from '@mui/material'
 import { motion, useReducedMotion } from 'framer-motion'
 import type { InstrumentBaseProps } from './types'
 import { clampRatio, formatInstrumentValue, useInstrumentColor } from './useInstrumentColor'
+import { buildTicks, describeArc } from './instrumentGeometry'
 
-function polar(cx: number, cy: number, r: number, angleDeg: number) {
-  const rad = ((angleDeg - 90) * Math.PI) / 180
-  return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) }
-}
-
-function describeArc(cx: number, cy: number, r: number, startAngle: number, endAngle: number) {
-  const start = polar(cx, cy, r, endAngle)
-  const end = polar(cx, cy, r, startAngle)
-  const largeArc = endAngle - startAngle <= 180 ? 0 : 1
-  return `M ${start.x} ${start.y} A ${r} ${r} 0 ${largeArc} 0 ${end.x} ${end.y}`
-}
-
-/** 270° precision dial — fine ticks, thin track, no glow. */
+/** 270° Swiss-style precision dial — bezel, graduated ticks, hairline needle. */
 export const PrecisionDial: React.FC<InstrumentBaseProps> = ({
   value,
   max = 100,
@@ -32,109 +21,153 @@ export const PrecisionDial: React.FC<InstrumentBaseProps> = ({
   const theme = useTheme()
   const reduceMotion = useReducedMotion()
   const stroke = useInstrumentColor(status, color)
-  const uid = useId()
+  const uid = useId().replace(/:/g, '')
   const ratio = clampRatio(value, min, max)
   const cx = size / 2
   const cy = size / 2
-  const r = size * 0.36
-  const track = describeArc(cx, cy, r, 135, 405)
-  const sweep = 270 * ratio
-  const valueArc = describeArc(cx, cy, r, 135, 135 + sweep)
-  const trackColor = theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)'
-  const tickColor = theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)'
+  const r = size * 0.34
+  const start = 135
+  const sweep = 270
+  const valueEnd = start + sweep * ratio
+  const track = describeArc(cx, cy, r, start, start + sweep)
+  const valueArc = describeArc(cx, cy, r, start, valueEnd)
+  const dark = theme.palette.mode === 'dark'
+  const bezel = dark ? '#2a3038' : '#d8dde3'
+  const bezelInner = dark ? '#12161c' : '#f3f5f7'
+  const tickColor = dark ? 'rgba(230,235,240,0.55)' : 'rgba(30,35,40,0.45)'
+  const faceEdge = dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'
 
-  const ticks = useMemo(() => {
-    const items: { x1: number; y1: number; x2: number; y2: number; major: boolean }[] = []
-    for (let i = 0; i <= 40; i++) {
-      const major = i % 5 === 0
-      const a = 135 + (270 * i) / 40
-      const outer = polar(cx, cy, r + (major ? 5 : 3), a)
-      const inner = polar(cx, cy, r - (major ? 5 : 2), a)
-      items.push({ x1: inner.x, y1: inner.y, x2: outer.x, y2: outer.y, major })
-    }
-    return items
-  }, [cx, cy, r])
-
-  const needleAngle = 135 + sweep
-  const needleTip = polar(cx, cy, r - 8, needleAngle)
-  const needleTail = polar(cx, cy, 8, needleAngle + 180)
+  const ticks = useMemo(
+    () =>
+      buildTicks({
+        cx,
+        cy,
+        r,
+        startAngle: start,
+        sweep,
+        count: 40,
+        majorEvery: 5,
+        labelMin: min,
+        labelMax: max,
+        labelPrecision: max - min <= 10 ? 0 : 0,
+        labelR: r - 14,
+      }),
+    [cx, cy, r, min, max]
+  )
 
   return (
     <Box sx={{ width: size, textAlign: 'center', userSelect: 'none' }}>
-      <Box sx={{ position: 'relative', width: size, height: size * 0.88 }}>
-        <svg width={size} height={size * 0.88} viewBox={`0 0 ${size} ${size}`}>
+      <Box sx={{ position: 'relative', width: size, height: size }}>
+        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
           <defs>
-            <linearGradient id={`${uid}-face`} x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop
-                offset="0%"
-                stopColor={theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)'}
-              />
-              <stop offset="100%" stopColor="transparent" />
+            <radialGradient id={`face-${uid}`} cx="38%" cy="32%" r="70%">
+              <stop offset="0%" stopColor={dark ? '#1c222b' : '#ffffff'} />
+              <stop offset="55%" stopColor={bezelInner} />
+              <stop offset="100%" stopColor={dark ? '#0a0d11' : '#e8ebef'} />
+            </radialGradient>
+            <linearGradient id={`bezel-${uid}`} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor={dark ? '#5a6570' : '#f7f8fa'} />
+              <stop offset="45%" stopColor={bezel} />
+              <stop offset="100%" stopColor={dark ? '#15191f' : '#aeb6c0'} />
             </linearGradient>
+            <linearGradient id={`glass-${uid}`} x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor="rgba(255,255,255,0.22)" />
+              <stop offset="40%" stopColor="rgba(255,255,255,0.04)" />
+              <stop offset="100%" stopColor="rgba(0,0,0,0.12)" />
+            </linearGradient>
+            <filter id={`soft-${uid}`} x="-20%" y="-20%" width="140%" height="140%">
+              <feDropShadow dx="0" dy="1" stdDeviation="1.2" floodOpacity="0.35" />
+            </filter>
           </defs>
-          <circle cx={cx} cy={cy} r={r + 10} fill={`url(#${uid}-face)`} stroke={trackColor} strokeWidth={0.75} />
-          <path d={track} fill="none" stroke={trackColor} strokeWidth={2.5} strokeLinecap="butt" />
+
+          {/* Outer machined bezel */}
+          <circle cx={cx} cy={cy} r={r + 16} fill={`url(#bezel-${uid})`} filter={`url(#soft-${uid})`} />
+          <circle cx={cx} cy={cy} r={r + 12.5} fill="none" stroke={faceEdge} strokeWidth={0.75} />
+          <circle cx={cx} cy={cy} r={r + 11} fill={`url(#face-${uid})`} />
+          <circle cx={cx} cy={cy} r={r + 11} fill={`url(#glass-${uid})`} />
+
+          {/* Fine track */}
+          <path d={track} fill="none" stroke={faceEdge} strokeWidth={1.25} strokeLinecap="butt" />
+
           {ticks.map((t, i) => (
-            <line
-              key={i}
-              x1={t.x1}
-              y1={t.y1}
-              x2={t.x2}
-              y2={t.y2}
-              stroke={tickColor}
-              strokeWidth={t.major ? 1.1 : 0.55}
-              opacity={t.major ? 0.85 : 0.45}
-            />
+            <g key={i}>
+              <line
+                x1={t.x1}
+                y1={t.y1}
+                x2={t.x2}
+                y2={t.y2}
+                stroke={tickColor}
+                strokeWidth={t.major ? 1.05 : 0.45}
+                opacity={t.major ? 0.9 : 0.4}
+              />
+              {t.label != null && t.lx != null && t.ly != null && (
+                <text
+                  x={t.lx}
+                  y={t.ly}
+                  fill={tickColor}
+                  fontSize={Math.max(7, size * 0.055)}
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  fontFamily="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace"
+                  opacity={0.85}
+                >
+                  {t.label}
+                </text>
+              )}
+            </g>
           ))}
+
           <motion.path
             d={valueArc}
             fill="none"
             stroke={stroke}
-            strokeWidth={2.75}
+            strokeWidth={1.75}
             strokeLinecap="butt"
             initial={animate && !reduceMotion ? { pathLength: 0 } : false}
             animate={{ pathLength: 1 }}
-            transition={{ duration: reduceMotion ? 0 : 0.7, ease: [0.22, 1, 0.36, 1] }}
+            transition={{ duration: reduceMotion ? 0 : 0.75, ease: [0.22, 1, 0.36, 1] }}
           />
+
+          {/* Needle — drawn vertical, rotated to value angle */}
           <motion.g
-            initial={false}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.2 }}
+            style={{ transformOrigin: `${cx}px ${cy}px` }}
+            initial={animate && !reduceMotion ? { rotate: start } : false}
+            animate={{ rotate: valueEnd }}
+            transition={{ type: 'spring', stiffness: 120, damping: 18 }}
           >
             <line
-              x1={needleTail.x}
-              y1={needleTail.y}
-              x2={needleTip.x}
-              y2={needleTip.y}
+              x1={cx}
+              y1={cy + 9}
+              x2={cx}
+              y2={cy - r + 10}
               stroke={stroke}
-              strokeWidth={1.4}
+              strokeWidth={1.15}
               strokeLinecap="round"
             />
-            <circle cx={cx} cy={cy} r={3.2} fill={stroke} />
-            <circle cx={cx} cy={cy} r={1.4} fill={theme.palette.background.paper} />
+            <circle cx={cx} cy={cy} r={4} fill={dark ? '#3a424c' : '#c5CCD4'} stroke={stroke} strokeWidth={0.8} />
+            <circle cx={cx} cy={cy} r={1.6} fill={theme.palette.background.paper} />
           </motion.g>
         </svg>
+
         <Box
           sx={{
             position: 'absolute',
-            inset: 0,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            pt: `${size * 0.12}px`,
+            left: 0,
+            right: 0,
+            bottom: size * 0.18,
+            textAlign: 'center',
             pointerEvents: 'none',
           }}
         >
           <Typography
             sx={{
-              fontWeight: 650,
-              fontSize: size * 0.155,
+              fontWeight: 600,
+              fontSize: size * 0.14,
               lineHeight: 1,
               fontVariantNumeric: 'tabular-nums',
-              letterSpacing: '-0.02em',
-              color: 'text.primary',
+              letterSpacing: '-0.03em',
               fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+              color: 'text.primary',
             }}
           >
             {formatInstrumentValue(value, precision, unit)}
@@ -143,12 +176,13 @@ export const PrecisionDial: React.FC<InstrumentBaseProps> = ({
             <Typography
               variant="caption"
               sx={{
-                mt: 0.4,
+                mt: 0.35,
+                display: 'block',
                 color: 'text.secondary',
-                fontWeight: 600,
-                letterSpacing: 0.8,
+                fontWeight: 650,
+                letterSpacing: 1.1,
                 textTransform: 'uppercase',
-                fontSize: Math.max(9, size * 0.062),
+                fontSize: Math.max(8, size * 0.055),
               }}
             >
               {label}

@@ -92,7 +92,17 @@ export const AgentModePanel: React.FC<AgentModePanelProps> = ({ documentIds, onF
         component={motion.div as any}
         initial={{ opacity: 0, y: -8 }}
         animate={{ opacity: 1, y: 0 }}
-        sx={{ p: 1.5, borderRadius: 3 }}
+        sx={{
+          p: 1.75,
+          borderRadius: 2.5,
+          border: '1px solid',
+          borderColor: 'divider',
+          background: (t) =>
+            t.palette.mode === 'dark'
+              ? 'linear-gradient(135deg, rgba(56,189,248,0.08) 0%, rgba(18,24,34,0.95) 40%, rgba(12,16,22,0.95) 100%)'
+              : 'linear-gradient(135deg, rgba(14,165,233,0.08) 0%, rgba(255,255,255,0.95) 45%, rgba(248,250,252,0.95) 100%)',
+          backdropFilter: 'blur(14px)',
+        }}
       >
         <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} alignItems={{ md: 'center' }}>
           <Tooltip title={AGENT_HELP.missionGoal} arrow>
@@ -133,7 +143,14 @@ export const AgentModePanel: React.FC<AgentModePanelProps> = ({ documentIds, onF
                 startIcon={<RunIcon />}
                 onClick={handleLaunch}
                 disabled={!goal.trim() || running || documentIds.length === 0}
-                sx={{ minWidth: 140, whiteSpace: 'nowrap' }}
+                sx={{
+                  minWidth: 140,
+                  whiteSpace: 'nowrap',
+                  borderRadius: 999,
+                  textTransform: 'none',
+                  fontWeight: 750,
+                  boxShadow: '0 10px 28px rgba(25,118,210,0.35)',
+                }}
               >
                 {running ? 'Running…' : 'Run'}
               </Button>
@@ -192,11 +209,30 @@ export const AgentModePanel: React.FC<AgentModePanelProps> = ({ documentIds, onF
         />
       </Box>
 
+      {agent.error && (
+        <Paper
+          sx={{
+            p: 1.5,
+            borderRadius: 2,
+            border: '1px solid',
+            borderColor: 'error.main',
+            bgcolor: (t) => (t.palette.mode === 'dark' ? 'rgba(244,67,54,0.08)' : 'rgba(244,67,54,0.06)'),
+          }}
+        >
+          <Typography variant="caption" sx={{ fontWeight: 700, color: 'error.main', letterSpacing: 0.6 }}>
+            RUN FAILED
+          </Typography>
+          <Typography variant="body2" sx={{ mt: 0.5, whiteSpace: 'pre-wrap' }}>
+            {agent.error}
+          </Typography>
+        </Paper>
+      )}
+
       <Paper sx={{ p: 1.5, borderRadius: 3, maxHeight: 160, overflow: 'auto' }}>
         <Typography variant="caption" sx={{ fontWeight: 700, letterSpacing: 0.8, color: 'text.secondary' }}>
           <HelpTip title={AGENT_HELP.arrivalBoard}>BRIEF BOARD · completed research</HelpTip>
         </Typography>
-        {priorRuns.length === 0 && !agent.finalAnswer && (
+        {priorRuns.length === 0 && !agent.finalAnswer && !agent.error && (
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
             Finished briefs land here for reuse this session.
           </Typography>

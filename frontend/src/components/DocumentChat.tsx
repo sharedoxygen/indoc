@@ -352,12 +352,40 @@ export const DocumentChat: React.FC<DocumentChatProps> = ({
   };
 
   return (
-    <Paper elevation={3} sx={{ height: '100%', display: 'flex', flexDirection: 'column', borderRadius: 3, position: 'relative' }}>
+    <Paper
+      elevation={0}
+      sx={{
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        borderRadius: 2.5,
+        position: 'relative',
+        overflow: 'hidden',
+        border: '1px solid',
+        borderColor: 'divider',
+        background: (t) =>
+          t.palette.mode === 'dark'
+            ? 'linear-gradient(180deg, rgba(18,24,34,0.96) 0%, rgba(10,13,18,0.96) 100%)'
+            : 'linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,250,252,0.96) 100%)',
+        boxShadow: (t) =>
+          t.palette.mode === 'dark' ? '0 24px 60px rgba(0,0,0,0.4)' : '0 20px 48px rgba(15,23,42,0.08)',
+      }}
+    >
       {/* Header */}
-      <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-          <Typography variant="h6">
-            {documentIds && documentIds.length > 0 ? `Chat with ${documentIds.length} document(s)` : 'AI Assistant'}
+      <Box
+        sx={{
+          p: 2,
+          borderBottom: 1,
+          borderColor: 'divider',
+          background: (t) =>
+            t.palette.mode === 'dark'
+              ? 'linear-gradient(90deg, rgba(56,189,248,0.08), transparent 50%)'
+              : 'linear-gradient(90deg, rgba(14,165,233,0.06), transparent 50%)',
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1, gap: 1, flexWrap: 'wrap' }}>
+          <Typography variant="h6" sx={{ fontWeight: 750, letterSpacing: '-0.03em' }}>
+            {documentIds && documentIds.length > 0 ? `Chat · ${documentIds.length} docs` : 'AI Assistant'}
           </Typography>
           {/* Intent Indicator */}
           {detectedIntent && detectedIntent !== 'general' && (
@@ -446,21 +474,72 @@ export const DocumentChat: React.FC<DocumentChatProps> = ({
         </Box>
       </Box>
 
-      {/* Messages - reduced effective height to make room for progress meter */}
-      <Box sx={{ flexGrow: 1, overflow: 'auto', p: 1.5, minHeight: 0, pb: 12 }}>
+      {/* Messages */}
+      <Box sx={{ flexGrow: 1, overflow: 'auto', p: 2, minHeight: 0, pb: 12 }}>
         <List sx={{ py: 0 }}>
           {messages.map((message) => (
-            <ListItem key={message.id} sx={{ flexDirection: message.role === 'user' ? 'row-reverse' : 'row', gap: 1, alignItems: 'flex-start', py: 0.5 }}>
-              <Avatar sx={{ bgcolor: message.role === 'user' ? 'primary.main' : 'secondary.main' }}>
-                {message.role === 'user' ? <PersonIcon /> : <BotIcon />}
+            <ListItem
+              key={message.id}
+              sx={{
+                flexDirection: message.role === 'user' ? 'row-reverse' : 'row',
+                gap: 1.25,
+                alignItems: 'flex-start',
+                py: 0.75,
+              }}
+            >
+              <Avatar
+                sx={{
+                  width: 34,
+                  height: 34,
+                  bgcolor: message.role === 'user' ? 'primary.main' : 'transparent',
+                  border: message.role === 'assistant' ? '1px solid' : 0,
+                  borderColor: 'divider',
+                  backgroundImage:
+                    message.role === 'assistant'
+                      ? 'linear-gradient(135deg, rgba(56,189,248,0.25), rgba(99,102,241,0.3))'
+                      : undefined,
+                }}
+              >
+                {message.role === 'user' ? <PersonIcon fontSize="small" /> : <BotIcon fontSize="small" />}
               </Avatar>
-              <Paper elevation={1} sx={{ p: 1.5, maxWidth: '78%', bgcolor: message.role === 'user' ? 'primary.light' : 'background.paper', color: message.role === 'user' ? 'primary.contrastText' : 'text.primary', border: message.role === 'assistant' ? 1 : 0, borderColor: 'divider', borderRadius: 2 }}>
-                <Box sx={{ '& table': { width: '100%', borderCollapse: 'collapse', my: 1 }, '& th, & td': { border: '1px solid', borderColor: 'divider', p: 1, verticalAlign: 'top' }, '& pre': { p: 1.5, overflowX: 'auto', bgcolor: 'background.default', borderRadius: 1, border: 1, borderColor: 'divider' }, '& code': { fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace' } }} ref={message.role === 'assistant' ? lastAssistantRef : undefined}>
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                    {message.content}
-                  </ReactMarkdown>
+              <Paper
+                elevation={0}
+                sx={{
+                  p: 1.75,
+                  maxWidth: '78%',
+                  color: message.role === 'user' ? '#fff' : 'text.primary',
+                  borderRadius: message.role === 'user' ? '18px 18px 6px 18px' : '18px 18px 18px 6px',
+                  border: '1px solid',
+                  borderColor: message.role === 'user' ? 'transparent' : 'divider',
+                  background:
+                    message.role === 'user'
+                      ? 'linear-gradient(135deg, #2563eb 0%, #0ea5e9 100%)'
+                      : (t) =>
+                          t.palette.mode === 'dark' ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.9)',
+                }}
+              >
+                <Box
+                  sx={{
+                    '& table': { width: '100%', borderCollapse: 'collapse', my: 1 },
+                    '& th, & td': { border: '1px solid', borderColor: 'divider', p: 1, verticalAlign: 'top' },
+                    '& pre': {
+                      p: 1.5,
+                      overflowX: 'auto',
+                      bgcolor: 'background.default',
+                      borderRadius: 1,
+                      border: 1,
+                      borderColor: 'divider',
+                    },
+                    '& code': {
+                      fontFamily:
+                        'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+                    },
+                  }}
+                  ref={message.role === 'assistant' ? lastAssistantRef : undefined}
+                >
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
                 </Box>
-                <Typography variant="caption" sx={{ display: 'block', mt: 1, opacity: 0.7 }}>
+                <Typography variant="caption" sx={{ display: 'block', mt: 1, opacity: 0.65, fontVariantNumeric: 'tabular-nums' }}>
                   {format(new Date(message.created_at), 'MMM dd, yyyy HH:mm')}
                 </Typography>
               </Paper>
@@ -479,56 +558,78 @@ export const DocumentChat: React.FC<DocumentChatProps> = ({
         <div ref={messagesEndRef} />
       </Box>
 
-      <Divider />
-
-      {/* Input */}
-      <Box sx={{ p: 1.5, display: 'flex', gap: 1, alignItems: 'flex-end' }}>
-        <TextField
-          fullWidth
-          multiline
-          maxRows={3}
-          size="small"
-          placeholder="Type your message..."
-          value={inputMessage}
-          onChange={(e) => setInputMessage(e.target.value)}
-          onKeyPress={handleKeyPress}
-          onPaste={handlePaste}
-          onKeyDown={(e) => {
-            if (e.key === 'Escape') {
-              (e.target as HTMLInputElement).blur();
-            }
+      {/* Composer */}
+      <Box
+        sx={{
+          p: 1.5,
+          borderTop: '1px solid',
+          borderColor: 'divider',
+          background: (t) =>
+            t.palette.mode === 'dark' ? 'rgba(0,0,0,0.25)' : 'rgba(248,250,252,0.9)',
+        }}
+      >
+        <Box
+          sx={{
+            display: 'flex',
+            gap: 1,
+            alignItems: 'flex-end',
+            p: 0.75,
+            borderRadius: 3,
+            border: '1px solid',
+            borderColor: 'divider',
+            bgcolor: (t) => (t.palette.mode === 'dark' ? 'rgba(255,255,255,0.03)' : '#fff'),
           }}
-          disabled={isLoading}
-          sx={{ flexGrow: 1 }}
-        />
-        <Tooltip title="Send message (Enter)">
-          <span>
-            <IconButton
-              color="primary"
-              onClick={handleSendMessage}
-              disabled={isLoading || !inputMessage.trim()}
-              size="large"
-              sx={{
-                bgcolor: 'primary.main',
-                color: 'white',
-                '&:hover': { bgcolor: 'primary.dark' },
-                '&.Mui-disabled': { bgcolor: 'action.disabledBackground' }
-              }}
-            >
-              <SendIcon />
+        >
+          <TextField
+            fullWidth
+            multiline
+            maxRows={4}
+            size="small"
+            placeholder="Ask across your corpus…"
+            value={inputMessage}
+            onChange={(e) => setInputMessage(e.target.value)}
+            onKeyPress={handleKeyPress}
+            onPaste={handlePaste}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                ;(e.target as HTMLInputElement).blur()
+              }
+            }}
+            disabled={isLoading}
+            variant="standard"
+            InputProps={{ disableUnderline: true }}
+            sx={{ flexGrow: 1, px: 1, py: 0.5 }}
+          />
+          <Tooltip title="Download last answer as Markdown">
+            <IconButton onClick={downloadLastAssistantAsMarkdown} size="small">
+              <DownloadIcon fontSize="small" />
             </IconButton>
-          </span>
-        </Tooltip>
-        <Tooltip title="Download last answer as Markdown">
-          <IconButton onClick={downloadLastAssistantAsMarkdown} size="medium">
-            <DownloadIcon />
-          </IconButton>
-        </Tooltip>
-        <Tooltip title="Download last answer as PDF">
-          <IconButton onClick={downloadLastAssistantAsPdf} size="medium">
-            <PdfIcon />
-          </IconButton>
-        </Tooltip>
+          </Tooltip>
+          <Tooltip title="Download last answer as PDF">
+            <IconButton onClick={downloadLastAssistantAsPdf} size="small">
+              <PdfIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Send message (Enter)">
+            <span>
+              <IconButton
+                color="primary"
+                onClick={handleSendMessage}
+                disabled={isLoading || !inputMessage.trim()}
+                sx={{
+                  bgcolor: 'primary.main',
+                  color: 'white',
+                  width: 40,
+                  height: 40,
+                  '&:hover': { bgcolor: 'primary.dark' },
+                  '&.Mui-disabled': { bgcolor: 'action.disabledBackground' },
+                }}
+              >
+                <SendIcon fontSize="small" />
+              </IconButton>
+            </span>
+          </Tooltip>
+        </Box>
       </Box>
       {errorMessage && (
         <Box sx={{ px: 2, pb: 2 }}>
