@@ -48,18 +48,18 @@ export const AGENT_HELP = {
   maxSteps:
     'Upper limit on reasoning/tool steps per run. Higher = more thorough but slower. Typical: 4–8.',
   controlTower:
-    'Live orchestration view. Center = planner; outer nodes = tools. Activity pulses when a tool runs.',
+    'Live research console: horizontal instrument rail, streaming reasoning, and a continuous activity log so the run never feels idle.',
   status: 'idle = ready · planning = deciding · tool = executing · completed = done · error = failed',
   holding: 'Waiting on the model or an active tool.',
-  progress: 'Completed steps vs the max-step budget for this run.',
+  progress: 'Completed steps vs the max-step budget for this run (soft fill while planning).',
   toolsUsed: 'Distinct tools used at least once in this run.',
   steps: 'Completed tool steps vs max allowed. “iter” is the planner iteration count.',
-  towerRadio: 'Live reasoning stream — what the agent is considering before the next move.',
+  towerRadio: 'Live reasoning stream — typewriter feed of planner thoughts.',
   cargo: 'Last tool observation (search hits, document excerpt, etc.).',
   arrival: 'Final brief from this run.',
   arrivalBoard: 'Completed briefs for this browser session. Not permanent history.',
   flightStep: 'One tool call: action name plus a short thought or observation preview.',
   atcHub: 'The planner (ReAct loop). It chooses the next tool, reads the result, then continues until FINISH.',
   radar:
-    'Each node is a tool. Amber = active · green = already used · grey = unused this run.',
+    'Instrument rail left→right. Amber pulse = active · green = done · muted = unused. Edges shimmer while work is in flight.',
 } as const
