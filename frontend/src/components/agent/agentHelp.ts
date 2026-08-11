@@ -48,7 +48,7 @@ export const AGENT_HELP = {
   maxSteps:
     'Upper limit on reasoning/tool steps per run. Higher = more thorough but slower. Typical: 4–8.',
   controlTower:
-    'Live research console: horizontal instrument rail, streaming reasoning, and a continuous activity log so the run never feels idle.',
+    'Live research console: step rail, streaming reasoning, and a continuous activity log. Finished answers land on the Brief Board below.',
   status: 'idle = ready · planning = deciding · tool = executing · completed = done · error = failed',
   holding: 'Waiting on the model or an active tool.',
   progress: 'Completed steps vs the max-step budget for this run (soft fill while planning).',

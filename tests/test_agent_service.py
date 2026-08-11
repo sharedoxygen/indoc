@@ -50,6 +50,8 @@ class FakeTools:
 
     async def execute(self, action, action_input):
         self.executed.append((action, action_input))
+        if action == "list_documents":
+            return "50 document(s) in scope: id=doc-1 title=Snowflake MSA"
         if action == "search_documents":
             return "Top 1 result: id=doc-1 title=Q3 Report score=0.9"
         if action == "read_document":
@@ -191,3 +193,22 @@ async def test_agent_detects_repeated_action():
     assert agent.tools.executed.count(("search_documents", {"query": "same"})) == 1
     # The second step recorded the loop-guard observation.
     assert "already performed" in result.steps[1].observation.lower()
+
+
+@pytest.mark.asyncio
+async def test_agent_synthesizes_when_planner_fails_after_evidence():
+    """Empty/unparseable plan after a successful tool must not abort blank."""
+    list_plan = json.dumps({
+        "thought": "list the corpus first",
+        "action": "list_documents",
+        "action_input": {},
+    })
+    # Step-2 plan + retry both empty → synthesize from LIST evidence.
+    agent = _make_agent([list_plan, "", "", "Risks appear in liability and indemnity clauses."])
+
+    result = await agent.run(goal="summarize key risks across contracts", max_steps=6)
+
+    assert result.steps[0].action == "list_documents"
+    assert result.stopped_reason == "planning_failed"
+    assert "liability" in result.final_answer.lower() or "indemnity" in result.final_answer.lower()
+    assert "could not complete" not in result.final_answer.lower()

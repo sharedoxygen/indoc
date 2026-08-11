@@ -58,7 +58,9 @@ class LLMService:
         context: Optional[str] = None,
         max_tokens: int = 4096,
         temperature: float = 0.7,
-        model: Optional[str] = None
+        model: Optional[str] = None,
+        *,
+        raw: bool = False,
     ) -> str:
         """
         Generate response with multi-provider fallback
@@ -69,10 +71,14 @@ class LLMService:
         3. Return graceful degradation message
         
         Per AI Guide §3: Low temperature (≤0.3) for factual tasks
+
+        When raw=True, skip the conversational chat system wrapper so callers
+        that need structured JSON (agent planner) are not fighting the persona.
         """
         # Check cache first (works across providers)
-        cache_key = f"{prompt[:100]}:{context[:100] if context else ''}"
-        cached_response = await cache_service.get_cached_llm_response(prompt, context or "", model or "any")
+        cached_response = await cache_service.get_cached_llm_response(
+            prompt, context or "", model or ("raw" if raw else "any")
+        )
         if cached_response:
             logger.info(f"✅ Cache hit for LLM request")
             return cached_response
@@ -80,10 +86,15 @@ class LLMService:
         # Try primary provider (Ollama)
         try:
             logger.info("🔵 Attempting Ollama (primary provider)...")
-            response_text = await self._ollama_generate(prompt, context, max_tokens, temperature, model)
+            response_text = await self._ollama_generate(
+                prompt, context, max_tokens, temperature, model, raw=raw
+            )
             
-            # Cache successful response
-            await cache_service.cache_llm_response(prompt, context or "", model or "ollama", response_text)
+            # Cache successful non-empty response
+            if response_text:
+                await cache_service.cache_llm_response(
+                    prompt, context or "", model or ("raw" if raw else "ollama"), response_text
+                )
             return response_text
             
         except Exception as ollama_error:
@@ -93,10 +104,14 @@ class LLMService:
             if self.openai_api_key:
                 try:
                     logger.info("🟢 Falling back to OpenAI...")
-                    response_text = await self._openai_generate(prompt, context, max_tokens, temperature, model)
+                    response_text = await self._openai_generate(
+                        prompt, context, max_tokens, temperature, model, raw=raw
+                    )
                     
-                    # Cache successful response
-                    await cache_service.cache_llm_response(prompt, context or "", model or "openai", response_text)
+                    if response_text:
+                        await cache_service.cache_llm_response(
+                            prompt, context or "", model or ("raw" if raw else "openai"), response_text
+                        )
                     return response_text
                     
                 except Exception as openai_error:
@@ -106,6 +121,32 @@ class LLMService:
             
             # All providers failed - return graceful degradation
             return self._fallback_response(ollama_error)
+
+    def _resolve_ollama_model(self, model: Optional[str], available: List[str]) -> str:
+        """Prefer explicit model, then configured OLLAMA_MODEL, then first available."""
+        if model:
+            return model
+        configured = (getattr(settings, "OLLAMA_MODEL", None) or "").strip()
+        if configured:
+            if available:
+                if configured in available:
+                    return configured
+                # Tolerate tag drift (name vs name:tag)
+                stem = configured.split(":")[0]
+                for name in available:
+                    if name == stem or name.startswith(f"{stem}:"):
+                        return name
+            return configured
+        if not available:
+            raise LLMConnectionError("No Ollama models available")
+        return available[0]
+
+    def _compose_prompt(self, prompt: str, context: Optional[str], raw: bool) -> str:
+        if raw:
+            if context:
+                return f"{context.strip()}\n\n{prompt}"
+            return prompt
+        return self._build_prompt(prompt, context)
     
     async def _ollama_generate(
         self,
@@ -113,20 +154,15 @@ class LLMService:
         context: Optional[str],
         max_tokens: int,
         temperature: float,
-        model: Optional[str]
+        model: Optional[str],
+        *,
+        raw: bool = False,
     ) -> str:
         """Generate response using Ollama"""
-        # Dynamically select model if not specified
-        if model:
-            selected_model = model
-        else:
-            available = await self.list_available_models()
-            if not available:
-                raise LLMConnectionError("No Ollama models available")
-            selected_model = available[0]
+        available = await self.list_available_models()
+        selected_model = self._resolve_ollama_model(model, available)
         
-        # Build the full prompt with context
-        full_prompt = self._build_prompt(prompt, context)
+        full_prompt = self._compose_prompt(prompt, context, raw)
         
         # Prepare request payload
         payload = {
@@ -150,9 +186,19 @@ class LLMService:
         
         result = response.json()
         response_text = result.get("response", "").strip()
+
+        # Empty completions are not usable — one hard retry before giving up.
+        if not response_text:
+            logger.warning("Empty Ollama response from %s; retrying once", selected_model)
+            response = await client.post(
+                f"{self.ollama_base_url}/api/generate",
+                json=payload,
+            )
+            response.raise_for_status()
+            response_text = response.json().get("response", "").strip()
         
         # Guardrail: if model claims lack of documents, nudge with explicit reminder
-        if context:
+        if context and not raw:
             lower = response_text.lower()
             if any(marker in lower for marker in [
                 "please provide documents",
@@ -181,14 +227,15 @@ class LLMService:
         context: Optional[str],
         max_tokens: int,
         temperature: float,
-        model: Optional[str]
+        model: Optional[str],
+        *,
+        raw: bool = False,
     ) -> str:
         """Generate response using OpenAI API"""
         if not self.openai_api_key:
             raise LLMConnectionError("OpenAI API key not configured")
         
-        # Build the full prompt
-        full_prompt = self._build_prompt(prompt, context)
+        full_prompt = self._compose_prompt(prompt, context, raw)
         
         # Use configured or provided model
         selected_model = model or self.openai_model

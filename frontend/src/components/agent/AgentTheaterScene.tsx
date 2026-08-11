@@ -264,10 +264,16 @@ export const AgentTheaterScene: React.FC<AgentTheaterSceneProps> = ({
         />
       </Box>
 
-      {/* Horizontal instrument pipeline */}
-      <Box sx={{ px: 2, pb: 1.5 }}>
-        <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ position: 'relative' }}>
-          {catalog.map((tool, i) => {
+      {/* Horizontal instrument pipeline — compact technical steps, not cartoon nodes */}
+      <Box sx={{ px: 2, pb: 1.25 }}>
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: `repeat(${catalog.length}, minmax(0, 1fr))`,
+            gap: 0.5,
+          }}
+        >
+          {catalog.map((tool) => {
             const state = nodeState(tool)
             const short = TOOL_HELP[tool]?.short || tool.slice(0, 4).toUpperCase()
             const color =
@@ -278,92 +284,72 @@ export const AgentTheaterScene: React.FC<AgentTheaterSceneProps> = ({
                   : state === 'error'
                     ? theme.palette.error.main
                     : theme.palette.mode === 'dark'
-                      ? 'rgba(255,255,255,0.18)'
-                      : 'rgba(0,0,0,0.16)'
+                      ? 'rgba(255,255,255,0.22)'
+                      : 'rgba(0,0,0,0.22)'
             return (
-              <React.Fragment key={tool}>
-                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 1, minWidth: 56 }}>
-                  <Box sx={{ position: 'relative' }}>
-                    {state === 'active' && !reduceMotion && (
-                      <Box
-                        component={motion.div}
-                        animate={{ scale: [1, 1.55, 1], opacity: [0.55, 0, 0.55] }}
-                        transition={{ duration: 1.1, repeat: Infinity }}
-                        sx={{
-                          position: 'absolute',
-                          inset: -6,
-                          borderRadius: '50%',
-                          border: `2px solid ${color}`,
-                        }}
-                      />
-                    )}
-                    <Box
-                      component={motion.div}
-                      animate={state === 'active' && !reduceMotion ? { scale: [1, 1.08, 1] } : { scale: 1 }}
-                      transition={{ duration: 0.9, repeat: state === 'active' ? Infinity : 0 }}
-                      sx={{
-                        width: 36,
-                        height: 36,
-                        borderRadius: '50%',
-                        bgcolor: state === 'idle' ? 'transparent' : `${color}22`,
-                        border: `2px solid ${color}`,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: 10,
-                        fontWeight: 800,
-                        color: state === 'idle' ? 'text.secondary' : color,
-                        letterSpacing: 0.4,
-                      }}
-                    >
-                      {short.slice(0, 3)}
-                    </Box>
-                  </Box>
+              <Box
+                key={tool}
+                sx={{
+                  px: 0.75,
+                  py: 0.65,
+                  borderRadius: 0.75,
+                  border: `1px solid ${
+                    state === 'idle'
+                      ? theme.palette.divider
+                      : color
+                  }`,
+                  bgcolor:
+                    state === 'idle'
+                      ? 'transparent'
+                      : theme.palette.mode === 'dark'
+                        ? `${color}14`
+                        : `${color}12`,
+                  minWidth: 0,
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, mb: 0.35 }}>
+                  <Box
+                    sx={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: '1px',
+                      bgcolor: color,
+                      flexShrink: 0,
+                      opacity: state === 'idle' ? 0.45 : 1,
+                    }}
+                  />
                   <Typography
                     variant="caption"
                     sx={{
-                      mt: 0.5,
-                      fontWeight: state === 'active' ? 800 : 600,
-                      color: state === 'active' ? color : 'text.secondary',
+                      fontWeight: state === 'active' ? 750 : 650,
+                      color: state === 'idle' ? 'text.secondary' : color,
                       fontSize: 10,
+                      letterSpacing: 0.5,
+                      textTransform: 'uppercase',
+                      lineHeight: 1.1,
                     }}
+                    noWrap
                   >
                     {short}
                   </Typography>
                 </Box>
-                {i < catalog.length - 1 && (
-                  <Box sx={{ flex: 1, height: 2, mx: 0.5, position: 'relative', overflow: 'hidden', borderRadius: 1 }}>
-                    <Box
-                      sx={{
-                        position: 'absolute',
-                        inset: 0,
-                        bgcolor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
-                      }}
-                    />
-                    {(nodeState(catalog[i]) === 'done' || nodeState(catalog[i]) === 'active') && (
-                      <Box
-                        component={motion.div}
-                        animate={
-                          reduceMotion || !isLive
-                            ? { x: '0%' }
-                            : { x: ['-60%', '120%'] }
-                        }
-                        transition={{ duration: 1.4, repeat: Infinity, ease: 'linear' }}
-                        sx={{
-                          position: 'absolute',
-                          top: 0,
-                          bottom: 0,
-                          width: '40%',
-                          background: `linear-gradient(90deg, transparent, ${accent}, transparent)`,
-                        }}
-                      />
-                    )}
-                  </Box>
-                )}
-              </React.Fragment>
+                <Typography
+                  variant="caption"
+                  sx={{
+                    display: 'block',
+                    color: 'text.disabled',
+                    fontSize: 9,
+                    textTransform: 'capitalize',
+                    lineHeight: 1.2,
+                  }}
+                  noWrap
+                >
+                  {state === 'active' ? 'running' : state === 'done' ? 'done' : state === 'error' ? 'error' : 'idle'}
+                </Typography>
+              </Box>
             )
           })}
-        </Stack>
+        </Box>
       </Box>
 
       {/* Main split: thought + feed */}
@@ -504,38 +490,26 @@ export const AgentTheaterScene: React.FC<AgentTheaterSceneProps> = ({
         </Box>
       </Box>
 
-      {/* Footer brief strip */}
+      {/* Live status line — full brief lives on the Brief Board below */}
       <Box
         sx={{
           px: 2,
-          py: 1.25,
+          py: 0.85,
           borderTop: `1px solid ${theme.palette.divider}`,
-          bgcolor: theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.22)' : 'rgba(255,255,255,0.5)',
-          minHeight: 48,
+          bgcolor: theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.18)' : 'rgba(255,255,255,0.4)',
         }}
       >
-        {finalAnswer ? (
-          <Stack direction="row" spacing={1} alignItems="flex-start">
-            <Chip
-              size="small"
-              color={/could not complete|failed|error/i.test(finalAnswer) ? 'warning' : 'success'}
-              label={/could not complete|failed|error/i.test(finalAnswer) ? 'BRIEF · PARTIAL' : 'BRIEF'}
-              sx={{ fontWeight: 700 }}
-            />
-            <Typography variant="body2" sx={{ color: 'text.secondary', flex: 1 }}>
-              {finalAnswer.slice(0, 220)}
-              {finalAnswer.length > 220 ? '…' : ''}
-            </Typography>
-          </Stack>
-        ) : (
-          <Typography variant="caption" color="text.secondary">
-            {holding && isLive
+        <Typography variant="caption" color="text.secondary" sx={{ fontVariantNumeric: 'tabular-nums' }}>
+          {finalAnswer
+            ? isError || /could not complete|failed|error/i.test(finalAnswer)
+              ? 'Run ended — see Brief Board for the delivered answer.'
+              : 'Brief ready — see Brief Board below.'
+            : holding && isLive
               ? isTool
-                ? 'Streaming tool output into the observation buffer…'
-                : 'Model is deliberating — activity log updates every ~1.5s until the next instrument fires.'
-              : 'Brief delivery appears here when the run finishes.'}
-          </Typography>
-        )}
+                ? 'Streaming tool output…'
+                : 'Model deliberating…'
+              : 'Awaiting run.'}
+        </Typography>
       </Box>
     </Box>
   )
