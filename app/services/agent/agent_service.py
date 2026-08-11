@@ -104,10 +104,12 @@ class AgentService:
 
         Event shapes:
           {"type": "start",  "goal", "tools_available"}
+          {"type": "planning", "step"}  # LLM deciding next action
+          {"type": "tool_start", "step", "thought", "action", "action_input"}
           {"type": "step",   "step", "thought", "action", "action_input", "observation"}
           {"type": "final",  "final_answer", "iterations", "stopped_reason"}
 
-        This is what lets a UI show the agent thinking in real time.
+        Mid-step events let the UI show planning vs tool execution in real time.
         """
         max_steps = max(1, min(int(max_steps or DEFAULT_MAX_STEPS), HARD_MAX_STEPS))
         yield {
@@ -120,6 +122,7 @@ class AgentService:
         seen_actions: set = set()
 
         for step_num in range(1, max_steps + 1):
+            yield {"type": "planning", "step": step_num}
             decision = await self._plan(goal, scratchpad, document_ids)
             thought = decision.get("thought", "")
             action = decision.get("action", "")
@@ -139,6 +142,14 @@ class AgentService:
                     "stopped_reason": "completed",
                 }
                 return
+
+            yield {
+                "type": "tool_start",
+                "step": step_num,
+                "thought": thought,
+                "action": action,
+                "action_input": action_input,
+            }
 
             # Loop guard: if the agent repeats the exact same action, don't
             # waste the budget re-running it.

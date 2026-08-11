@@ -151,22 +151,48 @@ dev: ## Start full development stack (local processes, hot reload)
 	@echo ""
 
 stop-dev-processes: ## Internal: stop local dev app processes only
-	@if [ -f $(TMP_DIR)/backend.pid ]; then kill `cat $(TMP_DIR)/backend.pid` 2>/dev/null || true; fi
-	@if [ -f $(TMP_DIR)/celery_worker.pid ]; then kill `cat $(TMP_DIR)/celery_worker.pid` 2>/dev/null || true; fi
-	@if [ -f $(TMP_DIR)/celery_beat.pid ]; then kill `cat $(TMP_DIR)/celery_beat.pid` 2>/dev/null || true; fi
-	@if [ -f $(TMP_DIR)/frontend.pid ]; then kill `cat $(TMP_DIR)/frontend.pid` 2>/dev/null || true; fi
+	@# Kill recorded wrappers + process groups (uvicorn --reload orphans otherwise survive)
+	@for f in backend celery_worker celery_beat frontend; do \
+		if [ -f $(TMP_DIR)/$$f.pid ]; then \
+			pid=`tr -d '[:space:]' < $(TMP_DIR)/$$f.pid`; \
+			if [ -n "$$pid" ]; then \
+				kill -TERM -$$pid 2>/dev/null || true; \
+				kill -TERM $$pid 2>/dev/null || true; \
+			fi; \
+		fi; \
+	done
+	@sleep 1
+	@for f in backend celery_worker celery_beat frontend; do \
+		if [ -f $(TMP_DIR)/$$f.pid ]; then \
+			pid=`tr -d '[:space:]' < $(TMP_DIR)/$$f.pid`; \
+			if [ -n "$$pid" ]; then \
+				kill -KILL -$$pid 2>/dev/null || true; \
+				kill -KILL $$pid 2>/dev/null || true; \
+			fi; \
+		fi; \
+	done
 	@pkill -9 -f "uvicorn main:app" 2>/dev/null || true
 	@pkill -9 -f "vite.*$(DEV_FE_PORT)" 2>/dev/null || true
 	@pkill -9 -f "celery -A app.core.celery_app worker" 2>/dev/null || true
 	@pkill -9 -f "celery -A app.core.celery_app beat" 2>/dev/null || true
-	@pkill -9 -f "conda run.*celery" 2>/dev/null || true
-	@pkill -9 -f "conda run.*uvicorn" 2>/dev/null || true
+	@pkill -9 -f "conda run -n $(ENV_NAME).*uvicorn" 2>/dev/null || true
+	@pkill -9 -f "conda run -n $(ENV_NAME).*celery" 2>/dev/null || true
+	@# Free exclusive ports: reload workers are multiprocessing forks (cmdline ≠ uvicorn)
+	@$(STACK_MODE_SH) free-port $(DEV_API_PORT)
+	@$(STACK_MODE_SH) free-port $(DEV_FE_PORT)
 	@rm -f $(TMP_DIR)/*.pid $(TMP_DIR)/*.out 2>/dev/null || true
 
 stop-dev: stop-dev-processes ## Stop development stack (local procs + primary compose)
 	@echo "$(YELLOW)🛑 Stopping development stack...$(NC)"
 	@docker compose --project-name $(COMPOSE_PROJECT_NAME) -f $(ROOT_DIR)/$(COMPOSE_DEV) down 2>/dev/null || true
+	@$(STACK_MODE_SH) free-port $(DEV_API_PORT)
+	@$(STACK_MODE_SH) free-port $(DEV_FE_PORT)
 	@$(STACK_MODE_SH) clear
+	@if $(STACK_MODE_SH) port-in-use $(DEV_API_PORT); then \
+		echo "$(RED)❌ Port :$(DEV_API_PORT) still in use after stop:$(NC)"; \
+		$(STACK_MODE_SH) port-holders $(DEV_API_PORT); \
+		exit 1; \
+	fi
 	@echo "$(GREEN)✅ Development stack stopped$(NC)"
 
 stop-saas: ## Stop saas stack (publish worktree compose only)
@@ -180,6 +206,7 @@ stop-saas: ## Stop saas stack (publish worktree compose only)
 		indoc-elasticsearch indoc-qdrant indoc-prometheus indoc-grafana; do \
 		docker rm -f $$c 2>/dev/null || true; \
 	done
+	@$(STACK_MODE_SH) free-port $(SAAS_API_PORT)
 	@$(STACK_MODE_SH) clear
 	@echo "$(GREEN)✅ SaaS stack stopped$(NC)"
 
