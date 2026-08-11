@@ -169,7 +169,21 @@ const DashboardPage: React.FC = () => {
         <Typography variant="h4" sx={{ fontWeight: 700 }}>
           Dashboard
         </Typography>
-        <LiveTicker label="Live telemetry" value={`${totalDocs} docs`} live />
+        <LiveTicker
+          label="Live telemetry"
+          value={`${totalDocs} docs`}
+          live
+          help={{
+            title: 'Live telemetry',
+            body: 'Total documents currently tracked in this workspace, including every processing state.',
+            reading: `${totalDocs} documents`,
+            details: [
+              { label: 'Indexed', value: String(indexedCount) },
+              { label: 'In queue', value: String(inQueueNow) },
+              { label: 'Failed', value: String(failedNow) },
+            ],
+          }}
+        />
       </Box>
 
       <Typography variant="h6" sx={{ fontWeight: 600, mb: 2, color: 'text.secondary' }}>
@@ -210,6 +224,16 @@ const DashboardPage: React.FC = () => {
                 precision={1}
                 size={128}
                 status={indexedPct >= 90 ? 'ok' : indexedPct >= 50 ? 'warn' : 'active'}
+                help={{
+                  title: 'Indexed dial',
+                  body: 'Share of documents that finished indexing and are searchable for Insight Bridge and chat.',
+                  reading: `${indexedPct.toFixed(1)}% indexed`,
+                  details: [
+                    { label: 'Indexed', value: String(indexedCount) },
+                    { label: 'Total', value: String(totalDocs) },
+                  ],
+                  footer: 'Click the tile to open Documents.',
+                }}
               />
             </Box>
           </Grid>
@@ -228,6 +252,15 @@ const DashboardPage: React.FC = () => {
                 precision={0}
                 size={120}
                 status={inQueueNow > 0 ? 'warn' : 'ok'}
+                help={{
+                  title: 'Queue meter',
+                  body: 'How full the processing queue looks relative to the corpus. Non-zero means documents are still uploading, parsing, or embedding.',
+                  reading: `${inQueueNow} in flight · ${Math.round(queuePct)}%`,
+                  details: [
+                    { label: 'Processing', value: String(processingNow) },
+                    { label: 'In queue', value: String(inQueueNow) },
+                  ],
+                }}
               />
             </Box>
           </Grid>
@@ -246,6 +279,16 @@ const DashboardPage: React.FC = () => {
                 size={120}
                 status={failPct > 5 ? 'error' : failPct > 0 ? 'warn' : 'ok'}
                 displayValue={`${failedNow}`}
+                help={{
+                  title: 'Failure rate',
+                  body: 'Documents that failed processing as a percent of the corpus. The center readout is the absolute failure count.',
+                  reading: `${failedNow} failed · ${failPct.toFixed(1)}%`,
+                  details: [
+                    { label: 'Failed', value: String(failedNow) },
+                    { label: 'Rate', value: `${failPct.toFixed(1)}%` },
+                  ],
+                  footer: failPct > 5 ? 'Elevated — inspect failed documents and logs.' : 'Within a healthy band.',
+                }}
               />
             </Box>
           </Grid>
@@ -263,6 +306,15 @@ const DashboardPage: React.FC = () => {
                 size={120}
                 status="active"
                 displayValue={formatSeconds(Number(avgProcessSecs) || 0)}
+                help={{
+                  title: 'Avg process time',
+                  body: 'Average time to process a document end-to-end (upload → indexed), based on recent telemetry.',
+                  reading: formatSeconds(Number(avgProcessSecs) || 0),
+                  details: [
+                    { label: 'Seconds', value: String(Number(avgProcessSecs) || 0) },
+                    { label: 'Gauge max', value: formatSeconds(processGaugeMax) },
+                  ],
+                }}
               />
             </Box>
           </Grid>
@@ -276,10 +328,27 @@ const DashboardPage: React.FC = () => {
               Processing Pipeline
             </Typography>
             <SegmentRing
-              segments={pipelineSegments}
+              segments={pipelineSegments.map((seg) => ({
+                ...seg,
+                help: {
+                  title: seg.label,
+                  body: `Documents currently in the “${seg.label}” pipeline stage.`,
+                  reading: `${typeof seg.value === 'number' ? seg.value : 0} · ${seg.status}`,
+                  details: [{ label: 'Count', value: String(seg.value ?? 0) }],
+                },
+              }))}
               size={168}
               centerLabel="Ready"
               centerValue={String(indexedCount)}
+              help={{
+                title: 'Processing pipeline',
+                body: 'Chronograph of document stages from upload through ready/indexed. Center shows documents ready for search.',
+                reading: `${indexedCount} ready`,
+                details: pipelineSegments.map((s) => ({
+                  label: s.label,
+                  value: String(s.value ?? 0),
+                })),
+              }}
             />
             {failedNow > 0 && (
               <Typography variant="caption" color="error" sx={{ mt: 1, fontWeight: 600 }}>
@@ -298,6 +367,15 @@ const DashboardPage: React.FC = () => {
               precision={0}
               size={160}
               status="ok"
+              help={{
+                title: 'Storage meter',
+                body: 'Approximate corpus storage utilization versus the configured capacity band.',
+                reading: `${formatBytes(storageBytes)} · ${Math.round(storagePct)}%`,
+                details: [
+                  { label: 'Bytes', value: String(storageBytes) },
+                  { label: 'Processing now', value: String(processingNow) },
+                ],
+              }}
             />
             <Typography variant="caption" color="text.secondary" sx={{ mt: 1 }}>
               Processing now: {processingNow}
@@ -317,7 +395,16 @@ const DashboardPage: React.FC = () => {
                 { label: 'File types', value: summary?.documents_by_type?.length ?? 0 },
               ].map((item) => (
                 <Grid item xs={6} key={item.label}>
-                  <LiveTicker label={item.label} value={item.value} live={false} />
+                  <LiveTicker
+                    label={item.label}
+                    value={item.value}
+                    live={false}
+                    help={{
+                      title: item.label,
+                      body: `30-day system pulse for ${item.label.toLowerCase()}.`,
+                      reading: String(item.value),
+                    }}
+                  />
                 </Grid>
               ))}
             </Grid>

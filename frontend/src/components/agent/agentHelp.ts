@@ -27,6 +27,44 @@ export const TOOL_HELP: Record<string, { short: string; help: string }> = {
   },
 }
 
+/** Hover copy for live instrument cluster gauges. */
+export const INSTRUMENT_HELP = {
+  cluster:
+    'Live instrument cluster for this research run. Budget, tempo, coverage, and the tool chronograph update as the agent plans and executes.',
+  budget: {
+    title: 'Budget dial',
+    body: 'How much of the step budget this run has consumed. At 100% the agent must finish or stop — it cannot take further tool steps.',
+    footer: 'Driven by completed steps ÷ max steps. Soft pulse while the planner is thinking between tools.',
+  },
+  tempo: {
+    title: 'Tempo gauge',
+    body: 'How fast the agent is working, in tool steps per minute. Higher means denser tool calls; low or “—” means idle or just starting.',
+    footer: 'Needle maps relative pace. The readout is the live steps/min rate.',
+  },
+  coverage: {
+    title: 'Coverage meter',
+    body: 'Share of the available instrument catalog used at least once in this run (LIST, SEARCH, READ, SUM, CMP, FINISH).',
+    footer: 'Low coverage early is normal. Broad research often mixes SEARCH with a few deep dives — not every tool.',
+  },
+  stageRing: {
+    title: 'Instrument chronograph',
+    body: 'Pipeline of research instruments. Thin arcs light as each tool fires. Center count = completed tool steps so far.',
+    footer: 'Colors: amber = active · green = done · red = failed · muted = not used yet. Hover a stage label for that tool’s role.',
+  },
+  phase: {
+    title: 'Phase',
+    body: 'Current ReAct loop state: PLANNING (choosing next action), EXECUTING (tool in flight), COMPLETED, ERROR, or IDLE.',
+  },
+  elapsed: {
+    title: 'Elapsed',
+    body: 'Wall-clock time since this research run started (m:ss). Resets when you launch a new run.',
+  },
+  steps: {
+    title: 'Steps',
+    body: 'Completed tool steps versus the max-steps cap for this run. When the numerator hits the denominator, the agent must synthesize and finish.',
+  },
+} as const
+
 export const AGENT_HELP = {
   productName: 'Insight Bridge',
   pageTitle:
@@ -51,10 +89,11 @@ export const AGENT_HELP = {
   maxSteps:
     'Upper limit on reasoning/tool steps per run. Higher = more thorough but slower. Typical: 4–8.',
   controlTower:
-    'Live research console: precision instrument cluster (budget, tempo, coverage, tool ring), streaming reasoning, and activity. Briefs land on the Brief Board.',
+    'Live research console: precision instrument cluster (budget, tempo, coverage, tool ring), streaming reasoning, and activity. Hover any dial for a full readout. Briefs land on the Brief Board.',
   status: 'idle = ready · planning = deciding · tool = executing · completed = done · error = failed',
   holding: 'Waiting on the model or an active tool.',
-  progress: 'Budget dial = step budget used. Tempo = steps per minute. Coverage = distinct tools fired. Ring = instrument pipeline.',
+  progress:
+    'Budget = step budget used. Tempo = steps/min. Coverage = distinct tools fired. Ring = instrument pipeline. Hover each for live reading + details.',
   toolsUsed: 'Distinct tools used at least once in this run.',
   steps: 'Completed tool steps vs max allowed. “iter” is the planner iteration count.',
   towerRadio: 'Live reasoning stream — typewriter feed of planner thoughts.',
