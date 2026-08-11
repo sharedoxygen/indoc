@@ -126,8 +126,8 @@ export const AgentInstrumentCluster: React.FC<AgentInstrumentClusterProps> = ({
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       sx={{
-        p: { xs: 1.5, md: 2 },
-        borderRadius: 2.5,
+        p: { xs: 1, md: 1.25 },
+        borderRadius: 2,
         border: '1px solid',
         borderColor: 'divider',
         background: dark
@@ -135,6 +135,7 @@ export const AgentInstrumentCluster: React.FC<AgentInstrumentClusterProps> = ({
           : 'linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(244,247,251,0.95) 100%)',
         position: 'relative',
         overflow: 'hidden',
+        flexShrink: 0,
       }}
     >
       {isLive && !reduceMotion && (
@@ -158,7 +159,7 @@ export const AgentInstrumentCluster: React.FC<AgentInstrumentClusterProps> = ({
         direction="row"
         justifyContent="space-between"
         alignItems="center"
-        sx={{ mb: 1.25, position: 'relative' }}
+        sx={{ mb: 1, position: 'relative', minWidth: 0 }}
         flexWrap="wrap"
         gap={1}
       >
@@ -177,12 +178,12 @@ export const AgentInstrumentCluster: React.FC<AgentInstrumentClusterProps> = ({
         >
           <Typography
             variant="caption"
-            sx={{ fontWeight: 750, letterSpacing: 1.2, color: 'text.secondary', cursor: 'help' }}
+            sx={{ fontWeight: 750, letterSpacing: 0.8, color: 'text.secondary', cursor: 'help' }}
           >
-            LIVE INSTRUMENT CLUSTER
+            INSTRUMENTS
           </Typography>
         </InstrumentTooltip>
-        <Stack direction="row" spacing={1.5} alignItems="center">
+        <Stack direction="row" spacing={1.25} alignItems="center" flexWrap="wrap" useFlexGap>
           <LiveTicker
             label="Phase"
             value={phaseLabel}
@@ -242,20 +243,20 @@ export const AgentInstrumentCluster: React.FC<AgentInstrumentClusterProps> = ({
           display: 'grid',
           gridTemplateColumns: {
             xs: '1fr 1fr',
-            md: '140px 140px 140px 1fr',
+            sm: 'repeat(4, minmax(0, 1fr))',
           },
-          gap: { xs: 1.5, md: 2 },
+          gap: { xs: 0.75, md: 1 },
           alignItems: 'center',
           position: 'relative',
         }}
       >
-        <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+        <Box sx={{ display: 'flex', justifyContent: 'center', minWidth: 0 }}>
           <PrecisionDial
             value={budgetValue}
             label="Budget"
             unit="%"
             precision={0}
-            size={128}
+            size={104}
             status={dialStatus}
             animate
             help={{
@@ -269,12 +270,12 @@ export const AgentInstrumentCluster: React.FC<AgentInstrumentClusterProps> = ({
             }}
           />
         </Box>
-        <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+        <Box sx={{ display: 'flex', justifyContent: 'center', minWidth: 0 }}>
           <NeedleGauge
             value={Math.min(100, tempo)}
             label="Tempo"
             displayValue={tempoReadout}
-            size={120}
+            size={100}
             status={isLive ? 'active' : isDone ? 'ok' : 'idle'}
             help={{
               ...INSTRUMENT_HELP.tempo,
@@ -287,14 +288,14 @@ export const AgentInstrumentCluster: React.FC<AgentInstrumentClusterProps> = ({
             }}
           />
         </Box>
-        <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+        <Box sx={{ display: 'flex', justifyContent: 'center', minWidth: 0 }}>
           <ArcMeter
             value={toolCoverage}
             label="Coverage"
-            subtitle={`${used.size}/${catalog.length} tools`}
+            subtitle={`${used.size}/${catalog.length}`}
             unit="%"
             precision={0}
-            size={118}
+            size={98}
             status={toolCoverage >= 50 ? 'ok' : isLive ? 'warn' : 'idle'}
             help={{
               ...INSTRUMENT_HELP.coverage,
@@ -311,7 +312,7 @@ export const AgentInstrumentCluster: React.FC<AgentInstrumentClusterProps> = ({
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 0 }}>
           <SegmentRing
             segments={segments}
-            size={168}
+            size={118}
             centerLabel={isLive ? 'Live' : isDone ? 'Done' : 'Idle'}
             centerValue={String(steps.length)}
             showLegend={false}
@@ -332,30 +333,31 @@ export const AgentInstrumentCluster: React.FC<AgentInstrumentClusterProps> = ({
           />
           <Stack
             direction="row"
-            spacing={0.75}
+            spacing={0.5}
             useFlexGap
             flexWrap="wrap"
             justifyContent="center"
-            sx={{ mt: 0.75, maxWidth: 280 }}
+            sx={{ mt: 0.4, maxWidth: 140 }}
           >
             {segments.map((seg) => (
               <InstrumentTooltip key={seg.key} help={seg.help} placement="bottom">
                 <Typography
                   variant="caption"
-                  sx={{
-                    fontSize: 10,
-                    fontWeight: seg.status === 'active' ? 800 : 600,
-                    color:
-                      seg.status === 'complete'
-                        ? 'success.main'
-                        : seg.status === 'active'
-                          ? 'warning.main'
-                          : seg.status === 'failed'
-                            ? 'error.main'
-                            : 'text.disabled',
-                    letterSpacing: 0.4,
-                    cursor: 'help',
-                  }}
+                sx={{
+                  fontSize: 9,
+                  fontWeight: seg.status === 'active' ? 800 : 600,
+                  color:
+                    seg.status === 'complete'
+                      ? 'success.main'
+                      : seg.status === 'active'
+                        ? 'warning.main'
+                        : seg.status === 'failed'
+                          ? 'error.main'
+                          : 'text.disabled',
+                  letterSpacing: 0.3,
+                  cursor: 'help',
+                  lineHeight: 1.2,
+                }}
                 >
                   {seg.label}
                 </Typography>
