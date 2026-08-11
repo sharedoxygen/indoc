@@ -1,14 +1,15 @@
-import React, { useMemo } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { Box, Chip, Stack, Tooltip, Typography } from '@mui/material'
 import { motion } from 'framer-motion'
 import { PrecisionDial, NeedleGauge, LiveTicker } from '../instruments'
 import HelpTip from '../HelpTip'
 import AgentTheaterScene from './AgentTheaterScene'
 import { AGENT_HELP, TOOL_HELP } from './agentHelp'
-import type { AgentStep, AgentStreamStatus } from '../../hooks/useAgentStream'
+import type { AgentPhase, AgentStep, AgentStreamStatus } from '../../hooks/useAgentStream'
 
 interface AgentTheaterProps {
   status: AgentStreamStatus
+  phase: AgentPhase
   tools: string[]
   steps: AgentStep[]
   holding: boolean
@@ -18,10 +19,14 @@ interface AgentTheaterProps {
   stoppedReason: string | null
   error: string | null
   goal?: string
+  activeAction?: string | null
+  activeThought?: string | null
+  startedAt?: number | null
 }
 
 export const AgentTheater: React.FC<AgentTheaterProps> = ({
   status,
+  phase,
   tools,
   steps,
   holding,
@@ -31,45 +36,96 @@ export const AgentTheater: React.FC<AgentTheaterProps> = ({
   stoppedReason,
   error,
   goal,
+  activeAction,
+  activeThought,
+  startedAt,
 }) => {
-  const progress = maxSteps > 0 ? Math.min(100, (steps.length / maxSteps) * 100) : 0
+  const [elapsed, setElapsed] = useState(0)
+  const isLive = status === 'running' || status === 'connecting'
+
+  useEffect(() => {
+    if (!isLive || !startedAt) {
+      setElapsed(0)
+      return
+    }
+    const tick = () => setElapsed(Math.max(0, Math.floor((Date.now() - startedAt) / 1000)))
+    tick()
+    const id = window.setInterval(tick, 250)
+    return () => window.clearInterval(id)
+  }, [isLive, startedAt])
+
+  const hardProgress = maxSteps > 0 ? Math.min(100, (steps.length / maxSteps) * 100) : 0
+  // Soft progress while planning so the dial never feels frozen at 0%
+  const softBoost =
+    isLive && steps.length === 0
+      ? Math.min(12, elapsed * 1.4)
+      : isLive && phase === 'planning'
+        ? Math.min(8, 3 + (elapsed % 10))
+        : 0
+  const progress = Math.min(99, hardProgress + (hardProgress >= 100 ? 0 : softBoost))
+
   const usedTools = useMemo(() => new Set(steps.map((s) => s.action)), [steps])
   const toolCatalog = tools.length ? tools : Object.keys(TOOL_HELP)
   const toolsPct =
     toolCatalog.length > 0 ? Math.min(100, (usedTools.size / toolCatalog.length) * 100) : 0
   const dialStatus =
-    status === 'error' ? 'error' : status === 'completed' ? 'ok' : status === 'running' ? 'active' : 'idle'
+    status === 'error' ? 'error' : status === 'completed' ? 'ok' : isLive ? 'active' : 'idle'
+
+  const phaseLabel =
+    phase === 'planning' || phase === 'connecting'
+      ? 'PLANNING'
+      : phase === 'tool'
+        ? 'EXECUTING'
+        : status.toUpperCase()
+
+  const phaseChip =
+    phase === 'planning' || phase === 'connecting'
+      ? 'Planner thinking…'
+      : phase === 'tool'
+        ? `Running ${TOOL_HELP[activeAction || '']?.short || activeAction || 'tool'}…`
+        : null
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', gap: 1.5 }}>
       <Stack direction="row" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={1}>
         <Box>
           <Typography variant="overline" sx={{ color: 'text.secondary', letterSpacing: 1.2, fontWeight: 700 }}>
-            <HelpTip title={AGENT_HELP.controlTower}>Live agent run</HelpTip>
+            <HelpTip title={AGENT_HELP.controlTower}>Live research orchestration</HelpTip>
           </Typography>
-          <Typography variant="body2" sx={{ color: 'text.secondary', maxWidth: 520 }} noWrap>
-            {goal || 'Waiting for a goal — type one above and Launch'}
+          <Typography variant="body2" sx={{ color: 'text.secondary', maxWidth: 560 }} noWrap>
+            {goal || 'Set an objective above, then Run'}
           </Typography>
         </Box>
-        <Stack direction="row" spacing={1} alignItems="center">
+        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
           <Tooltip title={AGENT_HELP.status}>
             <Box sx={{ cursor: 'help' }}>
               <LiveTicker
-                label="Status"
-                value={status.toUpperCase()}
-                live={status === 'running' || status === 'connecting'}
-                accent={status === 'error' ? 'error.main' : status === 'completed' ? 'success.main' : 'primary.main'}
+                label="Phase"
+                value={phaseLabel}
+                live={isLive}
+                accent={
+                  status === 'error'
+                    ? 'error.main'
+                    : status === 'completed'
+                      ? 'success.main'
+                      : phase === 'tool'
+                        ? 'warning.main'
+                        : 'primary.main'
+                }
               />
             </Box>
           </Tooltip>
+          {isLive && (
+            <Chip size="small" variant="outlined" label={`${elapsed}s`} sx={{ fontVariantNumeric: 'tabular-nums' }} />
+          )}
           {stoppedReason && (
             <Tooltip title="Why the run stopped">
               <Chip size="small" label={stoppedReason} variant="outlined" />
             </Tooltip>
           )}
-          {holding && status === 'running' && (
+          {holding && isLive && phaseChip && (
             <Tooltip title={AGENT_HELP.holding}>
-              <Chip size="small" color="warning" label="Waiting on tool…" />
+              <Chip size="small" color={phase === 'tool' ? 'warning' : 'info'} label={phaseChip} />
             </Tooltip>
           )}
         </Stack>
@@ -84,13 +140,16 @@ export const AgentTheater: React.FC<AgentTheaterProps> = ({
           minHeight: 0,
         }}
       >
-        <Box sx={{ minHeight: 420, height: '100%' }}>
+        <Box sx={{ minHeight: 460, height: '100%' }}>
           <AgentTheaterScene
             status={status}
+            phase={phase}
             tools={tools}
             steps={steps}
             holding={holding}
             finalAnswer={finalAnswer}
+            activeAction={activeAction}
+            activeThought={activeThought}
           />
         </Box>
 
@@ -114,7 +173,7 @@ export const AgentTheater: React.FC<AgentTheaterProps> = ({
           <Tooltip title={AGENT_HELP.progress} arrow>
             <Box sx={{ cursor: 'help' }}>
               <PrecisionDial
-                value={progress}
+                value={status === 'completed' ? 100 : progress}
                 label="Progress"
                 unit="%"
                 precision={0}
@@ -131,7 +190,7 @@ export const AgentTheater: React.FC<AgentTheaterProps> = ({
                 unit="%"
                 precision={0}
                 size={118}
-                status={status === 'running' ? 'warn' : (dialStatus as any)}
+                status={isLive ? 'warn' : (dialStatus as any)}
                 displayValue={`${usedTools.size}/${toolCatalog.length}`}
               />
             </Box>
@@ -159,14 +218,7 @@ export const AgentTheater: React.FC<AgentTheaterProps> = ({
       )}
 
       {steps.length > 0 && (
-        <Box
-          sx={{
-            display: 'flex',
-            gap: 1,
-            overflowX: 'auto',
-            pb: 0.5,
-          }}
-        >
+        <Box sx={{ display: 'flex', gap: 1, overflowX: 'auto', pb: 0.5 }}>
           {steps.map((s) => (
             <Tooltip
               key={s.step}
@@ -189,8 +241,8 @@ export const AgentTheater: React.FC<AgentTheaterProps> = ({
             >
               <Box
                 component={motion.div}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
+                initial={{ opacity: 0, y: 8, scale: 0.96 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
                 sx={{
                   minWidth: 160,
                   p: 1,

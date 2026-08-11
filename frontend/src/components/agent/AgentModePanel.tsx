@@ -13,7 +13,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material'
-import { ExpandMore as ExpandMoreIcon, FlightTakeoff as LaunchIcon, Stop as StopIcon } from '@mui/icons-material'
+import { AutoAwesome as RunIcon, ExpandMore as ExpandMoreIcon, Stop as StopIcon } from '@mui/icons-material'
 import { motion } from 'framer-motion'
 import { useAgentStream } from '../../hooks/useAgentStream'
 import HelpTip from '../HelpTip'
@@ -99,8 +99,8 @@ export const AgentModePanel: React.FC<AgentModePanelProps> = ({ documentIds, onF
             <TextField
               fullWidth
               size="small"
-              label="Goal"
-              placeholder="e.g. Summarize key risks across my indexed contracts"
+              label="Research objective"
+              placeholder="e.g. Summarize key risks across these contracts"
               value={goal}
               onChange={(e) => setGoal(e.target.value)}
               onKeyDown={(e) => {
@@ -112,17 +112,17 @@ export const AgentModePanel: React.FC<AgentModePanelProps> = ({ documentIds, onF
               disabled={running}
               helperText={
                 documentIds.length === 0
-                  ? 'Select at least one document in Scope (left)'
-                  : `${documentIds.length} doc${documentIds.length === 1 ? '' : 's'} in scope`
+                  ? 'Include documents in corpus scope'
+                  : `${documentIds.length} document${documentIds.length === 1 ? '' : 's'} in corpus`
               }
             />
           </Tooltip>
           <Tooltip
             title={
               !goal.trim()
-                ? 'Enter a goal first'
+                ? 'Enter an objective first'
                 : documentIds.length === 0
-                  ? 'Select documents in Scope first'
+                  ? 'Confirm corpus scope first'
                   : AGENT_HELP.launch
             }
           >
@@ -130,12 +130,12 @@ export const AgentModePanel: React.FC<AgentModePanelProps> = ({ documentIds, onF
               <Button
                 variant="contained"
                 color="primary"
-                startIcon={<LaunchIcon />}
+                startIcon={<RunIcon />}
                 onClick={handleLaunch}
                 disabled={!goal.trim() || running || documentIds.length === 0}
                 sx={{ minWidth: 140, whiteSpace: 'nowrap' }}
               >
-                {running ? 'Running…' : 'Launch'}
+                {running ? 'Running…' : 'Run'}
               </Button>
             </span>
           </Tooltip>
@@ -176,6 +176,7 @@ export const AgentModePanel: React.FC<AgentModePanelProps> = ({ documentIds, onF
       <Box sx={{ flex: 1, minHeight: 0 }}>
         <AgentTheater
           status={agent.status}
+          phase={agent.phase}
           tools={agent.tools}
           steps={agent.steps}
           holding={agent.holding}
@@ -185,16 +186,19 @@ export const AgentModePanel: React.FC<AgentModePanelProps> = ({ documentIds, onF
           stoppedReason={agent.stoppedReason}
           error={agent.error}
           goal={agent.goal}
+          activeAction={agent.activeAction}
+          activeThought={agent.activeThought}
+          startedAt={agent.startedAt}
         />
       </Box>
 
       <Paper sx={{ p: 1.5, borderRadius: 3, maxHeight: 160, overflow: 'auto' }}>
         <Typography variant="caption" sx={{ fontWeight: 700, letterSpacing: 0.8, color: 'text.secondary' }}>
-          <HelpTip title={AGENT_HELP.arrivalBoard}>ARRIVAL BOARD · completed answers</HelpTip>
+          <HelpTip title={AGENT_HELP.arrivalBoard}>BRIEF BOARD · completed research</HelpTip>
         </Typography>
         {priorRuns.length === 0 && !agent.finalAnswer && (
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            When a run finishes, the goal and final answer appear here for reuse this session.
+            Finished briefs land here for reuse this session.
           </Typography>
         )}
         <Stack spacing={1} sx={{ mt: 1 }}>

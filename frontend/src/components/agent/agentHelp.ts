@@ -1,17 +1,17 @@
-/** Plain-language help for the Agent Tower UI (aviation labels → what they mean). */
+/** Plain-language help for Insight Bridge (autonomous research UI). */
 
 export const TOOL_HELP: Record<string, { short: string; help: string }> = {
   list_documents: {
     short: 'LIST',
-    help: 'Lists documents in your current scope (id, title, type). The agent usually starts here to see what it can work with.',
+    help: 'Lists documents in your current corpus (id, title, type). Often the first move to survey what is available.',
   },
   search_documents: {
     short: 'SEARCH',
-    help: 'Hybrid keyword + semantic search across scoped docs. Finds the most relevant documents and snippets for the goal.',
+    help: 'Hybrid keyword + semantic search across scoped docs. Surfaces the most relevant passages for the brief.',
   },
   read_document: {
     short: 'READ',
-    help: 'Reads the full text of one document by id to pull specific facts or quotes.',
+    help: 'Reads the full text of one document by id to extract specific facts or quotes.',
   },
   summarize_document: {
     short: 'SUM',
@@ -23,47 +23,43 @@ export const TOOL_HELP: Record<string, { short: string; help: string }> = {
   },
   finish: {
     short: 'FINISH',
-    help: 'Ends the run with a final answer grounded in what the agent gathered. Lights up when the mission completes.',
+    help: 'Closes the brief with a grounded final answer. Activates when synthesis is complete.',
   },
 }
 
 export const AGENT_HELP = {
+  productName: 'Insight Bridge',
   pageTitle:
-    'An autonomous research agent that plans steps (search, read, summarize, compare) over the documents you select in Scope, then returns a grounded answer.',
-  pageSubtitle: 'Type a goal, pick docs in Scope, then Launch. The radar shows which tools the agent is using as it works.',
-  modeAgent: 'Multi-step research agent: plans actions, uses tools, then answers.',
-  modeChat: 'Normal Q&A chat over the selected documents (single turn style).',
-  history: 'Past chat conversations. Agent mission results also appear on the Arrival Board below.',
+    'Autonomous research over your corpus: plans, searches, reads, and synthesizes a grounded brief from the documents you scope.',
+  pageSubtitle: 'State an objective, confirm corpus scope, then Run. Live orchestration shows each tool as it fires.',
+  modeAgent: 'Multi-step research: plans actions, uses tools, then delivers a brief.',
+  modeChat: 'Conversational Q&A over the selected documents.',
+  history: 'Past chat conversations. Completed briefs also appear on the Brief board below.',
   scope:
-    'Documents the agent is allowed to use for this run. Check or uncheck items; use search only to find docs — selection can include items not currently shown in the filtered list.',
-  scopeMeter:
-    'How many of the currently listed (filtered) documents are checked. The count below shows total selected for the run vs how many appear in this list.',
-  scopeSelectAll: 'Select or clear all documents currently shown in the filtered list.',
-  scopeSearch: "Filter the list to find documents. Does not remove already-selected docs from the agent's scope.",
+    'Corpus the agent may use. Defaults to all indexed documents. Open “Refine corpus” only when you need a subset.',
+  scopeMeter: 'Share of the filtered list currently included in scope.',
+  scopeSelectAll: 'Include or clear all documents currently shown in the refine list.',
+  scopeSearch: 'Filter the refine list. Does not drop already-scoped documents outside the filter.',
   missionGoal:
-    'What you want the agent to accomplish — e.g. “Summarize key risks across these contracts” or “Compare renewal terms in the selected PDFs.”',
-  launch: 'Start the agent. It will plan steps and call tools until it finishes or hits the max-step limit.',
-  abort: 'Stop the current agent run immediately.',
-  advanced:
-    'Max steps caps how many tool calls the agent can make. Scope is the number of documents currently selected.',
+    'Your research objective — e.g. “Summarize key risks across these contracts” or “Compare renewal terms in the selected PDFs.”',
+  launch: 'Start research. The agent plans steps and calls tools until it finishes or hits the step limit.',
+  abort: 'Stop the current run immediately.',
+  advanced: 'Max steps caps tool calls. Scope is the number of documents currently included.',
   maxSteps:
-    'Upper limit on reasoning/tool steps per run. Higher = more thorough but slower and more expensive. Typical: 4–8.',
+    'Upper limit on reasoning/tool steps per run. Higher = more thorough but slower. Typical: 4–8.',
   controlTower:
-    'Live view of the agent run. The center is the planner; outer pads are tools. Planes fly to a pad when that tool is used.',
-  status: 'idle = waiting · connecting/running = working · completed = done · error = failed',
-  holding: 'The agent is waiting on a tool or model response (holding pattern).',
-  progress:
-    'Share of the max-step budget used so far (steps taken ÷ max steps). Reaches 100% when the step limit is hit.',
-  toolsUsed: 'How many distinct tools the agent has used at least once in this run.',
-  steps: 'Completed tool steps vs the max allowed for this run. “iter” is the planner iteration count.',
-  towerRadio:
-    'Live thought stream from the agent — what it is considering before choosing the next tool.',
-  cargo: 'Observation returned by the last tool call (search hits, document text snippet, etc.).',
-  arrival: 'Final answer from this run.',
-  arrivalBoard:
-    'Completed missions for this browser session: goal + final answer, so you can reuse them. Not permanent history.',
-  flightStep: 'One tool call in the run: action name plus a short thought or observation preview.',
-  atcHub: 'The agent planner (ReAct loop). It decides the next tool, reads the result, then continues until FINISH.',
+    'Live orchestration view. Center = planner; outer nodes = tools. Activity pulses when a tool runs.',
+  status: 'idle = ready · planning = deciding · tool = executing · completed = done · error = failed',
+  holding: 'Waiting on the model or an active tool.',
+  progress: 'Completed steps vs the max-step budget for this run.',
+  toolsUsed: 'Distinct tools used at least once in this run.',
+  steps: 'Completed tool steps vs max allowed. “iter” is the planner iteration count.',
+  towerRadio: 'Live reasoning stream — what the agent is considering before the next move.',
+  cargo: 'Last tool observation (search hits, document excerpt, etc.).',
+  arrival: 'Final brief from this run.',
+  arrivalBoard: 'Completed briefs for this browser session. Not permanent history.',
+  flightStep: 'One tool call: action name plus a short thought or observation preview.',
+  atcHub: 'The planner (ReAct loop). It chooses the next tool, reads the result, then continues until FINISH.',
   radar:
-    'Each pad is a tool the agent can call. Yellow = currently using · green = used earlier · grey = unused this run.',
+    'Each node is a tool. Amber = active · green = already used · grey = unused this run.',
 } as const
