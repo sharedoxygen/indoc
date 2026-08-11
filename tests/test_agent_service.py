@@ -196,6 +196,21 @@ async def test_agent_detects_repeated_action():
 
 
 @pytest.mark.asyncio
+async def test_agent_stream_errors_when_llm_unavailable():
+    """Provider outage must surface as error, not a fake completed brief."""
+    agent = _make_agent([
+        "I apologize, but the AI service is temporarily unavailable. Try again.",
+    ])
+
+    events = [ev async for ev in agent.run_stream(goal="summarize risks", max_steps=4)]
+
+    assert events[0]["type"] == "start"
+    assert events[-1]["type"] == "error"
+    assert "unavailable" in events[-1]["message"].lower()
+    assert not any(e["type"] == "final" for e in events)
+
+
+@pytest.mark.asyncio
 async def test_agent_synthesizes_when_planner_fails_after_evidence():
     """Empty/unparseable plan after a successful tool must not abort blank."""
     list_plan = json.dumps({
