@@ -100,7 +100,7 @@ export const AGENT_HELP = {
   cargo: 'Last tool observation (search hits, document excerpt, etc.).',
   arrival: 'Final brief from this run.',
   arrivalBoard:
-    'Session brief library: pick a run on the left, read the full answer on the right. Ask follow-up, copy, or reuse the objective. Cleared when you clear the board or close the tab.',
+    'Session briefs sit beside the console. Pick a run in the list, read the full answer, then follow up, copy, or reuse the objective. Cleared when you clear the board or close the tab.',
   flightStep: 'One tool call: action name plus a short thought or observation preview.',
   atcHub: 'The planner (ReAct loop). It chooses the next tool, reads the result, then continues until FINISH.',
   radar:
