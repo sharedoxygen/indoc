@@ -51,10 +51,10 @@ export const AGENT_HELP = {
   maxSteps:
     'Upper limit on reasoning/tool steps per run. Higher = more thorough but slower. Typical: 4–8.',
   controlTower:
-    'Live research console: step rail, streaming reasoning, and a continuous activity log. Finished answers land on the Brief Board below.',
+    'Live research console: precision instrument cluster (budget, tempo, coverage, tool ring), streaming reasoning, and activity. Briefs land on the Brief Board.',
   status: 'idle = ready · planning = deciding · tool = executing · completed = done · error = failed',
   holding: 'Waiting on the model or an active tool.',
-  progress: 'Completed steps vs the max-step budget for this run (soft fill while planning).',
+  progress: 'Budget dial = step budget used. Tempo = steps per minute. Coverage = distinct tools fired. Ring = instrument pipeline.',
   toolsUsed: 'Distinct tools used at least once in this run.',
   steps: 'Completed tool steps vs max allowed. “iter” is the planner iteration count.',
   towerRadio: 'Live reasoning stream — typewriter feed of planner thoughts.',

@@ -30,6 +30,10 @@ MAX_OBSERVATION_CHARS = 1800
 DEFAULT_MAX_STEPS = 6
 HARD_MAX_STEPS = 12
 
+# Cap per-document deep dives so a 1k-doc corpus can never be walked one-by-one.
+MAX_DEEP_DIVES_PER_RUN = 2
+_DEEP_DIVE_ACTIONS = frozenset({"summarize_document", "read_document"})
+
 # LLMService returns this prose when every provider fails. Treat as outage, not a brief.
 _LLM_UNAVAILABLE_MARKERS = (
     "ai service is temporarily unavailable",
@@ -168,11 +172,32 @@ class AgentService:
             # Loop guard: if the agent repeats the exact same action, don't
             # waste the budget re-running it.
             action_signature = f"{action}:{json.dumps(action_input, sort_keys=True, default=str)}"
+            deep_dives_used = sum(
+                1 for s in scratchpad if s.action in _DEEP_DIVE_ACTIONS
+            )
             if action_signature in seen_actions:
                 logger.info("Agent repeated an action; nudging it to change course.")
                 observation = (
                     "You already performed this exact action. Do not repeat it - "
                     "either try something different or finish with an answer."
+                )
+            elif (
+                action in _DEEP_DIVE_ACTIONS
+                and deep_dives_used >= MAX_DEEP_DIVES_PER_RUN
+            ):
+                logger.info(
+                    "Blocked deep-dive #%s (%s); forcing search-or-finish strategy.",
+                    deep_dives_used + 1,
+                    action,
+                )
+                observation = (
+                    f"POLICY BLOCK: Per-document {action} is capped at "
+                    f"{MAX_DEEP_DIVES_PER_RUN} uses per run. You must NOT walk the "
+                    "corpus one document at a time (that does not scale to hundreds "
+                    "or thousands of files). Next: call search_documents with "
+                    "goal-focused keywords (e.g. liability, indemnity, termination, "
+                    "risk), then finish with a brief grounded in those hits — or "
+                    "finish now from evidence already gathered."
                 )
             else:
                 seen_actions.add(action_signature)
@@ -320,10 +345,14 @@ class AgentService:
         history_block = self._render_scratchpad(scratchpad)
         scope_note = ""
         if document_ids:
+            n = len(document_ids)
+            # Never dump hundreds of ids into the prompt — count + sample only.
+            sample = ", ".join(str(d) for d in document_ids[:8])
+            more = f" … (+{n - 8} more)" if n > 8 else ""
             scope_note = (
-                "\nThe user has pre-selected these document ids as the focus: "
-                + ", ".join(str(d) for d in document_ids)
-                + "\n"
+                f"\nCorpus scope: {n} pre-selected document id(s). "
+                f"Sample: {sample}{more}. "
+                "Do NOT iterate them one-by-one — search within this scope.\n"
             )
 
         return f"""You are inDoc's autonomous research agent. You work toward the user's \
@@ -331,6 +360,16 @@ goal by reasoning step by step and using tools over the user's PRIVATE, \
 access-controlled document library. You can only ever see documents the user \
 is authorized to access. Never invent document contents or facts - if you did \
 not read it via a tool, you do not know it.
+
+CRITICAL STRATEGY — CORPUS SCALE:
+- Libraries may contain hundreds or thousands of documents. NEVER summarize, \
+read, or walk documents one-by-one across the corpus.
+- For goals like "key risks across contracts", ALWAYS search_documents with \
+targeted queries (risk, liability, indemnity, termination, warranty, etc.), \
+then deep-dive at most 1–2 of the top hits, then finish.
+- list_documents is only a quick survey (capped). It is NOT a todo list to process.
+- summarize_document / read_document are expensive and capped at \
+{MAX_DEEP_DIVES_PER_RUN} uses per run. Prefer search snippets as evidence.
 
 AVAILABLE TOOLS:
 {tools_block}
@@ -342,7 +381,10 @@ and "action_input" (an object matching that tool's input).
 3. Take one action at a time. Read observations before deciding the next step.
 4. When you have enough grounded evidence, use the "finish" action with a clear, \
 cited answer that references the documents you used.
-5. Prefer to search or list first, then read the specific documents that matter.
+5. Default path: search_documents (maybe 1–2 queries) → optional read/summarize \
+of top hit(s) → finish. Skip list_documents unless you truly need a catalog peek.
+6. If search returns weak hits, try a different query — do not start summarizing \
+unrelated resumes or every listed file.
 
 GOAL:
 {goal}
