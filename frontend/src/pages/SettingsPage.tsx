@@ -150,6 +150,15 @@ const SettingsPage: React.FC = () => {
                 precision={0}
                 size={150}
                 status={healthStatus(overallScore)}
+                help={{
+                  title: 'Overall dependency health',
+                  body: 'Composite score across backend dependencies (database, search, object storage, workers, LLM). 100 = all healthy.',
+                  reading: `${Math.round(overallScore)}% · ${String(health?.overall || 'unknown')}`,
+                  details: deps.slice(0, 6).map(([name, st]) => ({
+                    label: name,
+                    value: String(st),
+                  })),
+                }}
               />
               <Typography variant="body2" color="text.secondary">
                 Live dependency telemetry · {String(health?.overall || 'unknown')}
@@ -168,6 +177,15 @@ const SettingsPage: React.FC = () => {
                         displayValue={String(status)}
                         size={110}
                         status={healthStatus(score)}
+                        help={{
+                          title: `${name} health`,
+                          body: `Live status for the “${name}” dependency. Needle maps healthy (100) → degraded (50) → down (0).`,
+                          reading: String(status),
+                          details: [
+                            { label: 'Score', value: String(score) },
+                            { label: 'Status', value: String(status) },
+                          ],
+                        }}
                       />
                     </Box>
                   </Grid>

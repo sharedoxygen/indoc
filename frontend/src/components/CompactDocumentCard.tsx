@@ -162,6 +162,11 @@ export const CompactDocumentCard: React.FC<CompactDocumentCardProps> = ({
                             precision={0}
                             size={56}
                             status={document.status === 'failed' ? 'error' : 'active'}
+                            help={{
+                                title: 'Document status',
+                                body: 'Pipeline progress for this document. Indexed = searchable; failed needs attention.',
+                                reading: `${document.status || 'unknown'} · ${Math.round(progress)}%`,
+                            }}
                         />
                     )}
                 </Box>

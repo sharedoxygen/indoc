@@ -103,6 +103,18 @@ export const DocumentProcessingProgress: React.FC<DocumentProcessingProgressProp
           precision={0}
           size={120}
           status={overallProgress >= 100 ? 'ok' : 'active'}
+          help={{
+            title: 'Overall progress',
+            body: 'End-to-end document pipeline progress for this file (upload → parse → embed → index).',
+            reading: `${Math.round(overallProgress)}%`,
+            details: [
+              { label: 'File', value: filename },
+              {
+                label: 'Active stage',
+                value: activeStep?.label || (overallProgress >= 100 ? 'Complete' : 'Waiting'),
+              },
+            ],
+          }}
         />
         <Box sx={{ flex: 1, minWidth: 180 }}>
           <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5, color: 'text.primary' }}>
@@ -124,11 +136,33 @@ export const DocumentProcessingProgress: React.FC<DocumentProcessingProgressProp
                 precision={0}
                 size={90}
                 status="active"
+                help={{
+                  title: `${activeStep.label} stage`,
+                  body: steps[activeStep.stepKey]?.message || `Progress within the ${activeStep.label} pipeline stage.`,
+                  reading: `${Math.round(activeProgress)}%`,
+                }}
               />
             </Box>
           )}
         </Box>
-        <SegmentRing segments={segments} size={150} centerLabel="Stages" centerValue={`${Math.round(overallProgress)}%`} />
+        <SegmentRing
+          segments={segments.map((seg) => ({
+            ...seg,
+            help: {
+              title: seg.label,
+              body: `Pipeline stage “${seg.label}” for this document.`,
+              reading: seg.status,
+            },
+          }))}
+          size={150}
+          centerLabel="Stages"
+          centerValue={`${Math.round(overallProgress)}%`}
+          help={{
+            title: 'Pipeline stages',
+            body: 'Chronograph of this document’s processing stages. Center shows overall percent complete.',
+            reading: `${Math.round(overallProgress)}%`,
+          }}
+        />
       </Box>
 
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>

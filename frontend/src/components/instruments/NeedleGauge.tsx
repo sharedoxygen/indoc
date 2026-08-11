@@ -3,9 +3,16 @@ import { Box, Typography, useTheme } from '@mui/material'
 import { motion, useReducedMotion } from 'framer-motion'
 import type { InstrumentBaseProps } from './types'
 import { clampRatio, formatInstrumentValue, useInstrumentColor } from './useInstrumentColor'
-import { buildTicks, describeSemiArc, polar } from './instrumentGeometry'
+import { buildTicks, describeSemiArc } from './instrumentGeometry'
+import {
+  CapJewel,
+  HairlineNeedle,
+  InstrumentDefs,
+  instrumentPalette,
+} from './InstrumentChrome'
+import { InstrumentTooltip } from './InstrumentHelp'
 
-/** Classic analog needle gauge — graduated scale, counterweighted needle, bezel. */
+/** Classic analog needle gauge — recessed housing, graduated scale, counterweighted blade. */
 export const NeedleGauge: React.FC<InstrumentBaseProps & { displayValue?: string }> = ({
   value,
   max = 100,
@@ -18,6 +25,7 @@ export const NeedleGauge: React.FC<InstrumentBaseProps & { displayValue?: string
   animate = true,
   color,
   displayValue,
+  help,
 }) => {
   const theme = useTheme()
   const reduceMotion = useReducedMotion()
@@ -25,13 +33,14 @@ export const NeedleGauge: React.FC<InstrumentBaseProps & { displayValue?: string
   const uid = useId().replace(/:/g, '')
   const ratio = clampRatio(value, min, max)
   const cx = size / 2
-  const cy = size * 0.64
-  const r = size * 0.38
+  const cy = size * 0.66
+  const r = size * 0.4
   const angle = 180 * ratio
   const dark = theme.palette.mode === 'dark'
-  const faceEdge = dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'
-  const tickColor = dark ? 'rgba(230,235,240,0.52)' : 'rgba(30,35,40,0.42)'
+  const p = instrumentPalette(dark)
   const track = describeSemiArc(cx, cy, r, 0, 180)
+  const housingOuter = describeSemiArc(cx, cy, r + 12, 0, 180)
+  const housingInner = describeSemiArc(cx, cy, r + 7, 0, 180)
 
   const ticks = useMemo(
     () =>
@@ -41,55 +50,62 @@ export const NeedleGauge: React.FC<InstrumentBaseProps & { displayValue?: string
         r,
         startAngle: 0,
         sweep: 180,
-        count: 24,
-        majorEvery: 4,
+        count: 36,
+        majorEvery: 6,
         zeroAt: -180,
         labelMin: min,
         labelMax: max,
-        labelPrecision: max > 100 ? 0 : 0,
-        labelR: r - 13,
+        labelPrecision: 0,
+        labelR: r - 12,
       }),
     [cx, cy, r, min, max]
   )
 
   return (
-    <Box sx={{ width: size, textAlign: 'center', userSelect: 'none' }}>
-      <Box sx={{ position: 'relative', width: size, height: size * 0.8 }}>
-        <svg width={size} height={size * 0.8} viewBox={`0 0 ${size} ${size * 0.82}`}>
-          <defs>
-            <linearGradient id={`ngbezel-${uid}`} x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor={dark ? '#66707a' : '#f4f6f8'} />
-              <stop offset="50%" stopColor={dark ? '#2a3038' : '#c9d0d7'} />
-              <stop offset="100%" stopColor={dark ? '#12161c' : '#9aa3ad'} />
-            </linearGradient>
-            <radialGradient id={`ngface-${uid}`} cx="40%" cy="30%" r="70%">
-              <stop offset="0%" stopColor={dark ? '#1b2129' : '#ffffff'} />
-              <stop offset="100%" stopColor={dark ? '#0b0e12' : '#e7ebef'} />
-            </radialGradient>
-          </defs>
+    <InstrumentTooltip help={help}>
+    <Box
+      sx={{ width: size, textAlign: 'center', userSelect: 'none', cursor: help ? 'help' : 'default' }}
+      aria-label={label ? `${label} gauge` : 'Needle gauge'}
+    >
+      <Box sx={{ position: 'relative', width: size, height: size * 0.82 }}>
+        <svg width={size} height={size * 0.82} viewBox={`0 0 ${size} ${size * 0.86}`}>
+          <InstrumentDefs uid={uid} dark={dark} />
 
-          {/* Housing */}
+          {/* Semi housing */}
           <path
-            d={`${track} L ${cx + r + 10} ${cy} A ${r + 10} ${r + 10} 0 0 0 ${cx - r - 10} ${cy} Z`}
-            fill={`url(#ngbezel-${uid})`}
-            opacity={0.9}
+            d={`${housingOuter} L ${cx + r + 12} ${cy + 8} L ${cx - r - 12} ${cy + 8} Z`}
+            fill={`url(#bez-${uid})`}
+            filter={`url(#depth-${uid})`}
           />
           <path
-            d={`${track} L ${cx + r + 6} ${cy} A ${r + 6} ${r + 6} 0 0 0 ${cx - r - 6} ${cy} Z`}
-            fill={`url(#ngface-${uid})`}
+            d={`${housingInner} L ${cx + r + 7} ${cy + 5} L ${cx - r - 7} ${cy + 5} Z`}
+            fill={`url(#face-${uid})`}
+          />
+          <path
+            d={`${track} L ${cx + r} ${cy + 3} L ${cx - r} ${cy + 3} Z`}
+            fill={`url(#vignette-${uid})`}
+            opacity={0.85}
+          />
+          {/* Glass wash */}
+          <ellipse
+            cx={cx}
+            cy={cy - r * 0.35}
+            rx={r * 0.78}
+            ry={r * 0.32}
+            fill={`url(#glass-${uid})`}
+            opacity={0.45}
           />
 
-          <path d={track} fill="none" stroke={faceEdge} strokeWidth={1.2} strokeLinecap="butt" />
+          <path d={track} fill="none" stroke={p.edge} strokeWidth={1.15} strokeLinecap="butt" />
 
-          {/* Zone band (warn/error) */}
           {(status === 'warn' || status === 'error') && (
             <path
-              d={describeSemiArc(cx, cy, r, 135, 180)}
+              d={describeSemiArc(cx, cy, r, 140, 180)}
               fill="none"
               stroke={stroke}
-              strokeWidth={2}
+              strokeWidth={2.2}
               strokeLinecap="butt"
-              opacity={0.28}
+              opacity={0.22}
             />
           )}
 
@@ -100,16 +116,15 @@ export const NeedleGauge: React.FC<InstrumentBaseProps & { displayValue?: string
                 y1={t.y1}
                 x2={t.x2}
                 y2={t.y2}
-                stroke={tickColor}
-                strokeWidth={t.major ? 1.05 : 0.4}
-                opacity={t.major ? 0.9 : 0.38}
+                stroke={t.major ? p.tick : p.tickMinor}
+                strokeWidth={t.major ? 1.05 : 0.38}
               />
               {t.label != null && t.lx != null && t.ly != null && (
                 <text
                   x={t.lx}
                   y={t.ly}
-                  fill={tickColor}
-                  fontSize={Math.max(7, size * 0.055)}
+                  fill={p.tick}
+                  fontSize={Math.max(6.5, size * 0.05)}
                   textAnchor="middle"
                   dominantBaseline="middle"
                   fontFamily="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace"
@@ -124,29 +139,35 @@ export const NeedleGauge: React.FC<InstrumentBaseProps & { displayValue?: string
             style={{ transformOrigin: `${cx}px ${cy}px` }}
             initial={animate && !reduceMotion ? { rotate: -90 } : false}
             animate={{ rotate: -90 + angle }}
-            transition={{ type: 'spring', stiffness: 115, damping: 17, mass: 0.55 }}
+            transition={{ type: 'spring', stiffness: 108, damping: 16, mass: 0.6 }}
           >
-            {/* Counterweight + blade */}
-            <line x1={cx} y1={cy + 9} x2={cx} y2={cy - r + 11} stroke={stroke} strokeWidth={1.2} strokeLinecap="round" />
-            <polygon
-              points={`${cx - 1.1},${cy - r + 14} ${cx + 1.1},${cy - r + 14} ${cx},${cy - r + 8}`}
-              fill={stroke}
-            />
-            <circle cx={cx} cy={cy} r={3.6} fill={dark ? '#3a424c' : '#c5CCD4'} stroke={stroke} strokeWidth={0.75} />
-            <circle cx={cx} cy={cy} r={1.4} fill={theme.palette.background.paper} />
+            <HairlineNeedle uid={uid} cx={cx} cy={cy} length={r - 9} accent={stroke} counterweight={11} />
           </motion.g>
+          <CapJewel uid={uid} cx={cx} cy={cy} accent={stroke} r={3.8} />
+
+          {/* Chassis bar */}
+          <rect
+            x={cx - r - 10}
+            y={cy + 1}
+            width={(r + 10) * 2}
+            height={5}
+            rx={1}
+            fill={`url(#bez-${uid})`}
+            opacity={0.9}
+          />
         </svg>
 
         <Box sx={{ position: 'absolute', left: 0, right: 0, bottom: 2, textAlign: 'center' }}>
           <Typography
             sx={{
               fontWeight: 600,
-              fontSize: size * 0.145,
+              fontSize: size * 0.135,
               fontVariantNumeric: 'tabular-nums',
               letterSpacing: '-0.03em',
               color: 'text.primary',
               lineHeight: 1.1,
               fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+              textShadow: dark ? '0 1px 2px rgba(0,0,0,0.65)' : undefined,
             }}
           >
             {displayValue ?? formatInstrumentValue(value, precision, unit)}
@@ -156,10 +177,10 @@ export const NeedleGauge: React.FC<InstrumentBaseProps & { displayValue?: string
               variant="caption"
               sx={{
                 color: 'text.secondary',
-                fontWeight: 650,
+                fontWeight: 700,
                 textTransform: 'uppercase',
-                letterSpacing: 0.9,
-                fontSize: Math.max(8, size * 0.06),
+                letterSpacing: 1,
+                fontSize: Math.max(7.5, size * 0.055),
               }}
             >
               {label}
@@ -168,6 +189,7 @@ export const NeedleGauge: React.FC<InstrumentBaseProps & { displayValue?: string
         </Box>
       </Box>
     </Box>
+    </InstrumentTooltip>
   )
 }
 
