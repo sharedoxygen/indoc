@@ -1,3 +1,5 @@
+import type { InstrumentHelpProp } from './InstrumentHelp'
+
 export type InstrumentStatus = 'idle' | 'ok' | 'warn' | 'error' | 'active'
 
 export interface InstrumentBaseProps {
@@ -11,4 +13,6 @@ export interface InstrumentBaseProps {
   status?: InstrumentStatus
   animate?: boolean
   color?: string
+  /** Rich hover help (title/body/reading/details). Plain string also accepted. */
+  help?: InstrumentHelpProp
 }
