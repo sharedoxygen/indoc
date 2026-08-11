@@ -102,10 +102,16 @@ class AgentTools:
                 "name": "finish",
                 "description": (
                     "Provide the final answer to the user's goal, grounded in "
-                    "what you gathered. Use this when you have enough evidence."
+                    "what you gathered. Use this when you have enough evidence. "
+                    "The answer must be Markdown: short intro, categorized "
+                    "bullet/numbered list with bold labels, cite document "
+                    "titles and ids, one-line takeaway — not a single paragraph."
                 ),
                 "input_schema": {
-                    "answer": "string (required) - the final grounded answer",
+                    "answer": (
+                        "string (required) - Markdown final answer with "
+                        "categories, citations, and a short takeaway"
+                    ),
                 },
             },
         ]
