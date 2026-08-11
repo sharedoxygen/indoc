@@ -32,17 +32,17 @@ export const AGENT_HELP = {
   pageTitle:
     'Autonomous research over your corpus: plans, searches, reads, and synthesizes a grounded brief from the documents you scope.',
   pageSubtitle:
-    'Scope the corpus, state an objective, Run. Multi-step research delivers a brief — ask follow-up questions from the Brief Board.',
+    'Defaults to your full indexed corpus. State an objective and Run — refine scope only when you need a subset.',
   modeAgent: 'Multi-step research: plans actions, uses tools, then delivers a brief over the scoped corpus.',
   askFollowUp:
     'Open conversational Q&A over the same scoped documents, with this brief as context. Not a separate research mode.',
   followUpHistory: 'Prior follow-up conversations from Ask follow-up (not Insight runs).',
   history: 'Prior follow-up conversations. Insight briefs stay on the Brief Board.',
   scope:
-    'Documents the research agent may use. Filter/search the list, then check what to include for the run.',
-  scopeMeter: 'Share of the currently filtered list that is selected for the run.',
-  scopeSelectAll: 'Include or clear all documents currently shown in the filtered list.',
-  scopeSearch: 'Filter the scope list. Does not drop already-selected documents that fall outside the filter.',
+    'What the agent can read. By default: all indexed documents. Open Refine only to narrow the set.',
+  scopeMeter: 'How much of the indexed corpus is included in this run.',
+  scopeSelectAll: 'Select or clear documents currently shown in Refine.',
+  scopeSearch: 'Search within Refine. Already-selected docs outside the filter stay selected until you clear them.',
   missionGoal:
     'Your research objective — e.g. “Summarize key risks across these contracts” or “Compare renewal terms in the selected PDFs.”',
   launch: 'Start research. The agent plans steps and calls tools until it finishes or hits the step limit.',
