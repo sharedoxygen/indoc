@@ -33,7 +33,9 @@ search:
   qdrant_distance: Cosine
 ollama:
   base_url: http://localhost:11434
-  model: gpt-oss:20b
+  # Primary chat/agent model for Insight Bridge + document Q&A.
+  # qwen3:32b: strong structured tool JSON + contract/risk synthesis; fits multi-step budget.
+  model: qwen3:32b
 cors:
   origins:
     - http://localhost:5193

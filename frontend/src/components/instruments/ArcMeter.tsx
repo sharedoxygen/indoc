@@ -1,22 +1,11 @@
-import React, { useMemo } from 'react'
+import React, { useId, useMemo } from 'react'
 import { Box, Typography, useTheme } from '@mui/material'
 import { motion, useReducedMotion } from 'framer-motion'
 import type { InstrumentBaseProps } from './types'
 import { clampRatio, formatInstrumentValue, useInstrumentColor } from './useInstrumentColor'
+import { buildTicks, describeSemiArc, polar } from './instrumentGeometry'
 
-function polar(cx: number, cy: number, r: number, angleDeg: number) {
-  const rad = ((angleDeg - 180) * Math.PI) / 180
-  return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) }
-}
-
-function arcPath(cx: number, cy: number, r: number, start: number, end: number) {
-  const s = polar(cx, cy, r, start)
-  const e = polar(cx, cy, r, end)
-  const large = end - start > 180 ? 1 : 0
-  return `M ${s.x} ${s.y} A ${r} ${r} 0 ${large} 1 ${e.x} ${e.y}`
-}
-
-/** Semi-circular meter with tick marks — thin, instrument-grade. */
+/** Semi-circular precision meter with numbered graduations. */
 export const ArcMeter: React.FC<InstrumentBaseProps & { subtitle?: string }> = ({
   value,
   max = 100,
@@ -33,59 +22,108 @@ export const ArcMeter: React.FC<InstrumentBaseProps & { subtitle?: string }> = (
   const theme = useTheme()
   const reduceMotion = useReducedMotion()
   const stroke = useInstrumentColor(status, color)
+  const uid = useId().replace(/:/g, '')
   const ratio = clampRatio(value, min, max)
   const cx = size / 2
-  const cy = size * 0.58
-  const r = size * 0.38
-  const track = arcPath(cx, cy, r, 0, 180)
-  const valuePath = arcPath(cx, cy, r, 0, 180 * ratio)
-  const trackColor = theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.1)'
-  const tickColor = theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.32)' : 'rgba(0,0,0,0.32)'
+  const cy = size * 0.62
+  const r = size * 0.36
+  const track = describeSemiArc(cx, cy, r, 0, 180)
+  const valuePath = describeSemiArc(cx, cy, r, 0, 180 * ratio)
+  const dark = theme.palette.mode === 'dark'
+  const faceEdge = dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'
+  const tickColor = dark ? 'rgba(230,235,240,0.5)' : 'rgba(30,35,40,0.42)'
 
-  const ticks = useMemo(() => {
-    const items: { x1: number; y1: number; x2: number; y2: number; major: boolean }[] = []
-    for (let i = 0; i <= 20; i++) {
-      const major = i % 5 === 0
-      const a = (180 * i) / 20
-      const outer = polar(cx, cy, r + (major ? 4 : 2.5), a)
-      const inner = polar(cx, cy, r - (major ? 4 : 1.5), a)
-      items.push({ x1: inner.x, y1: inner.y, x2: outer.x, y2: outer.y, major })
-    }
-    return items
-  }, [cx, cy, r])
+  const ticks = useMemo(
+    () =>
+      buildTicks({
+        cx,
+        cy,
+        r,
+        startAngle: 0,
+        sweep: 180,
+        count: 20,
+        majorEvery: 5,
+        zeroAt: -180,
+        labelMin: min,
+        labelMax: max,
+        labelPrecision: 0,
+        labelR: r - 12,
+      }),
+    [cx, cy, r, min, max]
+  )
 
-  const tip = polar(cx, cy, r - 6, 180 * ratio)
+  const tip = polar(cx, cy, r - 7, 180 * ratio, -180)
 
   return (
-    <Box sx={{ width: size, textAlign: 'center' }}>
-      <Box sx={{ position: 'relative', width: size, height: size * 0.7 }}>
-        <svg width={size} height={size * 0.7} viewBox={`0 0 ${size} ${size * 0.72}`}>
-          <path d={track} fill="none" stroke={trackColor} strokeWidth={2.25} strokeLinecap="butt" />
+    <Box sx={{ width: size, textAlign: 'center', userSelect: 'none' }}>
+      <Box sx={{ position: 'relative', width: size, height: size * 0.72 }}>
+        <svg width={size} height={size * 0.72} viewBox={`0 0 ${size} ${size * 0.75}`}>
+          <defs>
+            <linearGradient id={`arcface-${uid}`} x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor={dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)'} />
+              <stop offset="100%" stopColor="transparent" />
+            </linearGradient>
+            <linearGradient id={`arcbezel-${uid}`} x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor={dark ? '#3a424c' : '#cfd5dc'} />
+              <stop offset="50%" stopColor={dark ? '#1a1f26' : '#eef1f4'} />
+              <stop offset="100%" stopColor={dark ? '#4a5560' : '#b8c0c8'} />
+            </linearGradient>
+          </defs>
+
+          <path
+            d={track}
+            fill="none"
+            stroke={`url(#arcbezel-${uid})`}
+            strokeWidth={7}
+            strokeLinecap="butt"
+            opacity={0.55}
+          />
+          <path d={track} fill="none" stroke={faceEdge} strokeWidth={1.35} strokeLinecap="butt" />
+
           {ticks.map((t, i) => (
-            <line
-              key={i}
-              x1={t.x1}
-              y1={t.y1}
-              x2={t.x2}
-              y2={t.y2}
-              stroke={tickColor}
-              strokeWidth={t.major ? 1 : 0.5}
-              opacity={t.major ? 0.8 : 0.4}
-            />
+            <g key={i}>
+              <line
+                x1={t.x1}
+                y1={t.y1}
+                x2={t.x2}
+                y2={t.y2}
+                stroke={tickColor}
+                strokeWidth={t.major ? 1 : 0.45}
+                opacity={t.major ? 0.9 : 0.4}
+              />
+              {t.label != null && t.lx != null && t.ly != null && (
+                <text
+                  x={t.lx}
+                  y={t.ly}
+                  fill={tickColor}
+                  fontSize={Math.max(7, size * 0.06)}
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  fontFamily="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace"
+                >
+                  {t.label}
+                </text>
+              )}
+            </g>
           ))}
+
           <motion.path
             d={valuePath}
             fill="none"
             stroke={stroke}
-            strokeWidth={2.5}
+            strokeWidth={1.85}
             strokeLinecap="butt"
             initial={animate && !reduceMotion ? { pathLength: 0, opacity: 0.5 } : false}
             animate={{ pathLength: 1, opacity: 1 }}
             transition={{ duration: reduceMotion ? 0 : 0.65, ease: 'easeOut' }}
           />
-          <circle cx={tip.x} cy={tip.y} r={2.2} fill={stroke} />
-          <circle cx={cx} cy={cy} r={2.5} fill={trackColor} />
+
+          {/* Pivot + tip marker */}
+          <line x1={cx} y1={cy} x2={tip.x} y2={tip.y} stroke={stroke} strokeWidth={1.1} strokeLinecap="round" />
+          <circle cx={cx} cy={cy} r={2.8} fill={dark ? '#3a424c' : '#c5CCD4'} stroke={stroke} strokeWidth={0.7} />
+          <circle cx={tip.x} cy={tip.y} r={1.7} fill={stroke} />
         </svg>
+
         <Box
           sx={{
             position: 'absolute',
@@ -99,13 +137,13 @@ export const ArcMeter: React.FC<InstrumentBaseProps & { subtitle?: string }> = (
         >
           <Typography
             sx={{
-              fontWeight: 650,
-              fontSize: size * 0.175,
+              fontWeight: 600,
+              fontSize: size * 0.16,
               lineHeight: 1,
               fontVariantNumeric: 'tabular-nums',
-              letterSpacing: '-0.02em',
-              color: 'text.primary',
+              letterSpacing: '-0.03em',
               fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+              color: 'text.primary',
             }}
           >
             {formatInstrumentValue(value, precision, unit)}
@@ -115,17 +153,17 @@ export const ArcMeter: React.FC<InstrumentBaseProps & { subtitle?: string }> = (
               variant="caption"
               sx={{
                 color: 'text.secondary',
-                fontWeight: 600,
+                fontWeight: 650,
                 textTransform: 'uppercase',
-                letterSpacing: 0.7,
-                fontSize: Math.max(9, size * 0.07),
+                letterSpacing: 0.9,
+                fontSize: Math.max(8, size * 0.065),
               }}
             >
               {label}
             </Typography>
           )}
           {subtitle && (
-            <Typography variant="caption" sx={{ color: 'text.disabled', fontSize: 10, mt: 0.15 }}>
+            <Typography variant="caption" sx={{ color: 'text.disabled', fontSize: 10, mt: 0.1 }}>
               {subtitle}
             </Typography>
           )}

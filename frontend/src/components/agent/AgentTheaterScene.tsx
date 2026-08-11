@@ -217,10 +217,14 @@ export const AgentTheaterScene: React.FC<AgentTheaterSceneProps> = ({
         width: '100%',
         height: '100%',
         minHeight: 420,
-        borderRadius: 2,
+        borderRadius: 2.5,
         overflow: 'hidden',
         background: surface,
         border: `1px solid ${theme.palette.divider}`,
+        boxShadow:
+          theme.palette.mode === 'dark'
+            ? '0 24px 60px rgba(0,0,0,0.35)'
+            : '0 18px 40px rgba(15,23,42,0.08)',
         display: 'grid',
         gridTemplateRows: 'auto auto 1fr auto',
         gap: 0,
