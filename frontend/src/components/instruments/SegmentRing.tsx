@@ -16,6 +16,8 @@ interface SegmentRingProps {
   size?: number
   centerLabel?: string
   centerValue?: string
+  /** Hide the stage list under the ring (cluster layouts). */
+  showLegend?: boolean
 }
 
 /** Segmented ring + readable stage list (no crowded pill strip). */
@@ -24,6 +26,7 @@ export const SegmentRing: React.FC<SegmentRingProps> = ({
   size = 180,
   centerLabel,
   centerValue,
+  showLegend = true,
 }) => {
   const theme = useTheme()
   const reduceMotion = useReducedMotion()
@@ -131,54 +134,56 @@ export const SegmentRing: React.FC<SegmentRingProps> = ({
         </Box>
       </Box>
 
-      <Box sx={{ mt: 1.25, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-        {segments.map((seg) => {
-          const color = statusColor(seg.status)
-          return (
-            <Box
-              key={seg.key}
-              sx={{
-                display: 'grid',
-                gridTemplateColumns: '8px 1fr auto',
-                alignItems: 'center',
-                gap: 1,
-                px: 0.25,
-              }}
-            >
+      {showLegend && (
+        <Box sx={{ mt: 1.25, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+          {segments.map((seg) => {
+            const color = statusColor(seg.status)
+            return (
               <Box
+                key={seg.key}
                 sx={{
-                  width: 6,
-                  height: 6,
-                  borderRadius: '50%',
-                  bgcolor: color,
-                  boxShadow: seg.status === 'active' ? `0 0 0 2px ${color}33` : 'none',
-                }}
-              />
-              <Typography
-                variant="caption"
-                sx={{
-                  color: seg.status === 'pending' ? 'text.disabled' : 'text.primary',
-                  fontWeight: seg.status === 'active' ? 700 : 500,
-                  letterSpacing: 0.2,
+                  display: 'grid',
+                  gridTemplateColumns: '8px 1fr auto',
+                  alignItems: 'center',
+                  gap: 1,
+                  px: 0.25,
                 }}
               >
-                {seg.label}
-              </Typography>
-              <Typography
-                variant="caption"
-                sx={{
-                  color: 'text.secondary',
-                  fontVariantNumeric: 'tabular-nums',
-                  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
-                  fontSize: 11,
-                }}
-              >
-                {typeof seg.value === 'number' ? seg.value : '—'}
-              </Typography>
-            </Box>
-          )
-        })}
-      </Box>
+                <Box
+                  sx={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: '50%',
+                    bgcolor: color,
+                    boxShadow: seg.status === 'active' ? `0 0 0 2px ${color}33` : 'none',
+                  }}
+                />
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: seg.status === 'pending' ? 'text.disabled' : 'text.primary',
+                    fontWeight: seg.status === 'active' ? 700 : 500,
+                    letterSpacing: 0.2,
+                  }}
+                >
+                  {seg.label}
+                </Typography>
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: 'text.secondary',
+                    fontVariantNumeric: 'tabular-nums',
+                    fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+                    fontSize: 11,
+                  }}
+                >
+                  {typeof seg.value === 'number' ? seg.value : '—'}
+                </Typography>
+              </Box>
+            )
+          })}
+        </Box>
+      )}
     </Box>
   )
 }
