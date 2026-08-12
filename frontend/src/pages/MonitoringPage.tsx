@@ -256,7 +256,7 @@ const MonitoringPage: React.FC = () => {
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         sx={{
-          p: { xs: 1.5, md: 2 },
+          p: { xs: 2, md: 2.5 },
           mb: 2.5,
           borderRadius: 3,
           border: '1px solid',
@@ -268,19 +268,27 @@ const MonitoringPage: React.FC = () => {
       >
         <Typography
           variant="caption"
-          sx={{ fontWeight: 750, letterSpacing: 0.8, textTransform: 'uppercase', color: 'text.secondary', mb: 1, display: 'block' }}
+          sx={{
+            fontWeight: 750,
+            letterSpacing: 0.8,
+            textTransform: 'uppercase',
+            color: 'text.secondary',
+            mb: 1.75,
+            display: 'block',
+            fontSize: '0.75rem',
+          }}
         >
           Live instrument cluster
         </Typography>
-        <Grid container spacing={1.5} alignItems="center">
+        <Grid container spacing={{ xs: 2, md: 2.5 }} alignItems="flex-start" justifyContent="center">
           <Grid item xs={6} sm={4} md={2}>
-            <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 0.5 }}>
               <PrecisionDial
                 value={Number(gauges?.cpu_pct) || 0}
                 label="CPU"
                 unit="%"
                 precision={0}
-                size={118}
+                size={132}
                 status={(gauges?.cpu_pct || 0) > 85 ? 'error' : (gauges?.cpu_pct || 0) > 65 ? 'warn' : 'ok'}
                 help={{
                   title: 'Host CPU',
@@ -291,13 +299,13 @@ const MonitoringPage: React.FC = () => {
             </Box>
           </Grid>
           <Grid item xs={6} sm={4} md={2}>
-            <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 0.5 }}>
               <PrecisionDial
                 value={Number(gauges?.memory_pct) || 0}
                 label="Memory"
                 unit="%"
                 precision={0}
-                size={118}
+                size={132}
                 status={(gauges?.memory_pct || 0) > 90 ? 'error' : (gauges?.memory_pct || 0) > 75 ? 'warn' : 'ok'}
                 help={{
                   title: 'Host memory',
@@ -313,14 +321,12 @@ const MonitoringPage: React.FC = () => {
             </Box>
           </Grid>
           <Grid item xs={6} sm={4} md={2}>
-            <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 0.5 }}>
               <ArcMeter
                 value={Math.min(100, (Number(gauges?.request_rate_rps) || 0) * 20)}
                 label="Traffic"
-                subtitle={`${formatRps(gauges?.request_rate_rps)} rps`}
-                unit="%"
-                precision={0}
-                size={112}
+                displayValue={`${formatRps(gauges?.request_rate_rps)} rps`}
+                size={132}
                 status={(gauges?.request_rate_rps || 0) > 0 ? 'active' : 'idle'}
                 help={{
                   title: 'Request rate',
@@ -331,12 +337,12 @@ const MonitoringPage: React.FC = () => {
             </Box>
           </Grid>
           <Grid item xs={6} sm={4} md={2}>
-            <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 0.5 }}>
               <NeedleGauge
                 value={Number(gauges?.latency_p95_ms ?? gauges?.latency_avg_ms) || 0}
                 max={Math.max(500, Number(gauges?.latency_p95_ms ?? gauges?.latency_avg_ms) || 0) * 1.4}
-                label="p95 latency"
-                size={112}
+                label="p95"
+                size={132}
                 status={
                   (gauges?.latency_p95_ms || 0) > 1500
                     ? 'error'
@@ -354,13 +360,13 @@ const MonitoringPage: React.FC = () => {
             </Box>
           </Grid>
           <Grid item xs={6} sm={4} md={2}>
-            <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 0.5 }}>
               <NeedleGauge
                 value={Number(gauges?.success_rate_pct) || 0}
                 label="Success"
                 unit="%"
                 precision={1}
-                size={112}
+                size={132}
                 status={
                   (gauges?.success_rate_pct ?? 100) < 95
                     ? 'error'
@@ -378,13 +384,13 @@ const MonitoringPage: React.FC = () => {
             </Box>
           </Grid>
           <Grid item xs={6} sm={4} md={2}>
-            <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 0.5 }}>
               <PrecisionDial
                 value={Number(gauges?.disk_pct) || 0}
                 label="Disk"
                 unit="%"
                 precision={0}
-                size={118}
+                size={132}
                 status={(gauges?.disk_pct || 0) > 90 ? 'error' : (gauges?.disk_pct || 0) > 80 ? 'warn' : 'ok'}
                 help={{
                   title: 'Root disk',
@@ -421,14 +427,22 @@ const MonitoringPage: React.FC = () => {
                 height: '100%',
               }}
             >
-              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, letterSpacing: 0.4 }}>
+              <Typography
+                sx={{
+                  fontWeight: 700,
+                  letterSpacing: 0.35,
+                  fontSize: '0.8rem',
+                  color: 'text.secondary',
+                }}
+              >
                 {card.label}
               </Typography>
               <Typography
-                variant="h6"
                 sx={{
                   fontWeight: 750,
-                  mt: 0.35,
+                  mt: 0.45,
+                  fontSize: '1.25rem',
+                  lineHeight: 1.2,
                   fontVariantNumeric: 'tabular-nums',
                   color:
                     card.tone === 'success'
