@@ -83,6 +83,11 @@ system_memory_usage = Gauge(
     'System memory usage in bytes'
 )
 
+system_memory_usage_percent = Gauge(
+    'system_memory_usage_percent',
+    'System memory usage percentage'
+)
+
 system_cpu_usage = Gauge(
     'system_cpu_usage_percent',
     'System CPU usage percentage'
@@ -92,6 +97,17 @@ system_disk_usage = Gauge(
     'system_disk_usage_bytes',
     'System disk usage in bytes',
     ['path']
+)
+
+system_disk_usage_percent = Gauge(
+    'system_disk_usage_percent',
+    'System disk usage percentage',
+    ['path']
+)
+
+process_resident_memory_bytes_gauge = Gauge(
+    'indoc_process_resident_memory_bytes',
+    'inDoc API process resident memory in bytes'
 )
 
 # Business Analytics Metrics
@@ -283,24 +299,29 @@ def monitor_celery_task(task_name: str):
 
 
 async def collect_system_metrics():
-    """Collect system-level metrics"""
+    """Collect system-level metrics (non-blocking — never stall scrapes)."""
     import psutil
-    
-    # Memory usage
+
     memory = psutil.virtual_memory()
     system_memory_usage.set(memory.used)
-    
-    # CPU usage
-    cpu_percent = psutil.cpu_percent(interval=1)
-    system_cpu_usage.set(cpu_percent)
-    
-    # Disk usage
-    for partition in psutil.disk_partitions():
-        try:
-            usage = psutil.disk_usage(partition.mountpoint)
-            system_disk_usage.labels(path=partition.mountpoint).set(usage.used)
-        except PermissionError:
-            continue
+    system_memory_usage_percent.set(memory.percent)
+
+    # interval=None uses the last sampled value; interval=1 made /metrics ~1s and
+    # poisoned latency dashboards.
+    system_cpu_usage.set(psutil.cpu_percent(interval=None))
+
+    try:
+        process_resident_memory_bytes_gauge.set(psutil.Process().memory_info().rss)
+    except Exception:
+        pass
+
+    # Root volume only — enumerating every mount flooded panels with noise.
+    try:
+        root = psutil.disk_usage('/')
+        system_disk_usage.labels(path='/').set(root.used)
+        system_disk_usage_percent.labels(path='/').set(root.percent)
+    except Exception:
+        pass
 
 
 async def metrics_endpoint() -> Response:
