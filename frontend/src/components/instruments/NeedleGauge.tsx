@@ -157,8 +157,9 @@ export const NeedleGauge: React.FC<InstrumentBaseProps & { displayValue?: string
           />
         </svg>
 
-        <Box sx={{ position: 'absolute', left: 0, right: 0, bottom: 2, textAlign: 'center' }}>
+        <Box sx={{ position: 'absolute', left: 0, right: 0, bottom: 2, textAlign: 'center', px: 0.5 }}>
           <Typography
+            title={displayValue}
             sx={{
               fontWeight: 600,
               fontSize: size * 0.135,
@@ -168,6 +169,10 @@ export const NeedleGauge: React.FC<InstrumentBaseProps & { displayValue?: string
               lineHeight: 1.1,
               fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
               textShadow: dark ? '0 1px 2px rgba(0,0,0,0.65)' : undefined,
+              maxWidth: '100%',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
             }}
           >
             {displayValue ?? formatInstrumentValue(value, precision, unit)}
@@ -175,12 +180,18 @@ export const NeedleGauge: React.FC<InstrumentBaseProps & { displayValue?: string
           {label && (
             <Typography
               variant="caption"
+              title={label}
               sx={{
                 color: 'text.secondary',
                 fontWeight: 700,
                 textTransform: 'uppercase',
                 letterSpacing: 1,
                 fontSize: Math.max(7.5, size * 0.055),
+                display: 'block',
+                maxWidth: '100%',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
               }}
             >
               {label}

@@ -132,6 +132,9 @@ services:
       - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
       - GF_AUTH_DISABLE_LOGIN_FORM=false
       - GF_USERS_ALLOW_SIGN_UP=false
+      # Land on inDoc overview instead of Grafana welcome home
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/etc/grafana/provisioning/dashboards/indoc/indoc-overview.json
+      - GF_USERS_DEFAULT_THEME=dark
     volumes:
       - grafana_data:/var/lib/grafana
       # If provisioning folders exist, mount them; otherwise Grafana UI can be used to add

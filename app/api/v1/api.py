@@ -27,6 +27,7 @@ from app.api.v1.endpoints import (
     ownership,
     rbac,
     metrics_business,
+    monitoring,
     logs,
     reindex,
     processing_websocket,
@@ -60,6 +61,7 @@ api_router.include_router(access.router, prefix="/access", tags=["Document Acces
 api_router.include_router(ownership.router, prefix="/ownership", tags=["Document Ownership"])
 api_router.include_router(rbac.router, prefix="/rbac", tags=["RBAC Management"])
 api_router.include_router(metrics_business.router, prefix="/metrics", tags=["Business Metrics"])
+api_router.include_router(monitoring.router, prefix="/monitoring", tags=["Monitoring"])
 api_router.include_router(logs.router, prefix="/logs", tags=["System Logs"])
 api_router.include_router(reindex.router, prefix="/admin", tags=["Admin - Reindex"])
 api_router.include_router(integrity.router, prefix="/integrity", tags=["Data Integrity"])
