@@ -53,6 +53,8 @@ export function buildTicks(opts: {
   labelMax?: number
   labelPrecision?: number
   labelR?: number
+  /** Label every Nth major tick (1 = all majors). Use 2–3 on small faces. */
+  labelEveryMajors?: number
 }): Tick[] {
   const {
     cx,
@@ -67,6 +69,7 @@ export function buildTicks(opts: {
     labelMax,
     labelPrecision = 0,
     labelR,
+    labelEveryMajors = 1,
   } = opts
   const items: Tick[] = []
   for (let i = 0; i <= count; i++) {
@@ -76,12 +79,17 @@ export function buildTicks(opts: {
     const inner = polar(cx, cy, r - (major ? 6 : 2.5), a, zeroAt)
     const tick: Tick = { x1: inner.x, y1: inner.y, x2: outer.x, y2: outer.y, major }
     if (major && labelMin != null && labelMax != null && labelR) {
-      const t = i / count
-      const value = labelMin + (labelMax - labelMin) * t
-      const lp = polar(cx, cy, labelR, a, zeroAt)
-      tick.label = value.toFixed(labelPrecision)
-      tick.lx = lp.x
-      tick.ly = lp.y
+      const majorIndex = i / majorEvery
+      const labelThis =
+        majorIndex % labelEveryMajors === 0 || i === 0 || i === count
+      if (labelThis) {
+        const t = i / count
+        const value = labelMin + (labelMax - labelMin) * t
+        const lp = polar(cx, cy, labelR, a, zeroAt)
+        tick.label = value.toFixed(labelPrecision)
+        tick.lx = lp.x
+        tick.ly = lp.y
+      }
     }
     items.push(tick)
   }
