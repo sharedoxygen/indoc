@@ -26,9 +26,9 @@ const DocumentsPage: React.FC = () => {
 
     const debouncedSearch = useDebounce(search, 300)
 
-    const { data, isLoading } = useGetDocumentsQuery({
+    const { data, isLoading, refetch } = useGetDocumentsQuery({
         skip: 0,
-        limit: 100,
+        limit: 500,
         search: debouncedSearch || undefined,
         status: statusFilter === 'all' ? undefined : statusFilter,
         file_type: fileType === 'all' ? undefined : fileType,
@@ -132,6 +132,7 @@ const DocumentsPage: React.FC = () => {
                     documents={indexedDocuments}
                     onDocumentView={(docId) => navigate(`/document/${docId}`)}
                     selectedDocuments={[]}
+                    onCorpusChanged={() => refetch()}
                 />
             ) : (
                 <DocumentsList

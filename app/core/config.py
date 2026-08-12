@@ -60,7 +60,7 @@ class Settings(BaseSettings):
         description="Local Ollama models to try after the primary model fails",
     )
     # Local 32B+ agent steps (plan/synthesize) routinely need >30s even on a warm,
-    # capacity-rich host. 30s false-failed Insight Bridge and fell through to a
+    # capacity-rich host. 30s false-failed Research Desk and fell through to a
     # broken OpenAI fallback.
     LLM_TIMEOUT_S: int = Field(default=180, description="LLM request timeout in seconds")
     
@@ -292,9 +292,11 @@ class Settings(BaseSettings):
     TEMP_REPO_PATH: Path = Path("./tmp/indoc_temp").resolve()
     STORAGE_PATH: Path = Path("./data/storage").resolve()
     MAX_UPLOAD_SIZE: int = 100 * 1024 * 1024  # 100MB
+    # Indexable / searchable document types only. Archives (zip) are handled by
+    # the dedicated zip upload endpoint, which expands then filters to this set.
     ALLOWED_EXTENSIONS: List[str] = [
-        "pdf", "docx", "xlsx", "pptx", "txt", "html", 
-        "xml", "json", "eml", "png", "jpg", "jpeg", "tiff"
+        "pdf", "docx", "xlsx", "pptx", "txt", "html", "htm",
+        "xml", "json", "eml", "png", "jpg", "jpeg", "tiff", "tif",
     ]
 
     # Object Storage

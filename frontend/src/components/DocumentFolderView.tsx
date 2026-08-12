@@ -18,6 +18,13 @@ import {
     CardActionArea,
     CardContent,
     alpha,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogContentText,
+    DialogActions,
+    Button,
+    CircularProgress,
 } from '@mui/material'
 import {
     Folder as FolderIcon,
@@ -32,12 +39,13 @@ import {
     Code as CodeIcon,
     VideoLibrary as VideoIcon,
     AudioFile as AudioIcon,
-    MoreVert as MoreIcon,
     Download as DownloadIcon,
     Visibility as ViewIcon,
     Delete as DeleteIcon,
+    DeleteSweep as DeleteFolderIcon,
 } from '@mui/icons-material'
 import { format } from 'date-fns'
+import { useSnackbar } from 'notistack'
 import DocumentDetailsDrawer from './DocumentDetailsDrawer'
 
 interface Document {
@@ -65,20 +73,24 @@ interface DocumentFolderViewProps {
     onDocumentSelect?: (doc: Document) => void
     onDocumentView?: (docId: string) => void
     selectedDocuments?: string[]
+    onCorpusChanged?: () => void
 }
 
 const DocumentFolderView: React.FC<DocumentFolderViewProps> = ({
     documents,
     onDocumentSelect,
     onDocumentView,
-    selectedDocuments = []
+    selectedDocuments = [],
+    onCorpusChanged,
 }) => {
+    const { enqueueSnackbar } = useSnackbar()
     const [currentPath, setCurrentPath] = useState<string[]>([])
     const [selectedDocument, setSelectedDocument] = useState<Document | null>(null)
     const [drawerOpen, setDrawerOpen] = useState(false)
+    const [folderToDelete, setFolderToDelete] = useState<FolderNode | null>(null)
+    const [deletingFolder, setDeletingFolder] = useState(false)
 
     const handleDocumentClick = (doc: Document) => {
-        console.log('Folder view - Document clicked:', doc.uuid, doc.filename)
         setSelectedDocument(doc)
         setDrawerOpen(true)
     }
@@ -105,7 +117,6 @@ const DocumentFolderView: React.FC<DocumentFolderViewProps> = ({
 
             let current = root
 
-            // Navigate/create folder structure
             parts.forEach((part, index) => {
                 if (!current.subfolders.has(part)) {
                     current.subfolders.set(part, {
@@ -120,12 +131,10 @@ const DocumentFolderView: React.FC<DocumentFolderViewProps> = ({
                 current = current.subfolders.get(part)!
             })
 
-            // Add file to final folder
             current.files.push(doc)
             current.totalSize += doc.file_size
             current.fileCount += 1
 
-            // Update parent folder stats
             let parent = root
             parts.forEach(part => {
                 parent.totalSize += doc.file_size
@@ -137,7 +146,6 @@ const DocumentFolderView: React.FC<DocumentFolderViewProps> = ({
         return root
     }, [documents])
 
-    // Get current folder
     const currentFolder = useMemo(() => {
         let folder = folderTree
         currentPath.forEach(part => {
@@ -152,6 +160,42 @@ const DocumentFolderView: React.FC<DocumentFolderViewProps> = ({
 
     const handleBreadcrumbClick = (index: number) => {
         setCurrentPath(currentPath.slice(0, index))
+    }
+
+    const handleDeleteFolder = async () => {
+        if (!folderToDelete) return
+        setDeletingFolder(true)
+        try {
+            const form = new FormData()
+            form.append('folder_path', folderToDelete.path)
+            const response = await fetch('/api/v1/files/folder/delete', {
+                method: 'POST',
+                headers: {
+                    Authorization: `Bearer ${localStorage.getItem('token') || ''}`,
+                },
+                body: form,
+            })
+            const body = await response.json().catch(() => ({}))
+            if (!response.ok) {
+                throw new Error(body.detail || 'Folder delete failed')
+            }
+            enqueueSnackbar(
+                body.message ||
+                    `Removed ${body.deleted_count ?? 0} document(s) from inDoc under “${folderToDelete.path}”.`,
+                { variant: body.failed_count ? 'warning' : 'success', autoHideDuration: 7000 }
+            )
+            // If we deleted the current folder (or an ancestor), step up
+            if (currentPath.join('/') === folderToDelete.path || currentPath.join('/').startsWith(`${folderToDelete.path}/`)) {
+                const parts = folderToDelete.path.split('/').filter(Boolean)
+                setCurrentPath(parts.slice(0, -1))
+            }
+            setFolderToDelete(null)
+            onCorpusChanged?.()
+        } catch (err: any) {
+            enqueueSnackbar(err?.message || 'Failed to remove folder from inDoc', { variant: 'error' })
+        } finally {
+            setDeletingFolder(false)
+        }
     }
 
     const getFileIcon = (fileType: string) => {
@@ -179,7 +223,6 @@ const DocumentFolderView: React.FC<DocumentFolderViewProps> = ({
 
     return (
         <Box>
-            {/* Breadcrumb Navigation */}
             <Paper sx={{ p: 2, mb: 2 }}>
                 <Breadcrumbs separator={<NavigateNextIcon fontSize="small" />}>
                     <Box
@@ -211,7 +254,6 @@ const DocumentFolderView: React.FC<DocumentFolderViewProps> = ({
                 </Breadcrumbs>
             </Paper>
 
-            {/* Folders Grid */}
             {folders.length > 0 && (
                 <Box mb={3}>
                     <Typography variant="h6" gutterBottom>
@@ -222,7 +264,6 @@ const DocumentFolderView: React.FC<DocumentFolderViewProps> = ({
                             <Grid item xs={12} sm={6} md={4} lg={3} key={folder.name}>
                                 <Card
                                     sx={{
-                                        cursor: 'pointer',
                                         transition: 'all 0.2s',
                                         '&:hover': {
                                             transform: 'translateY(-4px)',
@@ -232,14 +273,14 @@ const DocumentFolderView: React.FC<DocumentFolderViewProps> = ({
                                 >
                                     <CardActionArea onClick={() => handleFolderClick(folder.name)}>
                                         <CardContent>
-                                            <Stack direction="row" spacing={2} alignItems="center">
+                                            <Stack direction="row" spacing={1.5} alignItems="center">
                                                 <FolderIcon
                                                     sx={{
                                                         fontSize: 48,
                                                         color: 'primary.main'
                                                     }}
                                                 />
-                                                <Box flex={1}>
+                                                <Box flex={1} minWidth={0}>
                                                     <Typography variant="body1" fontWeight={500} noWrap>
                                                         {folder.name}
                                                     </Typography>
@@ -250,6 +291,21 @@ const DocumentFolderView: React.FC<DocumentFolderViewProps> = ({
                                             </Stack>
                                         </CardContent>
                                     </CardActionArea>
+                                    <Box sx={{ px: 1.5, pb: 1.25, display: 'flex', justifyContent: 'flex-end' }}>
+                                        <Tooltip title="Remove folder from inDoc (keeps files on disk)">
+                                            <IconButton
+                                                size="small"
+                                                color="error"
+                                                aria-label={`Remove ${folder.name} from inDoc`}
+                                                onClick={(e) => {
+                                                    e.stopPropagation()
+                                                    setFolderToDelete(folder)
+                                                }}
+                                            >
+                                                <DeleteFolderIcon fontSize="small" />
+                                            </IconButton>
+                                        </Tooltip>
+                                    </Box>
                                 </Card>
                             </Grid>
                         ))}
@@ -257,7 +313,6 @@ const DocumentFolderView: React.FC<DocumentFolderViewProps> = ({
                 </Box>
             )}
 
-            {/* Files List */}
             {files.length > 0 && (
                 <Box>
                     <Typography variant="h6" gutterBottom>
@@ -335,7 +390,6 @@ const DocumentFolderView: React.FC<DocumentFolderViewProps> = ({
                 </Box>
             )}
 
-            {/* Empty State */}
             {folders.length === 0 && files.length === 0 && (
                 <Box
                     display="flex"
@@ -356,23 +410,18 @@ const DocumentFolderView: React.FC<DocumentFolderViewProps> = ({
                 document={selectedDocument}
                 onClose={handleCloseDrawer}
                 onEdit={() => {
-                    // Refresh after edit (edit happens in modal within drawer)
-                    window.location.reload()
+                    onCorpusChanged?.()
                 }}
                 onDownload={(doc) => {
                     window.open(`/api/v1/files/${doc.uuid}/download`, '_blank')
                 }}
                 onShare={(doc) => {
-                    // Copy share link to clipboard
                     const shareUrl = `${window.location.origin}/documents/${doc.uuid}`
                     navigator.clipboard.writeText(shareUrl).then(() => {
-                        console.log('✅ Share link copied:', shareUrl)
-                        // Show success notification if snackbar is available
-                        alert('Share link copied to clipboard!')
+                        enqueueSnackbar('Share link copied to clipboard', { variant: 'success' })
                     })
                 }}
                 onDelete={async (doc) => {
-                    // Delete document via API
                     try {
                         const response = await fetch(`/api/v1/files/${doc.uuid}`, {
                             method: 'DELETE',
@@ -381,27 +430,71 @@ const DocumentFolderView: React.FC<DocumentFolderViewProps> = ({
                                 'Content-Type': 'application/json',
                             },
                         })
-                        
+
                         if (!response.ok) {
                             throw new Error('Delete failed')
                         }
-                        
-                        console.log('✅ Document deleted:', doc.filename)
-                        alert('Document deleted successfully!')
-                        
-                        // Refresh the page or remove from local state
-                        window.location.reload()
+
+                        enqueueSnackbar(`Removed “${doc.filename}” from inDoc`, { variant: 'success' })
+                        handleCloseDrawer()
+                        onCorpusChanged?.()
                     } catch (error) {
-                        console.error('❌ Delete failed:', error)
-                        alert('Failed to delete document. Please try again.')
+                        enqueueSnackbar('Failed to delete document', { variant: 'error' })
                         throw error
                     }
                 }}
             />
+
+            <Dialog
+                open={Boolean(folderToDelete)}
+                onClose={() => !deletingFolder && setFolderToDelete(null)}
+                maxWidth="sm"
+                fullWidth
+            >
+                <DialogTitle sx={{ fontWeight: 700 }}>Remove folder from inDoc?</DialogTitle>
+                <DialogContent>
+                    <DialogContentText component="div">
+                        Remove <strong>{folderToDelete?.path}</strong> and{' '}
+                        <strong>{folderToDelete?.fileCount ?? 0}</strong> document
+                        {(folderToDelete?.fileCount ?? 0) === 1 ? '' : 's'} from the inDoc corpus
+                        (search, vectors, and stored copies).
+                        <Box
+                            sx={{
+                                mt: 2,
+                                p: 1.5,
+                                borderRadius: 1.5,
+                                bgcolor: (t) =>
+                                    t.palette.mode === 'dark' ? 'rgba(56,189,248,0.08)' : 'rgba(2,132,199,0.08)',
+                                border: '1px solid',
+                                borderColor: 'divider',
+                            }}
+                        >
+                            <Typography variant="body2" sx={{ fontWeight: 650 }}>
+                                Your original files on disk are not deleted.
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                                This only removes the corpus entries inside inDoc. You can re-upload the folder later.
+                            </Typography>
+                        </Box>
+                    </DialogContentText>
+                </DialogContent>
+                <DialogActions sx={{ px: 3, pb: 2 }}>
+                    <Button onClick={() => setFolderToDelete(null)} disabled={deletingFolder}>
+                        Cancel
+                    </Button>
+                    <Button
+                        color="error"
+                        variant="contained"
+                        onClick={handleDeleteFolder}
+                        disabled={deletingFolder}
+                        startIcon={deletingFolder ? <CircularProgress size={16} color="inherit" /> : <DeleteIcon />}
+                    >
+                        {deletingFolder ? 'Removing…' : 'Remove from inDoc'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </Box>
     )
 }
 
 export default DocumentFolderView
-
-

@@ -69,10 +69,10 @@ async def list_users(
     
     if role:
         try:
-            role_enum = UserRole[role]
+            # Accept enum name (MANAGER) or value (Manager)
+            role_enum = UserRole[role] if role in UserRole.__members__ else UserRole(role)
             query = query.where(User.role == role_enum)
-        except KeyError:
-            # If role is already a string value, compare directly
+        except (KeyError, ValueError):
             query = query.where(User.role == role)
     
     if is_active is not None:

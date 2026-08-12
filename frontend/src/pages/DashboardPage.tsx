@@ -226,7 +226,7 @@ const DashboardPage: React.FC = () => {
                 status={indexedPct >= 90 ? 'ok' : indexedPct >= 50 ? 'warn' : 'active'}
                 help={{
                   title: 'Indexed dial',
-                  body: 'Share of documents that finished indexing and are searchable for Insight Bridge and chat.',
+                  body: 'Share of documents that finished indexing and are searchable for Research Desk and chat.',
                   reading: `${indexedPct.toFixed(1)}% indexed`,
                   details: [
                     { label: 'Indexed', value: String(indexedCount) },
