@@ -64,6 +64,45 @@ interface UploadFile {
   };
 }
 
+/** Extensions inDoc can extract + index for search / Research Desk. Zip is not included — use the dedicated zip upload if you want archives expanded. */
+const INDEXABLE_EXTENSIONS = new Set([
+  'pdf',
+  'docx',
+  'xlsx',
+  'pptx',
+  'txt',
+  'html',
+  'htm',
+  'xml',
+  'json',
+  'eml',
+  'png',
+  'jpg',
+  'jpeg',
+  'tiff',
+  'tif',
+])
+
+function fileExtension(name: string): string {
+  const i = name.lastIndexOf('.')
+  if (i < 0) return ''
+  return name.slice(i + 1).toLowerCase()
+}
+
+function isIndexableFile(file: File): boolean {
+  return INDEXABLE_EXTENSIONS.has(fileExtension(file.name))
+}
+
+function partitionIndexableFiles(incoming: File[]): { accepted: File[]; skipped: File[] } {
+  const accepted: File[] = []
+  const skipped: File[] = []
+  for (const f of incoming) {
+    if (isIndexableFile(f)) accepted.push(f)
+    else skipped.push(f)
+  }
+  return { accepted, skipped }
+}
+
 const UploadPage: React.FC = () => {
   const dispatch = useAppDispatch()
   const { enqueueSnackbar } = useSnackbar()
@@ -118,7 +157,23 @@ const UploadPage: React.FC = () => {
 
 
   const onDrop = useCallback((acceptedFiles: any[]) => {
-    const newFiles = acceptedFiles.map((file: any) => ({
+    const { accepted, skipped } = partitionIndexableFiles(acceptedFiles as File[])
+    if (skipped.length > 0) {
+      const samples = skipped
+        .slice(0, 3)
+        .map((f) => f.name)
+        .join(', ')
+      const more = skipped.length > 3 ? ` (+${skipped.length - 3} more)` : ''
+      enqueueSnackbar(
+        `Skipped ${skipped.length} non-indexable file${skipped.length === 1 ? '' : 's'} (e.g. zip/source): ${samples}${more}`,
+        { variant: 'info', autoHideDuration: 6000 }
+      )
+    }
+    if (accepted.length === 0) {
+      enqueueSnackbar('No indexable documents found in that selection.', { variant: 'warning' })
+      return
+    }
+    const newFiles = accepted.map((file: any) => ({
       file,
       id: Math.random().toString(36).substr(2, 9),
       status: 'pending' as const,
@@ -128,7 +183,7 @@ const UploadPage: React.FC = () => {
     setFiles((prev) => [...prev, ...newFiles])
     // Zero-friction: auto-start upload after drop
     setShouldAutoUpload(true)
-  }, [])
+  }, [enqueueSnackbar])
 
   const { getRootProps, getInputProps, isDragActive, open: openFileDialog } = useDropzone({
     onDrop,
@@ -308,6 +363,14 @@ const UploadPage: React.FC = () => {
                 error: 'Already in system',
                 response: resultFile
               }
+            } else if (resultFile.status === 'skipped') {
+              return {
+                ...f,
+                status: 'error' as const,
+                progress: 0,
+                error: resultFile.error || 'Skipped (non-indexable)',
+                response: resultFile
+              }
             } else if (resultFile.status === 'failed') {
               return {
                 ...f,
@@ -332,12 +395,24 @@ const UploadPage: React.FC = () => {
       })
 
       // Show detailed feedback
-      const { successful_uploads = 0, skipped_duplicates = 0, failed_uploads = 0 } = result
+      const {
+        successful_uploads = 0,
+        skipped_duplicates = 0,
+        skipped_non_indexable = 0,
+        failed_uploads = 0,
+      } = result
 
       if (successful_uploads > 0) {
         enqueueSnackbar(
           `Successfully uploaded ${successful_uploads} file${successful_uploads !== 1 ? 's' : ''}`,
           { variant: 'success', autoHideDuration: 3000 }
+        )
+      }
+
+      if (skipped_non_indexable > 0) {
+        enqueueSnackbar(
+          `Skipped ${skipped_non_indexable} non-indexable file${skipped_non_indexable !== 1 ? 's' : ''} (zip/source/etc.)`,
+          { variant: 'info', autoHideDuration: 5000 }
         )
       }
 
@@ -914,12 +989,13 @@ const UploadPage: React.FC = () => {
 
           <Alert severity="info" sx={{ mt: 3 }}>
             <Typography variant="body2">
-              All uploaded documents will be:
+              Only indexable files are uploaded (PDF, Office, text, HTML/XML/JSON, email, images).
+              Folders are scanned recursively; zip, source, and other binaries are skipped.
             </Typography>
             <ul style={{ margin: '8px 0', paddingLeft: '20px' }}>
               <li>Scanned for viruses</li>
               <li>Processed for text extraction</li>
-              <li>Indexed for search</li>
+              <li>Indexed for search / Research Desk</li>
               <li>Encrypted if containing sensitive data</li>
             </ul>
           </Alert>

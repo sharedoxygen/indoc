@@ -112,7 +112,7 @@ const MainLayout: React.FC = () => {
         icon: <WorkspaceIcon fontSize="small" />,
         items: [
           { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard', roles: ['all'] },
-          { text: 'Insight Bridge', icon: <InsightIcon />, path: '/chat', roles: ['all'] },
+          { text: 'Research Desk', icon: <InsightIcon />, path: '/chat', roles: ['all'] },
           { text: 'Documents', icon: <DocumentIcon />, path: '/documents', roles: ['all'] },
         ],
       },

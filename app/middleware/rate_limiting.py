@@ -4,9 +4,9 @@ Rate limiting middleware for API endpoints
 import time
 import logging
 from typing import Dict, Optional
-from fastapi import Request, Response, HTTPException, status
+from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
-import asyncio
+from starlette.responses import JSONResponse
 from collections import defaultdict, deque
 
 logger = logging.getLogger(__name__)
@@ -90,9 +90,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             # General API endpoints
             "default": {"limit": 100, "window": 60},  # 100 requests per minute
             
-            # Admin endpoints
-            "/api/v1/admin": {"limit": 20, "window": 60},  # 20 admin actions per minute
-            "/api/v1/users": {"limit": 20, "window": 60},  # 20 user management actions per minute
+            # Admin endpoints — Identity UI can refresh / filter frequently
+            "/api/v1/admin": {"limit": 60, "window": 60},
+            "/api/v1/users": {"limit": 120, "window": 60},
         }
     
     async def dispatch(self, request: Request, call_next) -> Response:
@@ -108,27 +108,32 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         # Get rate limit for this endpoint
         rate_limit = self._get_rate_limit(request.url.path)
         
-        # Check rate limit
+        # Check rate limit — must return a Response from middleware.
+        # Raising HTTPException here becomes an unhandled error with an empty str().
         if not self.limiter.is_allowed(
-            client_id, 
-            rate_limit["limit"], 
-            rate_limit["window"]
+            client_id,
+            rate_limit["limit"],
+            rate_limit["window"],
         ):
             logger.warning(
                 f"Rate limit exceeded for client {client_id} on {request.url.path}"
             )
-            
-            # Return rate limit error
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail={
+            return JSONResponse(
+                status_code=429,
+                content={
+                    "detail": (
+                        f"Rate limit exceeded for {request.url.path} "
+                        f"({rate_limit['limit']} requests / {rate_limit['window']}s). "
+                        f"Retry shortly."
+                    ),
                     "error": "Rate limit exceeded",
                     "limit": rate_limit["limit"],
                     "window": rate_limit["window"],
-                    "retry_after": rate_limit["window"]
-                }
+                    "retry_after": rate_limit["window"],
+                },
+                headers={"Retry-After": str(rate_limit["window"])},
             )
-        
+
         # Process request
         response = await call_next(request)
         

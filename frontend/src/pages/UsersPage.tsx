@@ -111,43 +111,33 @@ const UsersPage: React.FC = () => {
 
     useEffect(() => {
         fetchUsers();
-        fetchManagers();
     }, []);
 
     const fetchUsers = async () => {
         try {
             setLoading(true);
             setError(null);
-            console.log('🔄 Fetching users...');
-            const response = await http.get('/users/');
-            console.log('✅ Users response:', response.status, 'Data type:', Array.isArray(response.data) ? 'array' : typeof response.data, 'Count:', response.data?.length);
-            setUsers(Array.isArray(response.data) ? response.data : []);
+            const response = await http.get('/users/', { params: { limit: 500 } });
+            const list = Array.isArray(response.data) ? response.data : [];
+            setUsers(list);
+            setManagers(list.filter((u: User) => String(u.role).toLowerCase() === 'manager'));
+            setError(null);
         } catch (err: any) {
-            console.error('❌ fetchUsers error:', err);
-            console.error('Status:', err.response?.status);
-            console.error('Data:', err.response?.data);
-            // If non-admin, backend returns 403. Show friendly message instead of error banner.
             const status = err.response?.status;
             if (status === 403) {
                 setUsers([]);
+                setManagers([]);
                 setError(null);
             } else {
-                const errorDetail = err.response?.data?.detail || err.message || 'Failed to load users';
+                const detail = err.response?.data?.detail;
+                const errorDetail =
+                    typeof detail === 'string'
+                        ? detail
+                        : detail?.error || err.message || 'Failed to load users';
                 setError(errorDetail);
-                console.error('Setting error state:', errorDetail);
             }
         } finally {
             setLoading(false);
-        }
-    };
-
-    const fetchManagers = async () => {
-        try {
-            const response = await http.get('/users/?role=Manager');
-            setManagers(Array.isArray(response.data) ? response.data : []);
-        } catch (err: any) {
-            console.error('❌ Failed to load managers:', err);
-            // Don't show error for managers loading failure as it's not critical
         }
     };
 
@@ -207,7 +197,6 @@ const UsersPage: React.FC = () => {
             }
             setDialogOpen(false);
             fetchUsers();
-            fetchManagers(); // Refresh managers list in case new manager was created
         } catch (err: any) {
             enqueueSnackbar(
                 err.response?.data?.detail || `Failed to ${dialogMode} user`,

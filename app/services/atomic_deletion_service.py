@@ -76,7 +76,8 @@ class AtomicDeletionService:
             Exception if deletion cannot be completed atomically
         """
         logger.info(f"🔄 Starting atomic deletion for document: {document_id}")
-        
+        self.phases = []
+
         # PHASE 0: Fetch and validate document
         document = await self._fetch_and_validate_document(document_id, tenant_id)
         
