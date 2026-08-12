@@ -24,6 +24,15 @@ from app.core.config import settings
 from app.core.websocket_manager import WebSocketManager
 
 
+def _normalize_ext(filename: str) -> str:
+    return Path(filename).suffix.lower().strip(".")
+
+
+def is_indexable_extension(filename: str) -> bool:
+    """True when the file type can be text-extracted and searched."""
+    return _normalize_ext(filename) in {ext.lower() for ext in settings.ALLOWED_EXTENSIONS}
+
+
 class BulkUploadService:
     """Service for handling bulk file uploads and folder structures"""
     
@@ -107,6 +116,7 @@ class BulkUploadService:
             "successful_uploads": 0,
             "failed_uploads": 0,
             "skipped_duplicates": 0,
+            "skipped_non_indexable": 0,
             "files": [],
             "errors": []
         }
@@ -128,6 +138,16 @@ class BulkUploadService:
             
             # Skip system files
             if file_path.name.startswith('.'):
+                continue
+
+            if not is_indexable_extension(file_path.name):
+                results["skipped_non_indexable"] += 1
+                results["files"].append({
+                    "filename": file_path.name,
+                    "path": str(relative_path.parent) if relative_path.parent != Path('.') else None,
+                    "status": "skipped",
+                    "error": f"Non-indexable type (.{_normalize_ext(file_path.name) or 'unknown'}); zip/source/binaries are not uploaded",
+                })
                 continue
             
             try:
@@ -363,17 +383,31 @@ class BulkUploadService:
             "successful_uploads": 0,
             "failed_uploads": 0,
             "skipped_duplicates": 0,
+            "skipped_non_indexable": 0,
             "files": [],
             "errors": []
         }
         
         for idx, file in enumerate(files):
             progress = ((idx + 1) / len(files)) * 100
+            filename = file.filename or f"file_{idx}"
+
+            if not is_indexable_extension(filename):
+                results["skipped_non_indexable"] += 1
+                results["files"].append({
+                    "filename": filename,
+                    "status": "skipped",
+                    "error": (
+                        f"Non-indexable type (.{_normalize_ext(filename) or 'unknown'}); "
+                        "only searchable document types are uploaded"
+                    ),
+                })
+                continue
             
             try:
                 await self._broadcast_progress(
                     websocket_id,
-                    f"Processing {file.filename}...",
+                    f"Processing {filename}...",
                     int(progress)
                 )
                 

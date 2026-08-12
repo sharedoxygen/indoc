@@ -18,7 +18,7 @@ class RequestTimeoutMiddleware(BaseHTTPMiddleware):
             # Chat requests can take longer due to search + LLM generation
             "/api/v1/chat/chat": 180.0,
             "/api/v1/llm": 180.0,
-            # Insight Bridge: multi-step ReAct over a local 32B model. BaseHTTPMiddleware
+            # Research Desk: multi-step ReAct over a local 32B model. BaseHTTPMiddleware
             # buffers the SSE body, so the whole run must fit this budget.
             "/api/v1/agent": 600.0,
             "default": 15.0,

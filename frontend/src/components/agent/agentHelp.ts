@@ -1,4 +1,4 @@
-/** Plain-language help for Insight Bridge (autonomous research UI). */
+/** Plain-language help for Research Desk (autonomous research UI). */
 
 export const TOOL_HELP: Record<string, { short: string; help: string }> = {
   list_documents: {
@@ -66,7 +66,7 @@ export const INSTRUMENT_HELP = {
 } as const
 
 export const AGENT_HELP = {
-  productName: 'Insight Bridge',
+  productName: 'Research Desk',
   pageTitle:
     'Autonomous research over your corpus: plans, searches, reads, and synthesizes a grounded brief from the documents you scope.',
   pageSubtitle:
@@ -74,8 +74,8 @@ export const AGENT_HELP = {
   modeAgent: 'Multi-step research: plans actions, uses tools, then delivers a brief over the scoped corpus.',
   askFollowUp:
     'Open conversational Q&A over the same scoped documents, with this brief as context. Not a separate research mode.',
-  followUpHistory: 'Prior follow-up conversations from Ask follow-up (not Insight runs).',
-  history: 'Prior follow-up conversations. Insight briefs stay on the Brief Board.',
+  followUpHistory: 'Prior follow-up conversations from Ask follow-up (not Research Desk runs).',
+  history: 'Prior follow-up conversations. Research Desk briefs stay on the Brief Board.',
   scope:
     'What the agent can read. By default: all indexed documents. Open Refine only to narrow the set.',
   scopeMeter: 'How much of the indexed corpus is included in this run.',
