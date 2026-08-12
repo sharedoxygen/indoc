@@ -243,6 +243,18 @@ async def upload_file(
                 "message": f"File '{file.filename}' must have an extension",
                 "details": "Supported formats: PDF, DOCX, XLSX, PPTX, TXT, HTML, XML, JSON, EML, PNG, JPG, TIFF"
             }
+
+        allowed = {ext.lower() for ext in settings.ALLOWED_EXTENSIONS}
+        if file_ext not in allowed:
+            logger.error(f"Upload failed: unsupported type .{file_ext} for {file.filename}")
+            return {
+                "error": "Unsupported file type",
+                "message": f"'{file.filename}' is not an indexable document type",
+                "details": (
+                    f".{file_ext} files are skipped. Upload PDF/Office/text/HTML/XML/JSON/email/images. "
+                    "Use the ZIP upload path only when you want an archive expanded first."
+                ),
+            }
         
         # Read file content
         try:
@@ -591,6 +603,101 @@ async def update_document(
     return DocumentResponse.from_orm(document)
 
 
+@router.post("/folder/delete")
+async def delete_folder_from_indoc(
+    folder_path: str = Form(...),
+    current_user: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    """
+    Remove every inDoc document under a folder path from the corpus.
+
+    Deletes from PostgreSQL, Elasticsearch, Qdrant, and inDoc object storage only.
+    Never touches the user's original filesystem / source folder.
+    """
+    from app.services.atomic_deletion_service import AtomicDeletionService
+
+    path = (folder_path or "").strip().strip("/")
+    if not path:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="folder_path is required",
+        )
+    if ".." in path.split("/"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid folder_path",
+        )
+
+    # Exact folder + all nested children (prefix match)
+    result = await db.execute(
+        select(Document).where(
+            Document.tenant_id == current_user.tenant_id,
+            (
+                (Document.folder_path == path)
+                | (Document.folder_path.like(f"{path}/%"))
+            ),
+        )
+    )
+    documents = list(result.scalars().all())
+
+    if not documents:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No documents found under folder '{path}'",
+        )
+
+    deletion_service = AtomicDeletionService(db)
+    deleted: List[str] = []
+    failed: List[dict] = []
+
+    for doc in documents:
+        try:
+            await deletion_service.delete_document_atomic(
+                document_id=str(doc.uuid),
+                user_id=current_user.id,
+                user_email=current_user.email,
+                user_role=getattr(current_user.role, "value", current_user.role),
+                tenant_id=current_user.tenant_id,
+            )
+            deleted.append(str(doc.uuid))
+        except Exception as e:
+            logger.error(f"Folder delete failed for {doc.uuid} under {path}: {e}")
+            failed.append({"uuid": str(doc.uuid), "filename": doc.filename, "error": str(e)})
+
+    # Folder-level audit (per-doc audits already written by atomic deletion)
+    db.add(
+        AuditLog(
+            user_id=current_user.id,
+            user_email=current_user.email,
+            user_role=getattr(current_user.role, "value", current_user.role),
+            action="folder_delete",
+            resource_type="folder",
+            resource_id=path,
+            details={
+                "folder_path": path,
+                "requested_count": len(documents),
+                "deleted_count": len(deleted),
+                "failed_count": len(failed),
+                "scope": "indoc_corpus_only",
+            },
+        )
+    )
+
+    return {
+        "success": len(failed) == 0,
+        "message": (
+            f"Removed {len(deleted)} document(s) under '{path}' from inDoc. "
+            "Source files on disk were not modified."
+        ),
+        "folder_path": path,
+        "deleted_count": len(deleted),
+        "failed_count": len(failed),
+        "deleted": deleted,
+        "failed": failed,
+    }
+
+
 @router.delete("/{document_id}")
 async def delete_document(
     document_id: str,
@@ -608,6 +715,7 @@ async def delete_document(
     - Remote object storage (S3/MinIO)
     
     If ANY step fails, the entire operation is rolled back.
+    Does not modify the user's original filesystem outside inDoc.
     """
     from app.services.atomic_deletion_service import AtomicDeletionService
     

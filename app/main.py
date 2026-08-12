@@ -404,10 +404,22 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
     # In production, don't expose internal error details
     error_message = "Internal Server Error"
     if settings.ENVIRONMENT != "production":
-        error_message = f"Unhandled error: {str(exc)}"
+        # HTTPException.str() is empty — prefer .detail / type name
+        detail = getattr(exc, "detail", None)
+        if isinstance(detail, str) and detail.strip():
+            error_message = detail
+        elif detail is not None:
+            error_message = f"{type(exc).__name__}: {detail}"
+        else:
+            msg = str(exc).strip() or repr(exc)
+            error_message = f"Unhandled error: {msg}"
+
+    status_code = getattr(exc, "status_code", None)
+    if not isinstance(status_code, int) or status_code < 400 or status_code > 599:
+        status_code = 500
 
     return JSONResponse(
-        status_code=500,
+        status_code=status_code,
         content={
             "detail": error_message,
             "path": request.url.path,

@@ -63,7 +63,7 @@ const glass = (dark: boolean) =>
       }
 
 /**
- * Insight Bridge — research-first shell.
+ * Research Desk — research-first shell.
  * Corpus is a calm summary strip; document picking lives in Refine (dialog),
  * not a permanent checkbox wall.
  */
@@ -649,7 +649,7 @@ const ChatPage: React.FC = () => {
             onNewConversation={(id) => setSelectedConversationId(id)}
             contextBanner={
               followUpBrief
-                ? `Follow-up on Insight brief: “${followUpBrief.goal}”. Ground answers in the scoped documents.`
+                ? `Follow-up on Research Desk brief: “${followUpBrief.goal}”. Ground answers in the scoped documents.`
                 : undefined
             }
             initialDraft={

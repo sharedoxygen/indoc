@@ -1,4 +1,4 @@
-"""Insight Bridge / LLM paths must not inherit the short default request budget."""
+"""Research Desk / LLM paths must not inherit the short default request budget."""
 
 from app.middleware.timeout import RequestTimeoutMiddleware
 

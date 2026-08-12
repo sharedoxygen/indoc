@@ -49,7 +49,7 @@ interface DocumentChatProps {
   documentIds?: string[];
   conversationId?: string;
   onNewConversation?: (conversationId: string) => void;
-  /** Optional banner above the thread (e.g. Insight brief context). */
+  /** Optional banner above the thread (e.g. Research Desk brief context). */
   contextBanner?: string;
   /** Prefill the composer once when the panel opens. */
   initialDraft?: string;
