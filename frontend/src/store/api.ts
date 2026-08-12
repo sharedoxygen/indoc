@@ -201,6 +201,10 @@ export const api = createApi({
     getDependenciesHealth: builder.query({
       query: () => `/settings/health/dependencies`,
     }),
+    getMonitoringSnapshot: builder.query<any, void>({
+      query: () => `/monitoring/snapshot`,
+      keepUnusedDataFor: 0,
+    }),
 
     // MCP endpoints (align with backend)
     executeTool: builder.mutation({
@@ -237,6 +241,7 @@ export const {
   useUpdateAdminSettingsMutation,
   useGetFeatureFlagsQuery,
   useGetDependenciesHealthQuery,
+  useGetMonitoringSnapshotQuery,
   useExecuteToolMutation,
   useGetMcpStatusQuery,
   useGetAnalyticsSummaryQuery,
