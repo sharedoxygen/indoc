@@ -136,9 +136,10 @@ async def check_dependencies_health(
     
     # Check database
     try:
+        from sqlalchemy import text
         from app.db.session import async_engine
         async with async_engine.connect() as conn:
-            await conn.execute("SELECT 1")
+            await conn.execute(text("SELECT 1"))
         health_status["database"] = "healthy"
     except Exception as e:
         health_status["database"] = f"unhealthy: {str(e)}"
@@ -155,15 +156,20 @@ async def check_dependencies_health(
     except Exception as e:
         health_status["elasticsearch"] = f"unhealthy: {str(e)}"
     
-    # Check Weaviate
+    # Check Qdrant
     try:
         import httpx
-        async with httpx.AsyncClient() as client:
-            response = await client.get(f"{app_settings.WEAVIATE_URL}/v1/.well-known/ready")
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            response = await client.get(f"{app_settings.QDRANT_URL}/readyz")
             if response.status_code == 200:
                 health_status["qdrant"] = "healthy"
             else:
-                health_status["qdrant"] = f"unhealthy: status {response.status_code}"
+                # Older Qdrant builds expose /healthz
+                response = await client.get(f"{app_settings.QDRANT_URL}/healthz")
+                if response.status_code == 200:
+                    health_status["qdrant"] = "healthy"
+                else:
+                    health_status["qdrant"] = f"unhealthy: status {response.status_code}"
     except Exception as e:
         health_status["qdrant"] = f"unhealthy: {str(e)}"
     

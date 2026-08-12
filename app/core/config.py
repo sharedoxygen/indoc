@@ -330,6 +330,14 @@ class Settings(BaseSettings):
     OTEL_EXPORTER_OTLP_ENDPOINT: str = "http://localhost:4317"
     DATADOG_API_KEY: Optional[str] = None
     GRAFANA_CLOUD_API_KEY: Optional[str] = None
+    PROMETHEUS_URL: str = Field(
+        default="http://localhost:9090",
+        description="Prometheus HTTP API used by the Monitoring snapshot endpoint",
+    )
+    GRAFANA_URL: str = Field(
+        default="http://localhost:3030",
+        description="Grafana base URL for deep-link from Monitoring",
+    )
     
     # Compliance
     AUDIT_LOG_RETENTION_DAYS: int = 2555  # 7 years
