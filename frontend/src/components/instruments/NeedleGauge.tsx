@@ -33,7 +33,7 @@ export const NeedleGauge: React.FC<InstrumentBaseProps & { displayValue?: string
   const uid = useId().replace(/:/g, '')
   const ratio = clampRatio(value, min, max)
   const cx = size / 2
-  const cy = size * 0.66
+  const cy = size * 0.62
   const r = size * 0.4
   const angle = 180 * ratio
   const dark = theme.palette.mode === 'dark'
@@ -41,6 +41,8 @@ export const NeedleGauge: React.FC<InstrumentBaseProps & { displayValue?: string
   const track = describeSemiArc(cx, cy, r, 0, 180)
   const housingOuter = describeSemiArc(cx, cy, r + 12, 0, 180)
   const housingInner = describeSemiArc(cx, cy, r + 7, 0, 180)
+  const compact = size < 130
+  const faceH = size * 0.72
 
   const ticks = useMemo(
     () =>
@@ -50,143 +52,152 @@ export const NeedleGauge: React.FC<InstrumentBaseProps & { displayValue?: string
         r,
         startAngle: 0,
         sweep: 180,
-        count: 36,
-        majorEvery: 6,
+        count: compact ? 24 : 36,
+        majorEvery: compact ? 6 : 6,
         zeroAt: -180,
         labelMin: min,
         labelMax: max,
         labelPrecision: 0,
-        labelR: r - 12,
+        labelR: r - (compact ? 14 : 12),
+        labelEveryMajors: compact ? 2 : 1,
       }),
-    [cx, cy, r, min, max]
+    [cx, cy, r, min, max, compact]
   )
+
+  const readout = displayValue ?? formatInstrumentValue(value, precision, unit)
 
   return (
     <InstrumentTooltip help={help}>
-    <Box
-      sx={{ width: size, textAlign: 'center', userSelect: 'none', cursor: help ? 'help' : 'default' }}
-      aria-label={label ? `${label} gauge` : 'Needle gauge'}
-    >
-      <Box sx={{ position: 'relative', width: size, height: size * 0.82 }}>
-        <svg width={size} height={size * 0.82} viewBox={`0 0 ${size} ${size * 0.86}`}>
-          <InstrumentDefs uid={uid} dark={dark} />
+      <Box
+        sx={{
+          width: size,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          userSelect: 'none',
+          cursor: help ? 'help' : 'default',
+        }}
+        aria-label={label ? `${label} gauge` : 'Needle gauge'}
+      >
+        <Box sx={{ position: 'relative', width: size, height: faceH }}>
+          <svg width={size} height={faceH} viewBox={`0 0 ${size} ${size * 0.78}`}>
+            <InstrumentDefs uid={uid} dark={dark} />
 
-          {/* Semi housing */}
-          <path
-            d={`${housingOuter} L ${cx + r + 12} ${cy + 8} L ${cx - r - 12} ${cy + 8} Z`}
-            fill={`url(#bez-${uid})`}
-            filter={`url(#depth-${uid})`}
-          />
-          <path
-            d={`${housingInner} L ${cx + r + 7} ${cy + 5} L ${cx - r - 7} ${cy + 5} Z`}
-            fill={`url(#face-${uid})`}
-          />
-          <path
-            d={`${track} L ${cx + r} ${cy + 3} L ${cx - r} ${cy + 3} Z`}
-            fill={`url(#vignette-${uid})`}
-            opacity={0.85}
-          />
-          {/* Glass wash */}
-          <ellipse
-            cx={cx}
-            cy={cy - r * 0.35}
-            rx={r * 0.78}
-            ry={r * 0.32}
-            fill={`url(#glass-${uid})`}
-            opacity={0.45}
-          />
-
-          <path d={track} fill="none" stroke={p.edge} strokeWidth={1.15} strokeLinecap="butt" />
-
-          {(status === 'warn' || status === 'error') && (
             <path
-              d={describeSemiArc(cx, cy, r, 140, 180)}
-              fill="none"
-              stroke={stroke}
-              strokeWidth={2.2}
-              strokeLinecap="butt"
-              opacity={0.22}
+              d={`${housingOuter} L ${cx + r + 12} ${cy + 8} L ${cx - r - 12} ${cy + 8} Z`}
+              fill={`url(#bez-${uid})`}
+              filter={`url(#depth-${uid})`}
             />
-          )}
+            <path
+              d={`${housingInner} L ${cx + r + 7} ${cy + 5} L ${cx - r - 7} ${cy + 5} Z`}
+              fill={`url(#face-${uid})`}
+            />
+            <path
+              d={`${track} L ${cx + r} ${cy + 3} L ${cx - r} ${cy + 3} Z`}
+              fill={`url(#vignette-${uid})`}
+              opacity={0.85}
+            />
+            <ellipse
+              cx={cx}
+              cy={cy - r * 0.35}
+              rx={r * 0.78}
+              ry={r * 0.32}
+              fill={`url(#glass-${uid})`}
+              opacity={0.45}
+            />
 
-          {ticks.map((t, i) => (
-            <g key={i}>
-              <line
-                x1={t.x1}
-                y1={t.y1}
-                x2={t.x2}
-                y2={t.y2}
-                stroke={t.major ? p.tick : p.tickMinor}
-                strokeWidth={t.major ? 1.05 : 0.38}
+            <path d={track} fill="none" stroke={p.edge} strokeWidth={1.15} strokeLinecap="butt" />
+
+            {(status === 'warn' || status === 'error') && (
+              <path
+                d={describeSemiArc(cx, cy, r, 140, 180)}
+                fill="none"
+                stroke={stroke}
+                strokeWidth={2.2}
+                strokeLinecap="butt"
+                opacity={0.22}
               />
-              {t.label != null && t.lx != null && t.ly != null && (
-                <text
-                  x={t.lx}
-                  y={t.ly}
-                  fill={p.tick}
-                  fontSize={Math.max(6.5, size * 0.05)}
-                  textAnchor="middle"
-                  dominantBaseline="middle"
-                  fontFamily="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace"
-                >
-                  {t.label}
-                </text>
-              )}
-            </g>
-          ))}
+            )}
 
-          <motion.g
-            style={{ transformOrigin: `${cx}px ${cy}px` }}
-            initial={animate && !reduceMotion ? { rotate: -90 } : false}
-            animate={{ rotate: -90 + angle }}
-            transition={{ type: 'spring', stiffness: 108, damping: 16, mass: 0.6 }}
-          >
-            <HairlineNeedle uid={uid} cx={cx} cy={cy} length={r - 9} accent={stroke} counterweight={11} />
-          </motion.g>
-          <CapJewel uid={uid} cx={cx} cy={cy} accent={stroke} r={3.8} />
+            {ticks.map((t, i) => (
+              <g key={i}>
+                <line
+                  x1={t.x1}
+                  y1={t.y1}
+                  x2={t.x2}
+                  y2={t.y2}
+                  stroke={t.major ? p.tick : p.tickMinor}
+                  strokeWidth={t.major ? 1.05 : 0.38}
+                />
+                {t.label != null && t.lx != null && t.ly != null && (
+                  <text
+                    x={t.lx}
+                    y={t.ly}
+                    fill={p.tick}
+                    fontSize={Math.max(8, size * 0.058)}
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                    fontFamily="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace"
+                    opacity={0.75}
+                  >
+                    {t.label}
+                  </text>
+                )}
+              </g>
+            ))}
 
-          {/* Chassis bar */}
-          <rect
-            x={cx - r - 10}
-            y={cy + 1}
-            width={(r + 10) * 2}
-            height={5}
-            rx={1}
-            fill={`url(#bez-${uid})`}
-            opacity={0.9}
-          />
-        </svg>
+            <motion.g
+              style={{ transformOrigin: `${cx}px ${cy}px` }}
+              initial={animate && !reduceMotion ? { rotate: -90 } : false}
+              animate={{ rotate: -90 + angle }}
+              transition={{ type: 'spring', stiffness: 108, damping: 16, mass: 0.6 }}
+            >
+              <HairlineNeedle uid={uid} cx={cx} cy={cy} length={r - 9} accent={stroke} counterweight={11} />
+            </motion.g>
+            <CapJewel uid={uid} cx={cx} cy={cy} accent={stroke} r={3.8} />
 
-        <Box sx={{ position: 'absolute', left: 0, right: 0, bottom: 2, textAlign: 'center', px: 0.5 }}>
+            <rect
+              x={cx - r - 10}
+              y={cy + 1}
+              width={(r + 10) * 2}
+              height={5}
+              rx={1}
+              fill={`url(#bez-${uid})`}
+              opacity={0.9}
+            />
+          </svg>
+        </Box>
+
+        <Box sx={{ mt: 0.6, px: 0.5, textAlign: 'center', width: '100%' }}>
           <Typography
-            title={displayValue}
+            title={readout}
             sx={{
-              fontWeight: 600,
-              fontSize: size * 0.135,
+              fontWeight: 700,
+              fontSize: Math.max(15, size * 0.145),
               fontVariantNumeric: 'tabular-nums',
               letterSpacing: '-0.03em',
               color: 'text.primary',
-              lineHeight: 1.1,
+              lineHeight: 1.15,
               fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
-              textShadow: dark ? '0 1px 2px rgba(0,0,0,0.65)' : undefined,
               maxWidth: '100%',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
             }}
           >
-            {displayValue ?? formatInstrumentValue(value, precision, unit)}
+            {readout}
           </Typography>
           {label && (
             <Typography
-              variant="caption"
               title={label}
               sx={{
+                mt: 0.3,
                 color: 'text.secondary',
-                fontWeight: 700,
+                fontWeight: 750,
                 textTransform: 'uppercase',
-                letterSpacing: 1,
-                fontSize: Math.max(7.5, size * 0.055),
+                letterSpacing: 0.8,
+                fontSize: Math.max(11, size * 0.078),
+                lineHeight: 1.2,
                 display: 'block',
                 maxWidth: '100%',
                 overflow: 'hidden',
@@ -199,7 +210,6 @@ export const NeedleGauge: React.FC<InstrumentBaseProps & { displayValue?: string
           )}
         </Box>
       </Box>
-    </Box>
     </InstrumentTooltip>
   )
 }
