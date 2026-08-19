@@ -39,13 +39,30 @@ class E2ETestRunner:
         # Note: Passwords are now randomly generated. 
         # Use the output from seed data generation or set environment variables.
         import os
+        missing = [
+            name
+            for name in (
+                "ADMIN_PASSWORD",
+                "ADMIN_TEST_PASSWORD",
+                "REVIEWER_PASSWORD",
+                "UPLOADER_PASSWORD",
+                "VIEWER_PASSWORD",
+                "COMPLIANCE_PASSWORD",
+            )
+            if not os.getenv(name)
+        ]
+        if missing:
+            raise RuntimeError(
+                "e2e_test_runner requires password env vars (no defaults): "
+                + ", ".join(missing)
+            )
         self.test_users = {
-            "admin": {"username": "admin", "password": os.getenv("ADMIN_PASSWORD", "admin123")},
-            "admin_test": {"username": "admin_primary", "password": os.getenv("ADMIN_TEST_PASSWORD", "admin123")},
-            "reviewer": {"username": "legal_reviewer", "password": os.getenv("REVIEWER_PASSWORD", "review123")},
-            "uploader": {"username": "hr_uploader", "password": os.getenv("UPLOADER_PASSWORD", "upload123")},
-            "viewer": {"username": "external_viewer", "password": os.getenv("VIEWER_PASSWORD", "view123")},
-            "compliance": {"username": "compliance_officer", "password": os.getenv("COMPLIANCE_PASSWORD", "comply123")}
+            "admin": {"username": "admin", "password": os.environ["ADMIN_PASSWORD"]},
+            "admin_test": {"username": "admin_primary", "password": os.environ["ADMIN_TEST_PASSWORD"]},
+            "reviewer": {"username": "legal_reviewer", "password": os.environ["REVIEWER_PASSWORD"]},
+            "uploader": {"username": "hr_uploader", "password": os.environ["UPLOADER_PASSWORD"]},
+            "viewer": {"username": "external_viewer", "password": os.environ["VIEWER_PASSWORD"]},
+            "compliance": {"username": "compliance_officer", "password": os.environ["COMPLIANCE_PASSWORD"]}
         }
     
     async def __aenter__(self):

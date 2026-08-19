@@ -115,7 +115,7 @@ class SeedDataGenerator:
                 "email": "admin.backup@test.indoc.local",
                 "username": "admin_backup",
                 "full_name": "Bob Backup Admin", 
-                "password": "admin456",
+                "password": secrets.token_urlsafe(16),
                 "role": UserRole.ADMIN,
                 "is_verified": True
             },
@@ -133,7 +133,7 @@ class SeedDataGenerator:
                 "email": "tech.reviewer@test.indoc.local",
                 "username": "tech_reviewer",
                 "full_name": "David Tech Reviewer",
-                "password": "review456",
+                "password": secrets.token_urlsafe(16),
                 "role": UserRole.REVIEWER,
                 "is_verified": True
             },
@@ -151,7 +151,7 @@ class SeedDataGenerator:
                 "email": "finance.uploader@test.indoc.local",
                 "username": "finance_uploader", 
                 "full_name": "Frank Finance Uploader",
-                "password": "upload456",
+                "password": secrets.token_urlsafe(16),
                 "role": UserRole.UPLOADER,
                 "is_verified": True
             },
@@ -159,7 +159,7 @@ class SeedDataGenerator:
                 "email": "new.uploader@test.indoc.local",
                 "username": "new_uploader",
                 "full_name": "Grace New Uploader",
-                "password": "upload789",
+                "password": secrets.token_urlsafe(16),
                 "role": UserRole.UPLOADER,
                 "is_verified": False  # Test unverified user workflow
             },
@@ -177,7 +177,7 @@ class SeedDataGenerator:
                 "email": "intern.viewer@test.indoc.local", 
                 "username": "intern_viewer",
                 "full_name": "Ivy Intern Viewer",
-                "password": "view456",
+                "password": secrets.token_urlsafe(16),
                 "role": UserRole.VIEWER,
                 "is_verified": True
             },
@@ -195,7 +195,7 @@ class SeedDataGenerator:
                 "email": "auditor.compliance@test.indoc.local",
                 "username": "compliance_auditor", 
                 "full_name": "Kate Compliance Auditor",
-                "password": "comply456",
+                "password": secrets.token_urlsafe(16),
                 "role": UserRole.COMPLIANCE,
                 "is_verified": True
             }
