@@ -7,6 +7,11 @@ echo "🗄️  inDoc Database Setup"
 echo "========================"
 echo ""
 
+if [ -z "${POSTGRES_PASSWORD:-}" ]; then
+    echo "POSTGRES_PASSWORD is required"
+    exit 1
+fi
+
 # Check if Docker is running
 if ! docker info > /dev/null 2>&1; then
     echo "❌ Docker is not running. Please start Docker Desktop first."
@@ -40,6 +45,7 @@ cd backend
 if [ ! -f "init_db.py" ]; then
     echo "Creating database initialization script..."
     cat > temp_init_db.py << 'EOF'
+import os
 import psycopg2
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 
@@ -49,7 +55,7 @@ DB_PARAMS = {
     "port": 5432,
     "database": "indoc",
     "user": "indoc_user",
-    "password": "indoc_dev_password"
+    "password": os.environ["POSTGRES_PASSWORD"]
 }
 
 def init_database():
@@ -150,27 +156,9 @@ def init_database():
         cur.execute("CREATE INDEX IF NOT EXISTS idx_documents_uuid ON documents(uuid);")
         
         print("✅ Database tables created successfully!")
-        
-        # Insert default users (with bcrypt hashed passwords)
-        # Password: admin123 -> $2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY3L2DApQ8pJ3Xe
-        cur.execute("""
-            INSERT INTO users (email, username, full_name, hashed_password, role, is_active, is_verified)
-            VALUES 
-                ('admin@indoc.local', 'admin', 'System Administrator', 
-                 '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY3L2DApQ8pJ3Xe', 'Admin', TRUE, TRUE),
-                ('reviewer@indoc.local', 'reviewer', 'Demo Reviewer',
-                 '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY3L2DApQ8pJ3Xe', 'Reviewer', TRUE, TRUE),
-                ('uploader@indoc.local', 'uploader', 'Demo Uploader',
-                 '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY3L2DApQ8pJ3Xe', 'Uploader', TRUE, TRUE),
-                ('viewer@indoc.local', 'viewer', 'Demo Viewer',
-                 '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY3L2DApQ8pJ3Xe', 'Viewer', TRUE, TRUE),
-                ('compliance@indoc.local', 'compliance', 'Compliance Officer',
-                 '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY3L2DApQ8pJ3Xe', 'Compliance', TRUE, TRUE)
-            ON CONFLICT (email) DO NOTHING;
-        """)
+        print("Users are not seeded here. Set ADMIN_PASSWORD and run tools/init_db.py.")
         
         conn.commit()
-        print("✅ Default users created successfully!")
         
         # List users
         cur.execute("SELECT email, username, role FROM users;")
@@ -194,12 +182,7 @@ def init_database():
 if __name__ == "__main__":
     if init_database():
         print("\n✅ Database setup completed successfully!")
-        print("\n🔑 Default Credentials:")
-        print("  Admin: admin@indoc.local / admin123")
-        print("  Reviewer: reviewer@indoc.local / admin123")
-        print("  Uploader: uploader@indoc.local / admin123")
-        print("  Viewer: viewer@indoc.local / admin123")
-        print("  Compliance: compliance@indoc.local / admin123")
+        print("Set user passwords via ADMIN_PASSWORD (and related env vars). Do not commit them.")
     else:
         print("\n❌ Database setup failed!")
 EOF

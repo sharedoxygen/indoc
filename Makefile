@@ -438,19 +438,22 @@ migrate: ## Run database migrations (requires running DB)
 	@$(CONDA_RUN) sh -c 'cd app && export PYTHONPATH=$$PWD/..:$$PYTHONPATH && alembic upgrade head'
 	@echo "$(GREEN)✅ Migrations complete$(NC)"
 
-db-shell: ## Open PostgreSQL shell (external/bare-metal)
+db-shell: ## Open PostgreSQL shell (external/bare-metal; requires POSTGRES_PASSWORD)
+	@if [ -z "$$POSTGRES_PASSWORD" ]; then echo "$(RED)POSTGRES_PASSWORD is required$(NC)"; exit 1; fi
 	@echo "$(BLUE)Opening PostgreSQL shell (host :5432 / indoc)...$(NC)"
-	@psql "postgresql://$${POSTGRES_USER:-indoc_user}:$${POSTGRES_PASSWORD:-indoc_dev_password}@$${POSTGRES_HOST:-127.0.0.1}:$${POSTGRES_PORT:-5432}/$${POSTGRES_DB:-indoc}"
+	@psql "postgresql://$${POSTGRES_USER:-indoc_user}:$${POSTGRES_PASSWORD}@$${POSTGRES_HOST:-127.0.0.1}:$${POSTGRES_PORT:-5432}/$${POSTGRES_DB:-indoc}"
 
-db-backup: ## Backup database to backups/ directory (external/bare-metal)
+db-backup: ## Backup database to backups/ directory (external/bare-metal; requires POSTGRES_PASSWORD)
+	@if [ -z "$$POSTGRES_PASSWORD" ]; then echo "$(RED)POSTGRES_PASSWORD is required$(NC)"; exit 1; fi
 	@echo "$(BLUE)Backing up database (host :5432 / indoc)...$(NC)"
 	@mkdir -p backups
-	@pg_dump "postgresql://$${POSTGRES_USER:-indoc_user}:$${POSTGRES_PASSWORD:-indoc_dev_password}@$${POSTGRES_HOST:-127.0.0.1}:$${POSTGRES_PORT:-5432}/$${POSTGRES_DB:-indoc}" > backups/indoc_backup_$(shell date +%Y%m%d_%H%M%S).sql
+	@pg_dump "postgresql://$${POSTGRES_USER:-indoc_user}:$${POSTGRES_PASSWORD}@$${POSTGRES_HOST:-127.0.0.1}:$${POSTGRES_PORT:-5432}/$${POSTGRES_DB:-indoc}" > backups/indoc_backup_$(shell date +%Y%m%d_%H%M%S).sql
 	@echo "$(GREEN)✅ Database backed up to backups/$(NC)"
 
-db-isolate: ## Ensure local Postgres/Redis isolation (role, DB ownership, Redis DB 2)
+db-isolate: ## Ensure local Postgres/Redis isolation (requires POSTGRES_SUPER_PASSWORD)
+	@if [ -z "$$POSTGRES_SUPER_PASSWORD" ]; then echo "$(RED)POSTGRES_SUPER_PASSWORD is required$(NC)"; exit 1; fi
 	@echo "$(BLUE)Applying bare-metal DB isolation...$(NC)"
-	@psql "postgresql://postgres:$${POSTGRES_SUPER_PASSWORD:-postgres-cbr!000Rr}@127.0.0.1:5432/postgres" -v ON_ERROR_STOP=1 -f scripts/setup/ensure_baremetal_isolation.sql
+	@psql "postgresql://postgres:$${POSTGRES_SUPER_PASSWORD}@127.0.0.1:5432/postgres" -v ON_ERROR_STOP=1 -f scripts/setup/ensure_baremetal_isolation.sql
 	@redis-cli -n 2 ping | grep -q PONG && echo "$(GREEN)✅ Redis DB 2 reachable$(NC)" || echo "$(RED)❌ Redis DB 2 not reachable$(NC)"
 	@echo "$(GREEN)✅ Isolation ready (indoc / indoc_user; Redis /2)$(NC)"
 

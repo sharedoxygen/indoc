@@ -56,7 +56,7 @@ services:
       - .env
     environment:
       - POSTGRES_HOST=host.docker.internal
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-indoc_user}:${POSTGRES_PASSWORD:-indoc_dev_password}@host.docker.internal:5432/${POSTGRES_DB:-indoc}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-indoc_user}:${POSTGRES_PASSWORD}@host.docker.internal:5432/${POSTGRES_DB:-indoc}
       - REDIS_URL=redis://host.docker.internal:6379/2
       - CELERY_BROKER_URL=redis://host.docker.internal:6379/2
       - CELERY_RESULT_BACKEND=redis://host.docker.internal:6379/2
@@ -83,7 +83,7 @@ services:
       - .env
     environment:
       - POSTGRES_HOST=host.docker.internal
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-indoc_user}:${POSTGRES_PASSWORD:-indoc_dev_password}@host.docker.internal:5432/${POSTGRES_DB:-indoc}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-indoc_user}:${POSTGRES_PASSWORD}@host.docker.internal:5432/${POSTGRES_DB:-indoc}
       - REDIS_URL=redis://host.docker.internal:6379/2
       - CELERY_BROKER_URL=redis://host.docker.internal:6379/2
       - CELERY_RESULT_BACKEND=redis://host.docker.internal:6379/2
@@ -124,7 +124,7 @@ services:
     ports:
       - "3030:3000" # Changed from 3000:3000 to avoid conflict
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
       - GF_INSTALL_PLUGINS=redis-datasource
       # Embed inside inDoc Monitoring page — one app login for viewers
       - GF_SECURITY_ALLOW_EMBEDDING=true
@@ -157,7 +157,7 @@ services:
       - .env
     environment:
       - POSTGRES_HOST=host.docker.internal
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-indoc_user}:${POSTGRES_PASSWORD:-indoc_dev_password}@host.docker.internal:5432/${POSTGRES_DB:-indoc}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-indoc_user}:${POSTGRES_PASSWORD}@host.docker.internal:5432/${POSTGRES_DB:-indoc}
       - REDIS_URL=redis://host.docker.internal:6379/2
       - CELERY_BROKER_URL=redis://host.docker.internal:6379/2
       - CELERY_RESULT_BACKEND=redis://host.docker.internal:6379/2
