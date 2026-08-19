@@ -26,6 +26,7 @@ tmp/e2e-test-files/
 .env
 .env.*
 !.env.example
+.envrc
 *.pem
 *.key
 *.crt
@@ -34,6 +35,10 @@ tmp/e2e-test-files/
 keys/
 secrets/
 credentials/
+*aws*credentials*
+setup_aws_credentials.md
+config/local.yaml
+backend/config/local.yaml
 
 # ============================================================================
 # CRITICAL: BACKUPS & DATABASES (NEVER COMMIT)

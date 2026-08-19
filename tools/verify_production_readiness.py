@@ -4,6 +4,7 @@ Production Readiness Verification Script
 Tests all critical paths and enterprise features
 """
 import asyncio
+import os
 import aiohttp
 import json
 from typing import Dict, Optional, List
@@ -86,8 +87,12 @@ class ProductionValidator:
         # Test admin login
         try:
             form_data = aiohttp.FormData()
+            admin_password = os.environ.get("ADMIN_PASSWORD")
+            if not admin_password:
+                self.log("Admin Login", "FAIL", "ADMIN_PASSWORD is required")
+                return
             form_data.add_field('username', 'admin@indoc.local')
-            form_data.add_field('password', 'indocadmin123')
+            form_data.add_field('password', admin_password)
             
             async with session.post(f"{self.base_url}/auth/login", data=form_data) as r:
                 if r.status == 200:

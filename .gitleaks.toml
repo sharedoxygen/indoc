@@ -11,10 +11,7 @@ useDefault = true
 description = "Templates, synthetic data, and CI-only test values — not real secrets"
 paths = [
   '''\.env\.example$''',
-  '''tools/env\.template$''',
   '''tools/realistic_seed_generator\.py$''',
   '''docs/index\.html$''',
-  # CI workflows use test-only credentials (never real secrets — real ones
-  # belong in GitHub Actions secrets via ${{ secrets.* }}).
   '''\.github/workflows/ci-full\.yml$''',
 ]

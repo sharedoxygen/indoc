@@ -117,3 +117,10 @@ repos:
           bash -c 'if git diff --cached --name-only | grep "^private-docs/" | grep -v ".gitignore" >/dev/null; then if [ "$ALLOW_PRIVATE_DOCS" != "1" ]; then echo "private-docs/ contains sensitive info - use git add -f if intentional, or set ALLOW_PRIVATE_DOCS=1"; exit 1; fi; fi'
         language: system
         pass_filenames: false
+
+      - id: prevent-secret-filenames
+        name: Block secret filenames from being committed
+        entry: |
+          bash -c 'if git diff --cached --name-only | grep -E "(^|/)\.env$|(^|/)\.env\.(local|production|development|staging)$|(^|/)config/local\.yaml$|setup_aws_credentials|CREDENTIALS|SECURITY_INCIDENT" | grep -v "\.env\.example" >/dev/null; then echo "Refusing to commit secret filename (.env, local.yaml, credentials, incident notes)."; exit 1; fi'
+        language: system
+        pass_filenames: false
