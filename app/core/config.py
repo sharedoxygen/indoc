@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     POSTGRES_PORT: int = 5432
     POSTGRES_DB: str = "indoc"
     POSTGRES_USER: str = "indoc_user"
-    POSTGRES_PASSWORD: str = "X"
+    POSTGRES_PASSWORD: str = ""
     
     # Elasticsearch
     ELASTICSEARCH_URL: str = Field(default="http://localhost:9200")

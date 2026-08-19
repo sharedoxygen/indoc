@@ -42,8 +42,12 @@ echo ""
 DB_NAME="indoc"
 DB_USER="indoc_user"
 echo ""
-read -p "Enter password for indoc_user (or press Enter for 'X'): " DB_PASSWORD
-DB_PASSWORD=${DB_PASSWORD:-X}
+read -s -p "Enter password for indoc_user: " DB_PASSWORD
+echo ""
+if [ -z "$DB_PASSWORD" ]; then
+    echo -e "${RED}POSTGRES password is required${NC}"
+    exit 1
+fi
 
 echo ""
 echo -e "${BLUE}Creating database and user...${NC}"
