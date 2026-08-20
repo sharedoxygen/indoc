@@ -1,20 +1,24 @@
 #!/usr/bin/env python3
+# flake8: noqa: E501
 """Executive inDoc GraphRAG briefing — original precision figures, tight Word layout."""
 from __future__ import annotations
 
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFilter, ImageFont
 from docx import Document
 from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT, WD_TABLE_ALIGNMENT
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Inches, Pt, RGBColor, Twips
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSET = ROOT / "private-docs/gtm/assets/graphrag-article"
-OUT = ROOT / "private-docs/gtm/how-indoc-answers-questions-hidden-across-a-document-library.docx"
+OUT = (
+    ROOT
+    / "private-docs/gtm/how-indoc-answers-questions-hidden-across-a-document-library.docx"
+)
 
 CANVAS = (247, 249, 252)
 PAPER = (255, 255, 255)
@@ -65,7 +69,19 @@ _PRESERVE = {
     "q3": "Q3",
     "api": "API",
     "llm": "LLM",
+    "ai": "AI",
     "hipaa": "HIPAA",
+    "pci": "PCI",
+    "dss": "DSS",
+    "gdpr": "GDPR",
+    "siem": "SIEM",
+    "jwt": "JWT",
+    "totp": "TOTP",
+    "mfa": "MFA",
+    "dlp": "DLP",
+    "phi": "PHI",
+    "sse": "SSE",
+    "openai": "OpenAI",
 }
 
 
@@ -113,6 +129,7 @@ def init_cap(text: str) -> str:
             out.append(f"{lead}{core[:1].upper()}{core[1:].lower()}{trail}")
     return " ".join(out)
 
+
 C_PRIMARY = RGBColor(25, 118, 210)
 C_NAVY = RGBColor(15, 55, 120)
 C_TEXT = RGBColor(33, 37, 41)
@@ -134,7 +151,13 @@ def S(v: float) -> int:
 
 
 def draw_rr(d: ImageDraw.ImageDraw, box, r, fill, outline=None, width=1.25):
-    d.rounded_rectangle(box, radius=S(r), fill=fill if fill is None or len(fill) == 4 else fill + (255,), outline=None if outline is None else outline + (255,), width=S(width))
+    d.rounded_rectangle(
+        box,
+        radius=S(r),
+        fill=fill if fill is None or len(fill) == 4 else fill + (255,),
+        outline=None if outline is None else outline + (255,),
+        width=S(width),
+    )
 
 
 def plate(img: Image.Image, box, r=14, fill=PAPER, outline=LINE, shadow=True):
@@ -142,7 +165,11 @@ def plate(img: Image.Image, box, r=14, fill=PAPER, outline=LINE, shadow=True):
     if shadow:
         layer = Image.new("RGBA", img.size, (0, 0, 0, 0))
         ld = ImageDraw.Draw(layer)
-        ld.rounded_rectangle((x0 + S(3), y0 + S(6), x1 + S(3), y1 + S(8)), radius=S(r), fill=(15, 23, 42, 22))
+        ld.rounded_rectangle(
+            (x0 + S(3), y0 + S(6), x1 + S(3), y1 + S(8)),
+            radius=S(r),
+            fill=(15, 23, 42, 22),
+        )
         img.alpha_composite(layer.filter(ImageFilter.GaussianBlur(S(7))))
     d = ImageDraw.Draw(img)
     draw_rr(d, (x0, y0, x1, y1), r, fill, outline, 1.15)
@@ -173,7 +200,19 @@ def wrap(d, s, max_w, size=13, bold=False, italic=False) -> list[str]:
     return lines or [""]
 
 
-def wrapped(d, x, y, s, max_w, size=13, bold=False, fill=TEXT, leading=1.28, italic=False, anchor_x="lt"):
+def wrapped(
+    d,
+    x,
+    y,
+    s,
+    max_w,
+    size=13,
+    bold=False,
+    fill=TEXT,
+    leading=1.28,
+    italic=False,
+    anchor_x="lt",
+):
     lines = wrap(d, s, max_w, size, bold, italic)
     fh = size * leading
     for i, line in enumerate(lines):
@@ -203,7 +242,16 @@ def fig_label(d, kicker, title, x=48, y=22):
     wrapped(d, S(x), S(y + 22), init_cap(title), S(1280), 17.5, True, NAVY, 1.2)
 
 
-def facsimile(d, box, title, meta, body_lines, highlight=None, accent=PRIMARY, footer="Confidential  ·  Page 4 of 28"):
+def facsimile(
+    d,
+    box,
+    title,
+    meta,
+    body_lines,
+    highlight=None,
+    accent=PRIMARY,
+    footer="Confidential  ·  Page 4 of 28",
+):
     x0, y0, x1, y1 = box
     draw_rr(d, box, 8, PAPER, LINE, 1)
     draw_rr(d, (x0, y0, x1, y0 + S(36)), 0, accent)
@@ -211,24 +259,44 @@ def facsimile(d, box, title, meta, body_lines, highlight=None, accent=PRIMARY, f
     d.rectangle((x0, y0 + S(20), x1, y0 + S(36)), fill=accent + (255,))
     txt(d, (x0 + S(14), y0 + S(18)), init_cap(title), 11, True, PAPER, "lm")
     txt(d, (x0 + S(14), y0 + S(50)), meta, 9.5, False, MUTED, "lt")
-    d.line((x0 + S(14), y0 + S(68), x1 - S(14), y0 + S(68)), fill=LINE + (255,), width=S(1))
+    d.line(
+        (x0 + S(14), y0 + S(68), x1 - S(14), y0 + S(68)), fill=LINE + (255,), width=S(1)
+    )
     top = y0 + S(82)
     for i, line in enumerate(body_lines):
         ly = top + S(i * 18)
         color = accent if highlight is not None and i == highlight else (210, 216, 222)
         if highlight is not None and i == highlight:
-            d.rectangle((x0 + S(12), ly - S(3), x1 - S(12), ly + S(16)), fill=PRIMARY_50 + (255,))
-        d.rounded_rectangle((x0 + S(14), ly, x0 + S(14) + S(line), ly + S(9)), radius=S(3), fill=color + (255,))
+            d.rectangle(
+                (x0 + S(12), ly - S(3), x1 - S(12), ly + S(16)),
+                fill=PRIMARY_50 + (255,),
+            )
+        d.rounded_rectangle(
+            (x0 + S(14), ly, x0 + S(14) + S(line), ly + S(9)),
+            radius=S(3),
+            fill=color + (255,),
+        )
     txt(d, (x0 + S(14), y1 - S(16)), footer, 8, False, MUTED, "lm")
 
 
 def fig_01_case() -> Path:
     img = canvas(1400, 720)
     d0 = ImageDraw.Draw(img)
-    fig_label(d0, "Figure 1  ·  The case", "One clause has a home. The pattern lives across the portfolio.")
+    fig_label(
+        d0,
+        "Figure 1  ·  The case",
+        "One clause has a home. The pattern lives across the portfolio.",
+    )
     d = plate(img, (S(40), S(88), S(676), S(688)), 16)
     txt(d, (S(64), S(112)), "Located Question", 10, True, PRIMARY)
-    txt(d, (S(64), S(134)), "Which clause assigns late-delivery liability?", 14.5, True, NAVY)
+    txt(
+        d,
+        (S(64), S(134)),
+        "Which clause assigns late-delivery liability?",
+        14.5,
+        True,
+        NAVY,
+    )
     facsimile(
         d,
         (S(64), S(172), S(652), S(548)),
@@ -239,12 +307,40 @@ def fig_01_case() -> Path:
         accent=PRIMARY,
         footer="inDoc  ·  doc 9f6c…   ·   §8.2 Late Delivery   ·   Restricted",
     )
-    txt(d, (S(64), S(572)), "§8.2  Late Delivery. Vendor bears liability for delay", 12, False, TEXT)
-    txt(d, (S(64), S(594)), "beyond the committed date, capped at six months of fees.", 12, False, TEXT)
-    txt(d, (S(64), S(632)), "inDoc today: hybrid search finds the passage. The agent cites it.", 11.5, False, MUTED)
+    txt(
+        d,
+        (S(64), S(572)),
+        "§8.2  Late Delivery. Vendor bears liability for delay",
+        12,
+        False,
+        TEXT,
+    )
+    txt(
+        d,
+        (S(64), S(594)),
+        "beyond the committed date, capped at six months of fees.",
+        12,
+        False,
+        TEXT,
+    )
+    txt(
+        d,
+        (S(64), S(632)),
+        "inDoc today: hybrid search finds the passage. The agent cites it.",
+        11.5,
+        False,
+        MUTED,
+    )
     d = plate(img, (S(700), S(88), S(1360), S(688)), 16)
     txt(d, (S(724), S(112)), "Corpus Question", 10, True, ORANGE)
-    txt(d, (S(724), S(134)), "Which liability patterns recur since 2021?", 14.5, True, NAVY)
+    txt(
+        d,
+        (S(724), S(134)),
+        "Which liability patterns recur since 2021?",
+        14.5,
+        True,
+        NAVY,
+    )
     vendors = [
         ("Acme MSA", True),
         ("Northline MSA", True),
@@ -267,21 +363,74 @@ def fig_01_case() -> Path:
         edge = ORANGE if hit else LINE
         draw_rr(d, (x, y, x + S(184), y + S(82)), 8, fill, edge, 1.2)
         txt(d, (x + S(12), y + S(18)), name, 11.5, True, NAVY if hit else MUTED)
-        txt(d, (x + S(12), y + S(42)), "6-Mo Fee Cap" if hit else "Standard Form", 10, False, ORANGE if hit else MUTED)
-        txt(d, (x + S(12), y + S(60)), "Shared Deviation" if hit else "No Match", 9.5, False, ORANGE if hit else (160, 166, 174))
-    txt(d, (S(724), S(632)), "6 of 12 MSAs share the same cap. No single file contains that fact.", 11.5, False, MUTED)
+        txt(
+            d,
+            (x + S(12), y + S(42)),
+            "6-Mo Fee Cap" if hit else "Standard Form",
+            10,
+            False,
+            ORANGE if hit else MUTED,
+        )
+        txt(
+            d,
+            (x + S(12), y + S(60)),
+            "Shared Deviation" if hit else "No Match",
+            9.5,
+            False,
+            ORANGE if hit else (160, 166, 174),
+        )
+    txt(
+        d,
+        (S(724), S(632)),
+        "6 of 12 MSAs share the same cap. No single file contains that fact.",
+        11.5,
+        False,
+        MUTED,
+    )
     return save(img, "fig-01-case.png")
 
 
 def fig_02_stack() -> Path:
     img = canvas(1400, 620)
     d0 = ImageDraw.Draw(img)
-    fig_label(d0, "Figure 2  ·  What ships today", "Every hop is scoped. The agent is budgeted. The citation is checkable.")
+    fig_label(
+        d0,
+        "Figure 2  ·  What ships today",
+        "Every hop is scoped. The agent is budgeted. The citation is checkable.",
+    )
     stages = [
-        (40, "Ingest", "Virus scan → extract → OCR → dual index", "Celery, off the request path", PRIMARY, PRIMARY_50),
-        (385, "Retrieve", "Keyword + vector, fused equally", "Elasticsearch · Qdrant 384-d", ORANGE, ORANGE_50),
-        (730, "Reason", "Chat on a selected set, or ReAct", "Plan · search · read · finish", TEAL, TEAL_50),
-        (1075, "Govern", "RBAC · ABAC · selection · audit", "No text outside effective scope", PURPLE, PURPLE_50),
+        (
+            40,
+            "Ingest",
+            "Virus scan → extract → OCR → dual index",
+            "Celery, off the request path",
+            PRIMARY,
+            PRIMARY_50,
+        ),
+        (
+            385,
+            "Retrieve",
+            "Keyword + vector, fused equally",
+            "Elasticsearch · Qdrant 384-d",
+            ORANGE,
+            ORANGE_50,
+        ),
+        (
+            730,
+            "Reason",
+            "Chat on a selected set, or ReAct",
+            "Plan · search · read · finish",
+            TEAL,
+            TEAL_50,
+        ),
+        (
+            1075,
+            "Govern",
+            "RBAC · ABAC · selection · audit",
+            "No text outside effective scope",
+            PURPLE,
+            PURPLE_50,
+        ),
     ]
     d = ImageDraw.Draw(img)
     for x, title, line1, line2, accent, wash in stages:
@@ -289,7 +438,14 @@ def fig_02_stack() -> Path:
         dd = ImageDraw.Draw(img)
         draw_rr(dd, (S(x), S(100), S(x + 325), S(108)), 0, accent)
         dd.rectangle((S(x), S(106), S(x + 325), S(108)), fill=accent + (255,))
-        pill(dd, (S(x + 16), S(124), S(x + 118), S(150)), wash, init_cap(title), accent, 10)
+        pill(
+            dd,
+            (S(x + 16), S(124), S(x + 118), S(150)),
+            wash,
+            init_cap(title),
+            accent,
+            10,
+        )
         wrapped(dd, S(x + 16), S(172), init_cap(line1), S(292), 14, True, NAVY)
         wrapped(dd, S(x + 16), S(230), init_cap(line2), S(292), 12.5, False, MUTED)
         if x < 1075:
@@ -309,19 +465,44 @@ def fig_02_stack() -> Path:
         txt(dd, (S(x + 16), S(400)), init_cap(title), 14, True, NAVY)
         wrapped(dd, S(x + 16), S(430), init_cap(sub), S(292), 12, False, MUTED)
     dd = ImageDraw.Draw(img)
-    txt(dd, (S(48), S(540)), "Agent budget: 6 steps default, 12 hard cap, 2 deep dives. Unbounded library walks are refused.", 12.5, False, MUTED)
-    txt(dd, (S(48), S(568)), "Shared path: chat, agent search_documents, and MCP search all use the same scoped hybrid fuse.", 12.5, False, MUTED)
+    txt(
+        dd,
+        (S(48), S(540)),
+        "Agent budget: 6 steps default, 12 hard cap, 2 deep dives. Unbounded library walks are refused.",
+        12.5,
+        False,
+        MUTED,
+    )
+    txt(
+        dd,
+        (S(48), S(568)),
+        "Shared path: chat, agent search_documents, and MCP search all use the same scoped hybrid fuse.",
+        12.5,
+        False,
+        MUTED,
+    )
     return save(img, "fig-02-stack.png")
 
 
 def fig_03_gap() -> Path:
     img = canvas(1400, 680)
     d0 = ImageDraw.Draw(img)
-    fig_label(d0, "Figure 3  ·  The resemblance gap", "Nearest neighbors of “recur most often” are vocabulary cousins — not the histogram.")
+    fig_label(
+        d0,
+        "Figure 3  ·  The resemblance gap",
+        "Nearest neighbors of “recur most often” are vocabulary cousins — not the histogram.",
+    )
     plate(img, (S(40), S(96), S(680), S(648)), 16)
     d = ImageDraw.Draw(img)
     txt(d, (S(64), S(120)), "What Similarity Returns", 10, True, PRIMARY)
-    txt(d, (S(64), S(144)), "Query: Which Failure Causes Recur Most Often?", 13, True, NAVY)
+    txt(
+        d,
+        (S(64), S(144)),
+        "Query: Which Failure Causes Recur Most Often?",
+        13,
+        True,
+        NAVY,
+    )
     hits = [
         ("PM-2019-04", "Recurring pager alerts in checkout", 0.81, False),
         ("PM-2021-11", "Frequent timeouts after release", 0.77, False),
@@ -331,16 +512,36 @@ def fig_03_gap() -> Path:
     ]
     for i, (doc_id, title, score, _) in enumerate(hits):
         y = S(184) + i * S(76)
-        draw_rr(d, (S(64), y, S(656), y + S(66)), 8, PRIMARY_50 if i == 0 else (245, 247, 250), LINE)
+        draw_rr(
+            d,
+            (S(64), y, S(656), y + S(66)),
+            8,
+            PRIMARY_50 if i == 0 else (245, 247, 250),
+            LINE,
+        )
         txt(d, (S(80), y + S(16)), doc_id, 10, True, PRIMARY)
         txt(d, (S(80), y + S(38)), title, 12.5, False, TEXT)
         txt(d, (S(620), y + S(33)), f"{score:.2f}", 12, True, MUTED, "rm")
-    txt(d, (S(64), S(600)), "These files say “recurring.” They do not tally root causes.", 12, False, MUTED)
+    txt(
+        d,
+        (S(64), S(600)),
+        "These files say “recurring.” They do not tally root causes.",
+        12,
+        False,
+        MUTED,
+    )
 
     plate(img, (S(704), S(96), S(1360), S(648)), 16)
     d = ImageDraw.Draw(img)
     txt(d, (S(728), S(120)), "What The Question Wants", 10, True, ORANGE)
-    txt(d, (S(728), S(144)), "Distribution across 214 postmortems, 2021–2025", 13, True, NAVY)
+    txt(
+        d,
+        (S(728), S(144)),
+        "Distribution across 214 postmortems, 2021–2025",
+        13,
+        True,
+        NAVY,
+    )
     bars = [
         ("Timeouts after deploys", 92, ORANGE, "47 files"),
         ("Retry storms", 78, PRIMARY, "39 files"),
@@ -354,31 +555,91 @@ def fig_03_gap() -> Path:
         txt(d, (S(1336), y), n, 11, False, MUTED, "rt")
         draw_rr(d, (S(728), y + S(24), S(1336), y + S(44)), 6, PRIMARY_50)
         draw_rr(d, (S(728), y + S(24), S(728 + 6.08 * pct), y + S(44)), 6, color)
-    txt(d, (S(728), S(600)), "A property of the collection. It does not occupy one vector.", 12, False, MUTED)
+    txt(
+        d,
+        (S(728), S(600)),
+        "A property of the collection. It does not occupy one vector.",
+        12,
+        False,
+        MUTED,
+    )
     return save(img, "fig-03-gap.png")
 
 
 def fig_04_sentence() -> Path:
     img = canvas(1400, 700)
     d0 = ImageDraw.Draw(img)
-    fig_label(d0, "Figure 4  ·  One sentence, mapped", "Extraction must point back to the paragraph. No pointer, no audit.")
+    fig_label(
+        d0,
+        "Figure 4  ·  One sentence, mapped",
+        "Extraction must point back to the paragraph. No pointer, no audit.",
+    )
     plate(img, (S(40), S(96), S(1360), S(250)), 14)
     d = ImageDraw.Draw(img)
-    txt(d, (S(64), S(118)), "SOURCE  ·  INC-2024-031  ·  Checkout timeout postmortem  ·  Restricted", 10, True, PRIMARY)
+    txt(
+        d,
+        (S(64), S(118)),
+        "SOURCE  ·  INC-2024-031  ·  Checkout timeout postmortem  ·  Restricted",
+        10,
+        True,
+        PRIMARY,
+    )
     sentence = "The checkout service began returning timeouts after the Payments team deployed the new retry handler on 3 March."
     wrapped(d, S(64), S(148), sentence, S(1240), 18, False, INK, 1.35)
-    txt(d, (S(64), S(214)), "Text unit T-1844   ·   page 3, lines 12–14   ·   this pointer travels with every node below", 11.5, False, MUTED)
+    txt(
+        d,
+        (S(64), S(214)),
+        "Text unit T-1844   ·   page 3, lines 12–14   ·   this pointer travels with every node below",
+        11.5,
+        False,
+        MUTED,
+    )
 
     entities = [
-        (40, "Checkout service", "Entity  ·  Service", "Owns the failing request path", PRIMARY, PRIMARY_50),
-        (380, "Payments team", "Entity  ·  Team", "Shipped the change", ORANGE, ORANGE_50),
-        (720, "Retry handler", "Entity  ·  Component", "New logic on 3 March", TEAL, TEAL_50),
-        (1060, "3 March deploy", "Claim  ·  Time-bound", "Deploy preceded timeouts", PURPLE, PURPLE_50),
+        (
+            40,
+            "Checkout service",
+            "Entity  ·  Service",
+            "Owns the failing request path",
+            PRIMARY,
+            PRIMARY_50,
+        ),
+        (
+            380,
+            "Payments team",
+            "Entity  ·  Team",
+            "Shipped the change",
+            ORANGE,
+            ORANGE_50,
+        ),
+        (
+            720,
+            "Retry handler",
+            "Entity  ·  Component",
+            "New logic on 3 March",
+            TEAL,
+            TEAL_50,
+        ),
+        (
+            1060,
+            "3 March deploy",
+            "Claim  ·  Time-bound",
+            "Deploy preceded timeouts",
+            PURPLE,
+            PURPLE_50,
+        ),
     ]
     for x, title, kind, desc, accent, wash in entities:
         plate(img, (S(x), S(278), S(x + 320), S(430)), 12)
         dd = ImageDraw.Draw(img)
-        pill(dd, (S(x + 14), S(296), S(x + 200), S(320)), wash, init_cap(kind), accent, 8.5)
+        pill(
+            dd,
+            (S(x + 14), S(296), S(x + 200), S(320)),
+            wash,
+            init_cap(kind),
+            accent,
+            8.5,
+        )
         txt(dd, (S(x + 16), S(340)), init_cap(title), 14, True, NAVY)
         wrapped(dd, S(x + 16), S(370), desc, S(288), 12, False, MUTED)
 
@@ -403,11 +664,36 @@ def fig_04_sentence() -> Path:
 def fig_05_path() -> Path:
     img = canvas(1400, 640)
     d0 = ImageDraw.Draw(img)
-    fig_label(d0, "Figure 5  ·  A path no single file contains", "Similarity returns lookalikes. The graph walks the connection.")
+    fig_label(
+        d0,
+        "Figure 5  ·  A path no single file contains",
+        "Similarity returns lookalikes. The graph walks the connection.",
+    )
     docs = [
-        (48, "ADR-014  ·  Design", "Maya Chen named as owner", "of the payments retry path.", PRIMARY, "Engineer"),
-        (508, "RB-221  ·  Runbook", "Payments retry path is", "implemented in checkout-api.", TEAL, "Service"),
-        (968, "INC-2024-031  ·  Incident", "checkout-api timeouts after", "the 3 March retry deploy.", ORANGE, "Incident"),
+        (
+            48,
+            "ADR-014  ·  Design",
+            "Maya Chen named as owner",
+            "of the payments retry path.",
+            PRIMARY,
+            "Engineer",
+        ),
+        (
+            508,
+            "RB-221  ·  Runbook",
+            "Payments retry path is",
+            "implemented in checkout-api.",
+            TEAL,
+            "Service",
+        ),
+        (
+            968,
+            "INC-2024-031  ·  Incident",
+            "checkout-api timeouts after",
+            "the 3 March retry deploy.",
+            ORANGE,
+            "Incident",
+        ),
     ]
     for x, title, l1, l2, accent, node in docs:
         plate(img, (S(x), S(108), S(x + 384), S(340)), 14)
@@ -415,16 +701,33 @@ def fig_05_path() -> Path:
         draw_rr(d, (S(x), S(108), S(x + 8), S(340)), 0, accent)
         txt(d, (S(x + 28), S(132)), title, 12, True, accent)
         wrapped(d, S(x + 28), S(168), l1 + " " + l2, S(332), 14.5, False, INK, 1.3)
-        pill(d, (S(x + 28), S(280), S(x + 150), S(308)), accent, init_cap(node), PAPER, 10)
+        pill(
+            d,
+            (S(x + 28), S(280), S(x + 150), S(308)),
+            accent,
+            init_cap(node),
+            PAPER,
+            10,
+        )
     d = ImageDraw.Draw(img)
     # connectors
     for x1, x2 in ((432, 508), (892, 968)):
         y = S(224)
         d.line((S(x1), y, S(x2), y), fill=PRIMARY + (255,), width=S(2.4))
-        d.polygon([(S(x2 - 10), y - S(7)), (S(x2), y), (S(x2 - 10), y + S(7))], fill=PRIMARY + (255,))
+        d.polygon(
+            [(S(x2 - 10), y - S(7)), (S(x2), y), (S(x2 - 10), y + S(7))],
+            fill=PRIMARY + (255,),
+        )
     plate(img, (S(48), S(368), S(1352), S(608)), 14)
     d = ImageDraw.Draw(img)
-    txt(d, (S(72), S(392)), "The Walk  ·  Maya Chen  →  Payments Retry Path  →  checkout-api  →  INC-2024-031", 12, True, NAVY)
+    txt(
+        d,
+        (S(72), S(392)),
+        "The Walk  ·  Maya Chen  →  Payments Retry Path  →  checkout-api  →  INC-2024-031",
+        12,
+        True,
+        NAVY,
+    )
     steps = [
         ("01", "Design names the engineer"),
         ("02", "Runbook names the service"),
@@ -433,7 +736,9 @@ def fig_05_path() -> Path:
     ]
     for i, (n, label) in enumerate(steps):
         x = S(72) + i * S(318)
-        draw_rr(d, (x, S(436), x + S(298), S(556)), 10, PRIMARY_50 if i < 3 else ORANGE_50)
+        draw_rr(
+            d, (x, S(436), x + S(298), S(556)), 10, PRIMARY_50 if i < 3 else ORANGE_50
+        )
         txt(d, (x + S(16), S(460)), n, 12, True, PRIMARY if i < 3 else ORANGE)
         wrapped(d, x + S(16), S(490), label, S(266), 13.5, True, NAVY)
     return save(img, "fig-05-path.png")
@@ -442,7 +747,11 @@ def fig_05_path() -> Path:
 def fig_06_operating() -> Path:
     img = canvas(1400, 760)
     d0 = ImageDraw.Draw(img)
-    fig_label(d0, "Figure 6  ·  Operating model", "Build the survey before the question. Route the question to the right index.")
+    fig_label(
+        d0,
+        "Figure 6  ·  Operating model",
+        "Build the survey before the question. Route the question to the right index.",
+    )
     steps = [
         ("1", "Slice", "Text units", PRIMARY),
         ("2", "Extract", "Entities, links", ORANGE),
@@ -460,28 +769,96 @@ def fig_06_operating() -> Path:
         txt(d, (S(x + 16), S(160)), init_cap(title), 16, True, NAVY)
         txt(d, (S(x + 16), S(198)), init_cap(sub), 12, False, MUTED)
         if i < 5:
-            d.polygon([(S(x + 214), S(176)), (S(x + 226), S(184)), (S(x + 214), S(192))], fill=PRIMARY + (170,))
+            d.polygon(
+                [(S(x + 214), S(176)), (S(x + 226), S(184)), (S(x + 214), S(192))],
+                fill=PRIMARY + (170,),
+            )
     d = ImageDraw.Draw(img)
-    txt(d, (S(48), S(288)), "Community reports inherit the highest classification of their sources. Tenants never share nodes.", 12, False, MUTED)
+    txt(
+        d,
+        (S(48), S(288)),
+        "Community reports inherit the highest classification of their sources. Tenants never share nodes.",
+        12,
+        False,
+        MUTED,
+    )
 
     modes = [
-        (40, "Hybrid search", "inDoc today", "The question looks like a passage. A file or clause is named.", PRIMARY, "Located"),
-        (500, "Local graph", "Gather and rank", "An entity is named. Expand neighbors, claims, and source units.", TEAL, "Connection"),
-        (960, "Global graph", "Map, then reduce", "The question asks what recurs, differs, or dominates.", ORANGE, "Pattern"),
+        (
+            40,
+            "Hybrid search",
+            "inDoc today",
+            "The question looks like a passage. A file or clause is named.",
+            PRIMARY,
+            "Located",
+        ),
+        (
+            500,
+            "Local graph",
+            "Gather and rank",
+            "An entity is named. Expand neighbors, claims, and source units.",
+            TEAL,
+            "Connection",
+        ),
+        (
+            960,
+            "Global graph",
+            "Map, then reduce",
+            "The question asks what recurs, differs, or dominates.",
+            ORANGE,
+            "Pattern",
+        ),
     ]
     for x, title, chip, body, accent, kind in modes:
         plate(img, (S(x), S(328), S(x + 440), S(560)), 14)
         d = ImageDraw.Draw(img)
         draw_rr(d, (S(x), S(328), S(x + 440), S(336)), 0, accent)
-        pill(d, (S(x + 16), S(352), S(x + 168), S(378)), accent, init_cap(chip), PAPER, 9.5)
+        pill(
+            d,
+            (S(x + 16), S(352), S(x + 168), S(378)),
+            accent,
+            init_cap(chip),
+            PAPER,
+            9.5,
+        )
         txt(d, (S(x + 16), S(400)), init_cap(title), 16, True, NAVY)
         txt(d, (S(x + 16), S(430)), init_cap(kind), 11, True, accent)
         wrapped(d, S(x + 16), S(460), body, S(408), 13, False, TEXT)
 
     costs = [
-        (40, "Hybrid RAG", "Index and query both stay inexpensive.", 0.22, 0.12, PRIMARY, TEAL, "Index", "Query"),
-        (500, "Full GraphRAG", "Pay at ingest. Global questions pay again.", 0.78, 0.30, ORANGE, PURPLE, "Extract", "Global query"),
-        (960, "Lazy graph", "Cheap to build. Model spend moves to query.", 0.16, 0.48, GREEN, RED, "NLP index", "Query model"),
+        (
+            40,
+            "Hybrid RAG",
+            "Index and query both stay inexpensive.",
+            0.22,
+            0.12,
+            PRIMARY,
+            TEAL,
+            "Index",
+            "Query",
+        ),
+        (
+            500,
+            "Full GraphRAG",
+            "Pay at ingest. Global questions pay again.",
+            0.78,
+            0.30,
+            ORANGE,
+            PURPLE,
+            "Extract",
+            "Global query",
+        ),
+        (
+            960,
+            "Lazy graph",
+            "Cheap to build. Model spend moves to query.",
+            0.16,
+            0.48,
+            GREEN,
+            RED,
+            "NLP index",
+            "Query model",
+        ),
     ]
     for x, title, sub, a, b, c1, c2, l1, l2 in costs:
         plate(img, (S(x), S(584), S(x + 440), S(728)), 12)
@@ -489,7 +866,12 @@ def fig_06_operating() -> Path:
         txt(d, (S(x + 16), S(604)), init_cap(title), 13.5, True, NAVY)
         wrapped(d, S(x + 16), S(630), sub, S(408), 11, False, MUTED)
         draw_rr(d, (S(x + 16), S(672), S(x + 16 + 400 * a), S(694)), 5, c1)
-        draw_rr(d, (S(x + 16 + 400 * a + 8), S(672), S(x + 24 + 400 * a + 400 * b), S(694)), 5, c2)
+        draw_rr(
+            d,
+            (S(x + 16 + 400 * a + 8), S(672), S(x + 24 + 400 * a + 400 * b), S(694)),
+            5,
+            c2,
+        )
         txt(d, (S(x + 16), S(708)), f"{l1}   ·   {l2}", 10, False, MUTED)
     return save(img, "fig-06-operating.png")
 
@@ -497,33 +879,74 @@ def fig_06_operating() -> Path:
 def fig_07_decision() -> Path:
     img = canvas(1400, 620)
     d0 = ImageDraw.Draw(img)
-    fig_label(d0, "Figure 7  ·  Product stance", "Keep the system that is already safe. Add a map. Do not sell a miracle.")
+    fig_label(
+        d0,
+        "Figure 7  ·  Product stance",
+        "Keep the system that is already safe. Add a map. Do not sell a miracle.",
+    )
     cols = [
-        (40, GREEN, GREEN_50, "Keep", "Hybrid search. Selected chat. The ReAct agent. Dual index. Local model. Scope on every hop. These are why a regulated team can run autonomous research at all."),
-        (496, PRIMARY, PRIMARY_50, "Add", "An extract job on the existing pipeline. A graph store beside Elasticsearch and Qdrant. Community reports as classified documents. Two agent tools: local and global graph search."),
-        (952, RED, RED_50, "Do not", "Unbounded walks. Cross-tenant nodes. Community reports that wash Restricted text into an Internal answer. The claim that GraphRAG makes the model truthful."),
+        (
+            40,
+            GREEN,
+            GREEN_50,
+            "Keep",
+            "Hybrid search. Selected chat. The ReAct agent. Dual index. Local model. Scope on every hop. These are why a regulated team can run autonomous research at all.",
+        ),
+        (
+            496,
+            PRIMARY,
+            PRIMARY_50,
+            "Add",
+            "An extract job on the existing pipeline. A graph store beside Elasticsearch and Qdrant. Community reports as classified documents. Two agent tools: local and global graph search.",
+        ),
+        (
+            952,
+            RED,
+            RED_50,
+            "Do not",
+            "Unbounded walks. Cross-tenant nodes. Community reports that wash Restricted text into an Internal answer. The claim that GraphRAG makes the model truthful.",
+        ),
     ]
     for x, accent, wash, title, body in cols:
         plate(img, (S(x), S(100), S(x + 432), S(360)), 14)
         d = ImageDraw.Draw(img)
         draw_rr(d, (S(x), S(100), S(x + 432), S(108)), 0, accent)
-        pill(d, (S(x + 16), S(124), S(x + 118), S(152)), wash, init_cap(title), accent, 11)
+        pill(
+            d,
+            (S(x + 16), S(124), S(x + 118), S(152)),
+            wash,
+            init_cap(title),
+            accent,
+            11,
+        )
         wrapped(d, S(x + 16), S(176), body, S(400), 13.5, False, TEXT, 1.32)
     plate(img, (S(40), S(388), S(1360), S(588)), 14)
     d = ImageDraw.Draw(img)
     txt(d, (S(64), S(412)), "The Honest Last Hop", 10, True, PRIMARY)
-    hops = [("Ask", "Corpus question"), ("Scope", "Effective documents only"), ("Graph", "Rated community points"), ("Confirm", "Open the source files"), ("Answer", "Citations and trace")]
+    hops = [
+        ("Ask", "Corpus question"),
+        ("Scope", "Effective documents only"),
+        ("Graph", "Rated community points"),
+        ("Confirm", "Open the source files"),
+        ("Answer", "Citations and trace"),
+    ]
     for i, (title, sub) in enumerate(hops):
         x = S(64) + i * S(256)
-        draw_rr(d, (x, S(448), x + S(236), S(548)), 10, PRIMARY_50 if i != 3 else TEAL_50)
+        draw_rr(
+            d, (x, S(448), x + S(236), S(548)), 10, PRIMARY_50 if i != 3 else TEAL_50
+        )
         txt(d, (x + S(16), S(472)), f"{i+1:02d}  {init_cap(title)}", 13.5, True, NAVY)
         wrapped(d, x + S(16), S(504), init_cap(sub), S(204), 12, False, MUTED)
         if i < 4:
-            d.polygon([(x + S(240), S(492)), (x + S(252), S(498)), (x + S(240), S(504))], fill=PRIMARY + (180,))
+            d.polygon(
+                [(x + S(240), S(492)), (x + S(252), S(498)), (x + S(240), S(504))],
+                fill=PRIMARY + (180,),
+            )
     return save(img, "fig-07-decision.png")
 
 
 # ---------- Word ----------
+
 
 def shade(cell, hex_color: str):
     tc_pr = cell._tc.get_or_add_tcPr()
@@ -607,7 +1030,19 @@ def font_run(run, name="Calibri", size=11, bold=False, color=C_TEXT, italic=Fals
     run.font.color.rgb = color
 
 
-def para(doc, text="", *, size=11, bold=False, color=C_TEXT, after=8, before=0, align="left", italic=False, keep_next=False):
+def para(
+    doc,
+    text="",
+    *,
+    size=11,
+    bold=False,
+    color=C_TEXT,
+    after=8,
+    before=0,
+    align="left",
+    italic=False,
+    keep_next=False,
+):
     p = doc.add_paragraph()
     p.alignment = {
         "left": WD_ALIGN_PARAGRAPH.LEFT,
@@ -629,7 +1064,14 @@ def rich(doc, parts, **kwargs):
     p = para(doc, "", **kwargs)
     for text, opts in parts:
         run = p.add_run(text)
-        font_run(run, "Calibri", opts.get("size", kwargs.get("size", 11)), opts.get("bold", False), opts.get("color", kwargs.get("color", C_TEXT)), opts.get("italic", False))
+        font_run(
+            run,
+            "Calibri",
+            opts.get("size", kwargs.get("size", 11)),
+            opts.get("bold", False),
+            opts.get("color", kwargs.get("color", C_TEXT)),
+            opts.get("italic", False),
+        )
     return p
 
 
@@ -750,7 +1192,9 @@ def header_footer(section):
     font_run(r, "Calibri", 9, True, C_PRIMARY)
     r = h.add_run("    Executive Briefing")
     font_run(r, "Calibri", 9, False, C_MUTED)
-    r = h.add_run("                                                                   Confidential")
+    r = h.add_run(
+        "                                                                   Confidential"
+    )
     font_run(r, "Calibri", 9, False, C_MUTED)
 
     f = section.footer.paragraphs[0]
@@ -787,9 +1231,32 @@ def build(figs: dict[str, Path]) -> Path:
     sec.footer_distance = Inches(0.36)
     header_footer(sec)
 
-    para(doc, "Executive Briefing    ·    August 2026    ·    Original inDoc Analysis", size=9, bold=True, color=C_PRIMARY, after=6, keep_next=True)
-    para(doc, "How inDoc Answers Questions Hidden Across A Document Library", size=22, bold=True, color=C_NAVY, after=6, keep_next=True)
-    para(doc, "Similarity finds the paragraph. A graph finds the pattern.", size=13, italic=True, color=C_PRIMARY, after=10)
+    para(
+        doc,
+        "Executive Briefing    ·    August 2026    ·    Original inDoc Analysis",
+        size=9,
+        bold=True,
+        color=C_PRIMARY,
+        after=6,
+        keep_next=True,
+    )
+    para(
+        doc,
+        "How inDoc Answers Questions Hidden Across A Document Library",
+        size=22,
+        bold=True,
+        color=C_NAVY,
+        after=6,
+        keep_next=True,
+    )
+    para(
+        doc,
+        "Similarity finds the paragraph. A graph finds the pattern.",
+        size=13,
+        italic=True,
+        color=C_PRIMARY,
+        after=10,
+    )
 
     para(
         doc,
@@ -799,14 +1266,27 @@ def build(figs: dict[str, Path]) -> Path:
     rich(
         doc,
         [
-            ("She asks a second question that sounds just as ordinary, and is not. ", {}),
-            ("Across every vendor contract signed since 2021, which liability patterns keep appearing", {"italic": True, "color": C_NAVY}),
-            (" — the same fee cap, the same mutual waiver, the same silent carve-out for consequential damages. The first question has a home. The second is a distribution. inDoc already answers the first. This briefing is about the second, and about the map we would have to build to answer it without walking a regulated library one file at a time.", {}),
+            (
+                "She asks a second question that sounds just as ordinary, and is not. ",
+                {},
+            ),
+            (
+                "Across every vendor contract signed since 2021, which liability patterns keep appearing",
+                {"italic": True, "color": C_NAVY},
+            ),
+            (
+                " — the same fee cap, the same mutual waiver, the same silent carve-out for consequential damages. The first question has a home. The second is a distribution. inDoc already answers the first. This briefing is about the second, and about the map we would have to build to answer it without walking a regulated library one file at a time.",
+                {},
+            ),
         ],
         after=8,
     )
 
-    figure(doc, figs["case"], "Figure 1. The Acme MSA Has A Home For §8.2. The Recurring Six-Month Fee Cap Is A Fact About The Portfolio — Six Of Twelve Agreements, Zero Documents That State The Tally.")
+    figure(
+        doc,
+        figs["case"],
+        "Figure 1. The Acme MSA Has A Home For §8.2. The Recurring Six-Month Fee Cap Is A Fact About The Portfolio — Six Of Twelve Agreements, Zero Documents That State The Tally.",
+    )
 
     heading(doc, "01", "Two questions that look the same")
     para(
@@ -821,14 +1301,21 @@ def build(figs: dict[str, Path]) -> Path:
         doc,
         "A corpus question is a pattern, a count, a recurrence, or a contradiction. No single file contains it. The useful material is spread across tens or hundreds of documents that may never use the same nouns as the question: which failure causes recur across reviews; where indemnity clauses diverge from standard, and which vendors share the deviation; which quality findings keep reopening after close. These questions punish resemblance. The thing required is not nearby text. It is a structure that was never written down as one paragraph.",
     )
-    quote(doc, "A larger prompt window does not convert a survey into a lookup. It only lets the model read more of whatever retrieval already fetched.")
+    quote(
+        doc,
+        "A larger prompt window does not convert a survey into a lookup. It only lets the model read more of whatever retrieval already fetched.",
+    )
 
     heading(doc, "02", "What inDoc already answers")
     para(
         doc,
         "inDoc is not a chat wrapper over a single PDF. It is a private document system: a processing pipeline, two search engines, a conversational path, and an autonomous research agent. Every retrieval hop is bound to the requesting user’s scope. That constraint is the product. Healthcare, legal, and finance deployments do not get a second, quieter path around it.",
     )
-    figure(doc, figs["stack"], "Figure 2. Shipped system: ingest, scoped hybrid retrieval, budgeted reasoning, and a governance gate. PostgreSQL remains the record. The agent cannot walk the library.")
+    figure(
+        doc,
+        figs["stack"],
+        "Figure 2. Shipped system: ingest, scoped hybrid retrieval, budgeted reasoning, and a governance gate. PostgreSQL remains the record. The agent cannot walk the library.",
+    )
     para(
         doc,
         "Elasticsearch holds the words. Qdrant holds a 384-dimension cosine vector. Scores are min-max normalized and fused at equal weight. Scope — role, classification, optional selection — is applied before a result leaves the service. Chat, the agent’s search tool, and MCP search share this path. If both engines are down, the service falls back to a scoped database lookup.",
@@ -847,7 +1334,11 @@ def build(figs: dict[str, Path]) -> Path:
         doc,
         "Corpus questions break the assumption. “Which failure causes recur most often” embeds as a sentence about recurrence. The nearest neighbors are files that happen to say recurring, frequent, or again. The true answer is a histogram over two hundred postmortems. That histogram does not live at a point in vector space. It is a property of the collection. Microsoft’s GraphRAG research named this split local versus global. inDoc’s first question is local. The portfolio question is global.",
     )
-    figure(doc, figs["gap"], "Figure 3. Similarity returns vocabulary cousins of “recur.” The question wants a distribution over 214 postmortems. Those are different jobs.")
+    figure(
+        doc,
+        figs["gap"],
+        "Figure 3. Similarity returns vocabulary cousins of “recur.” The question wants a distribution over 214 postmortems. Those are different jobs.",
+    )
     para(
         doc,
         "Three common escapes do not close the gap. A larger context window still fetches nearest text; if nearest is the wrong set, the extra tokens are extra noise. Asking the agent to read everything is refused — the budget exists so a regulated library cannot be walked file by file. Calling fluent wrong answers “hallucination” often misstates the failure: the model is obedient, and retrieval handed it the wrong neighborhood. The prose is a faithful summary of an irrelevant set.",
@@ -862,13 +1353,24 @@ def build(figs: dict[str, Path]) -> Path:
         doc,
         "A knowledge graph stores two kinds of objects. Entities are the nouns the library talks about: vendors, clauses, services, teams, incidents, policies, findings, counterparties, control identifiers. Relationships are typed links: a vendor indemnifies a company; an incident follows a deploy; an SOP supersedes another; a finding reopens a closed one. Both carry a short description. Both keep a pointer to the text they came from. That pointer is the same citation contract inDoc already enforces when chat answers and when the agent finishes.",
     )
-    figure(doc, figs["sentence"], "Figure 4. One sentence from INC-2024-031 becomes four objects and three typed links. Every object points back to text unit T-1844. That is the audit.")
+    figure(
+        doc,
+        figs["sentence"],
+        "Figure 4. One sentence from INC-2024-031 becomes four objects and three typed links. Every object points back to text unit T-1844. That is the audit.",
+    )
     para(
         doc,
         "After thousands of sentences contribute nodes and edges, paths appear that no single document contains. An engineer is named in a design decision. A service is named in a runbook. An incident is described in a third file. The path from that engineer to that incident runs through the service. Similarity search never walks that path. It only returns files that look like the query.",
     )
-    figure(doc, figs["path"], "Figure 5. Maya Chen → payments retry path → checkout-api → INC-2024-031. Three documents. One walk. No file states the whole chain.")
-    quote(doc, "Throwing away internal structure at ingest is an expensive default. Chunks are not a map.")
+    figure(
+        doc,
+        figs["path"],
+        "Figure 5. Maya Chen → payments retry path → checkout-api → INC-2024-031. Three documents. One walk. No file states the whole chain.",
+    )
+    quote(
+        doc,
+        "Throwing away internal structure at ingest is an expensive default. Chunks are not a map.",
+    )
     para(
         doc,
         "inDoc already holds the lexical half in pieces: documents, chunks, Elasticsearch text, Qdrant vectors. It does not yet persist a first-class entity graph. That is a precise description of the current product, not a criticism of it.",
@@ -883,7 +1385,11 @@ def build(figs: dict[str, Path]) -> Path:
         doc,
         "Which community level you query is a product control, not an algorithm name. Overview is cheap and abstract. Exhaustive is thorough and expensive. inDoc would expose those words. Community reports inherit the highest classification of their sources, or they are filtered at query time — there is no third option that is safe. Tenants never share an entity node, even if two hospitals both operate a Pharmacy.",
     )
-    figure(doc, figs["operating"], "Figure 6. Six-stage construction, three query paths, three cost profiles. Hybrid search stays. The graph is invited, not crowned.")
+    figure(
+        doc,
+        figs["operating"],
+        "Figure 6. Six-stage construction, three query paths, three cost profiles. Hybrid search stays. The graph is invited, not crowned.",
+    )
     para(
         doc,
         "Local graph search expands from matched entities — text units, reports, neighbors, claims — then ranks into one window. Global search leaves the entity graph alone and map-reduces community reports. A blended mode starts from the most relevant reports and follows up with local search. Ordinary hybrid search remains the right tool when the answer looks like the question. The agent already routes. GraphRAG, if we add it, is another tool: not a new product, not a replacement.",
@@ -892,11 +1398,23 @@ def build(figs: dict[str, Path]) -> Path:
         doc,
         ["When The Question…", "inDoc Uses…"],
         [
-            ["Looks like a passage, or names a file or clause", "Hybrid search, then an optional read"],
+            [
+                "Looks like a passage, or names a file or clause",
+                "Hybrid search, then an optional read",
+            ],
             ["Names entities and asks how they connect", "Local graph search"],
-            ["Asks what recurs, differs, or dominates", "Global search over community reports"],
-            ["Is a structured fact already in metadata", "PostgreSQL — not a language model"],
-            ["Needs something outside the library", "Refuse, or an explicit tool with a visible boundary"],
+            [
+                "Asks what recurs, differs, or dominates",
+                "Global search over community reports",
+            ],
+            [
+                "Is a structured fact already in metadata",
+                "PostgreSQL — not a language model",
+            ],
+            [
+                "Needs something outside the library",
+                "Refuse, or an explicit tool with a visible boundary",
+            ],
         ],
     )
     para(
@@ -909,7 +1427,11 @@ def build(figs: dict[str, Path]) -> Path:
     )
 
     heading(doc, "06", "What this means for the product")
-    figure(doc, figs["decision"], "Figure 7. Keep the system that is already safe. Add a map when the tenant’s real questions are corpus questions. Confirm every printed claim in a source file.")
+    figure(
+        doc,
+        figs["decision"],
+        "Figure 7. Keep the system that is already safe. Add a map when the tenant’s real questions are corpus questions. Confirm every printed claim in a source file.",
+    )
     para(
         doc,
         "Default stays hybrid search. Graph work is justified when a tenant’s real questions are corpus questions — portfolio-wide contract deviation, recurring quality findings, multi-year incident themes — and that tenant will pay ingest cost and accept rebuild lag. A community report is a summary of a cluster. The last hop still opens the file. Graph retrieval finds the pattern. Hybrid search and a careful read keep the pattern honest.",
@@ -937,7 +1459,14 @@ def build(figs: dict[str, Path]) -> Path:
         color=C_MUTED,
         after=10,
     )
-    para(doc, "© 2026 Shared Oxygen, LLC.  Autonomous, but accountable.", size=10, bold=True, color=C_PRIMARY, after=0)
+    para(
+        doc,
+        "© 2026 Shared Oxygen, LLC.  Autonomous, but accountable.",
+        size=10,
+        bold=True,
+        color=C_PRIMARY,
+        after=0,
+    )
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
     doc.save(str(OUT))
