@@ -1437,7 +1437,7 @@ def build(figs: dict[str, Path]) -> Path:
         "Default stays hybrid search. Graph work is justified when a tenant’s real questions are corpus questions — portfolio-wide contract deviation, recurring quality findings, multi-year incident themes — and that tenant will pay ingest cost and accept rebuild lag. A community report is a summary of a cluster. The last hop still opens the file. Graph retrieval finds the pattern. Hybrid search and a careful read keep the pattern honest.",
     )
 
-    heading(doc, "07", "What to take from this briefing")
+    heading(doc, "07", "Takeaways")
     takeaways = [
         "Located questions have a home in a few passages. Corpus questions are properties of the library.",
         "inDoc already investigates under scope, with a budget and a trace. That is the identity. A graph would be the next index.",
@@ -1451,10 +1451,9 @@ def build(figs: dict[str, Path]) -> Path:
         r = p.add_run(item)
         font_run(r, "Calibri", 11, False, C_TEXT)
 
-    heading(doc, "08", "Method")
     para(
         doc,
-        "Original Shared Oxygen / inDoc writing. Public GraphRAG research is used for concepts, not wording: Microsoft Research (local and global queries, community reports, later lazy-index work); project documentation of indexing phases; published graph-structured retrieval results in customer operations, cited for direction rather than reproduced statistics. Claims about inDoc behavior come from the current codebase — hybrid search, agent tools, document scope, and the processing task. Where a graph is future work, it is labeled that way. Figures are original briefing graphics, not third-party art.",
+        "Public GraphRAG research is used for concepts, not wording: Microsoft Research, project documentation of indexing phases, and published graph-structured retrieval results in customer operations. Claims about inDoc come from the current codebase. Graph work is labeled as future where it is future.",
         size=10,
         color=C_MUTED,
         after=10,
