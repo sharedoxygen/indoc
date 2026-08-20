@@ -175,7 +175,7 @@ services:
 
   # Grafana for Visualization
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana:12.2.10
     container_name: indoc-grafana
     restart: unless-stopped
     environment:

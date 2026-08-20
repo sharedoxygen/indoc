@@ -37,7 +37,7 @@ def build_object_key(tenant_id: Optional[str], file_hash: str, file_extension: s
 
     Example: tenantA/ab/abcdef...1234.pdf or with prefix: uploads/tenantA/ab/...
     """
-    safe_tenant = tenant_id or "public"
+    safe_tenant = str(tenant_id) if tenant_id else "public"
     ext = file_extension.lstrip(".") if file_extension else "bin"
     key_parts = [p for p in [prefix, safe_tenant, file_hash[:2], f"{file_hash}.{ext}"] if p]
     return "/".join(key_parts)
