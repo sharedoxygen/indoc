@@ -304,7 +304,6 @@ async def upload_file(
             }
 
         # Robust, absolute storage locations using configured paths
-        from app.core.config import settings
         logger.info(f"📁 Setting up storage paths...")
         storage_abs_path = (settings.STORAGE_PATH / f"{file_hash}.{file_ext}").resolve()
         temp_abs_path = (settings.TEMP_REPO_PATH / f"{file_hash}.{file_ext}").resolve()
