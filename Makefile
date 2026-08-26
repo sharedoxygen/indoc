@@ -211,6 +211,7 @@ stop-saas: ## Stop saas stack (publish worktree compose only)
 	@echo "$(GREEN)✅ SaaS stack stopped$(NC)"
 
 stop: ## Stop the active stack (dev or saas); clears mode lock
+	@echo "$(YELLOW)[$$(date '+%Y-%m-%d %H:%M:%S')] Stopping stack$(NC)"
 	@mode="$$($(STACK_MODE_SH) detect)"; \
 	echo "$(YELLOW)🛑 Stopping stack (detected: $$mode)...$(NC)"; \
 	case "$$mode" in \
@@ -220,6 +221,7 @@ stop: ## Stop the active stack (dev or saas); clears mode lock
 		none) $(MAKE) stop-dev-processes; $(MAKE) stop-saas; $(STACK_MODE_SH) clear; echo "$(GREEN)✅ Nothing live (cleaned leftovers)$(NC)" ;; \
 		*) $(MAKE) stop-dev-processes; $(MAKE) stop-saas; $(STACK_MODE_SH) clear ;; \
 	esac
+	@echo "$(GREEN)[$$(date '+%Y-%m-%d %H:%M:%S')] Stop complete$(NC)"
 
 celery-cleanup: ## Clean up local Celery workers (dev)
 	@pkill -f "celery.*worker" 2>/dev/null || true
@@ -570,4 +572,7 @@ lint: ## Lint code (flake8, mypy)
 
 restart: stop dev ## Restart development stack
 
-start: dev ## Alias for 'make dev' (start development)
+start: ## Alias for 'make dev' (start development)
+	@echo "$(BLUE)[$$(date '+%Y-%m-%d %H:%M:%S')] Starting development stack$(NC)"
+	@$(MAKE) dev
+	@echo "$(GREEN)[$$(date '+%Y-%m-%d %H:%M:%S')] Start complete$(NC)"
