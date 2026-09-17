@@ -67,6 +67,14 @@ repos:
   # and symbols stay literal and the file remains valid YAML.
   - repo: local
     hooks:
+      # Strip AI-tool attribution trailers (Co-Authored-By: Claude, Claude-Session)
+      # from every commit message. Enable with: pre-commit install --hook-type commit-msg
+      - id: strip-ai-attribution
+        name: Strip AI attribution trailers from commit message
+        entry: tools/hooks/strip_ai_attribution.py
+        language: script
+        stages: [commit-msg]
+
       # Check for hardcoded colors in UI components (Guide §8)
       - id: no-hardcoded-colors
         name: No Hardcoded Colors (Theme tokens only)
