@@ -8,7 +8,7 @@
 # - Clear documentation: Self-documenting targets
 
 .PHONY: help dev saas saas-local saas-prod install build test clean migrate \
-	start stop stop-dev stop-saas stop-dev-processes saas-stop restart health status \
+	start start-gemini stop stop-dev stop-saas stop-dev-processes saas-stop restart health status \
 	logs monitor ps \
 	conda-env conda-install local-e2e local-stop \
 	test-backend test-frontend e2e-test seed-data \
@@ -31,6 +31,7 @@ PUBLISH_BRANCH?=publish
 PUBLISH_WORKTREE:=$(ROOT_DIR)/.worktrees/publish
 STACK_MODE_FILE:=$(TMP_DIR)/stack.mode
 STACK_MODE_SH:=$(ROOT_DIR)/scripts/dev/stack_mode.sh
+MCP_TUNNEL_SH:=$(ROOT_DIR)/scripts/dev/mcp_tunnel.sh
 PUBLISH_WORKTREE_SH:=$(ROOT_DIR)/scripts/dev/publish_worktree.sh
 DOCKER_PATH:=/Applications/Docker.app/Contents/Resources/bin
 export PATH:=$(DOCKER_PATH):$(PATH)
@@ -182,7 +183,7 @@ stop-dev-processes: ## Internal: stop local dev app processes only
 	@$(STACK_MODE_SH) free-port $(DEV_FE_PORT)
 	@rm -f $(TMP_DIR)/*.pid $(TMP_DIR)/*.out 2>/dev/null || true
 
-stop-dev: stop-dev-processes ## Stop development stack (local procs + primary compose)
+stop-dev: stop-mcp-tunnel stop-dev-processes ## Stop development stack (local procs + primary compose)
 	@echo "$(YELLOW)🛑 Stopping development stack...$(NC)"
 	@docker compose --project-name $(COMPOSE_PROJECT_NAME) -f $(ROOT_DIR)/$(COMPOSE_DEV) down 2>/dev/null || true
 	@$(STACK_MODE_SH) free-port $(DEV_API_PORT)
@@ -210,7 +211,7 @@ stop-saas: ## Stop saas stack (publish worktree compose only)
 	@$(STACK_MODE_SH) clear
 	@echo "$(GREEN)✅ SaaS stack stopped$(NC)"
 
-stop: ## Stop the active stack (dev or saas); clears mode lock
+stop: stop-mcp-public ## Stop the active stack (dev or saas); clears mode lock
 	@echo "$(YELLOW)[$$(date '+%Y-%m-%d %H:%M:%S')] Stopping stack$(NC)"
 	@mode="$$($(STACK_MODE_SH) detect)"; \
 	echo "$(YELLOW)🛑 Stopping stack (detected: $$mode)...$(NC)"; \
@@ -572,10 +573,39 @@ lint: ## Lint code (flake8, mypy)
 
 restart: stop dev ## Restart development stack
 
-start: ## Alias for 'make dev' (start development)
-	@echo "$(BLUE)[$$(date '+%Y-%m-%d %H:%M:%S')] Starting development stack$(NC)"
-	@$(MAKE) dev
-	@echo "$(GREEN)[$$(date '+%Y-%m-%d %H:%M:%S')] Start complete$(NC)"
+start: ## Start inDoc for local access only (no MCP, no public tunnel)
+	@echo "$(BLUE)[$$(date '+%Y-%m-%d %H:%M:%S')] Starting local inDoc stack$(NC)"
+	@$(MAKE) stop-mcp-public
+	@if $(STACK_MODE_SH) dev-live; then \
+		echo "$(GREEN)✅ Local stack already running$(NC)"; \
+	else \
+		$(MAKE) dev; \
+	fi
+	@echo "$(BLUE)📍 Local only:$(NC)"
+	@echo "   • Frontend:    http://localhost:$(DEV_FE_PORT)"
+	@echo "   • API:         http://localhost:$(DEV_API_PORT)"
+	@echo "   • API Docs:    http://localhost:$(DEV_API_PORT)/api/v1/docs"
+	@echo "$(YELLOW)Public MCP tunnel is not running. For Gemini: make start-gemini$(NC)"
+
+start-gemini: ## Start inDoc plus MCP and ngrok for Gemini end-to-end tests
+	@echo "$(BLUE)[$$(date '+%Y-%m-%d %H:%M:%S')] Starting Gemini end-to-end stack$(NC)"
+	@if $(STACK_MODE_SH) saas-live; then \
+		echo "$(RED)❌ SaaS stack is running. Run: make stop$(NC)"; \
+		exit 1; \
+	fi
+	@if ! $(STACK_MODE_SH) dev-live; then $(MAKE) dev; fi
+	@$(MAKE) mcp-up
+	@MCP_PUBLIC_URL="$(MCP_PUBLIC_URL)" DEV_API_PORT="$(DEV_API_PORT)" DEV_FE_PORT="$(DEV_FE_PORT)" \
+		$(MCP_TUNNEL_SH) start
+	@MCP_PUBLIC_URL="$(MCP_PUBLIC_URL)" DEV_API_PORT="$(DEV_API_PORT)" DEV_FE_PORT="$(DEV_FE_PORT)" \
+		$(MCP_TUNNEL_SH) check
+	@echo "$(GREEN)✨ Gemini stack ready$(NC)"
+	@echo "   • Frontend:    http://localhost:$(DEV_FE_PORT)"
+	@echo "   • API:         http://localhost:$(DEV_API_PORT)"
+	@echo "   • MCP local:   http://127.0.0.1:8010/mcp"
+	@echo "   • MCP public:  $(MCP_PUBLIC_URL)/mcp  (only /mcp is forwarded)"
+	@echo "$(YELLOW)Next: make mcp-seed && make adk-demo-deployed RESOURCE=projects/.../reasoningEngines/ID$(NC)"
+	@echo "$(YELLOW)Back to local only: make start$(NC)"
 
 ##@ Gemini ADK Connector (MCP server + agent)
 
@@ -583,7 +613,13 @@ ADK_DIR:=$(ROOT_DIR)/integrations/google-adk
 MCP_PUBLIC_URL?=https://research.sharedoxygen.com
 ADC_FILE:=$(HOME)/.config/gcloud/application_default_credentials.json
 
-.PHONY: mcp-up mcp-down mcp-test mcp-seed mcp-purge mcp-token mcp-tunnel adk-build adk-test adk-demo-local adk-demo-deployed adk-deploy
+.PHONY: stop-mcp-tunnel stop-mcp-public mcp-up mcp-down mcp-test mcp-seed mcp-purge mcp-token mcp-tunnel adk-build adk-test adk-demo-local adk-demo-deployed adk-deploy
+
+stop-mcp-tunnel:
+	@$(MCP_TUNNEL_SH) stop
+
+stop-mcp-public: stop-mcp-tunnel
+	@docker compose --project-name $(COMPOSE_PROJECT_NAME) -f $(ROOT_DIR)/$(COMPOSE_DEV) stop indoc-mcp >/dev/null 2>&1 || true
 
 mcp-up: ## Build and start the read-only MCP server (127.0.0.1:8010)
 	docker compose up -d --build indoc-mcp

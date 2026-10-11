@@ -14,9 +14,12 @@ Access model (inDoc RBAC/ABAC, unchanged):
   analyst.demo@example.com  Analyst  reports to the manager; sees only their
                                      own 3 INTERNAL documents
 
-Demo users get a random, unrecorded password: access is via MCP tokens only.
---purge removes the documents and their index entries and deactivates the
-users; their audit rows are retained.
+The manager and analyst passwords are random and unrecorded: the agent uses
+MCP tokens. gemini@indoc.local / GeminiDemo123! is the human login for this
+corpus. Demo documents are visibility=grant, so they stay out of the personal
+library unless the caller owns them or holds a read grant. gemini holds a
+read grant on every demo document. --purge removes the documents and their
+index entries and deactivates the users; their audit rows are retained.
 """
 import argparse
 import asyncio
@@ -31,10 +34,12 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from sqlalchemy import select  # noqa: E402
 
+from app.core.document_scope import GRANT_VISIBILITY  # noqa: E402
 from app.core.security import get_password_hash  # noqa: E402
 from app.db.session import AsyncSessionLocal, async_engine  # noqa: E402
 from app.models.classification import DocumentClassification  # noqa: E402
 from app.models.document import Document  # noqa: E402
+from app.models.document_permission import DocumentPermission  # noqa: E402
 from app.models.user import User, UserRole  # noqa: E402
 from app.services.search.elasticsearch_service import ElasticsearchService  # noqa: E402
 from app.services.search.qdrant_service import QdrantService  # noqa: E402
@@ -43,6 +48,9 @@ from app.services.search_service import SearchService  # noqa: E402
 DOCUMENT_SET_ID = "mcp-demo"
 MANAGER_EMAIL = "manager.demo@example.com"
 ANALYST_EMAIL = "analyst.demo@example.com"
+GEMINI_EMAIL = "gemini@indoc.local"
+GEMINI_USERNAME = "gemini"
+GEMINI_PASSWORD = "GeminiDemo123!"
 
 
 @dataclass(frozen=True)
@@ -202,8 +210,56 @@ async def _upsert_document(db, spec: DemoDoc, owner: User) -> Document:
     doc.tags = [DOCUMENT_SET_ID, "synthetic"]
     doc.classification = spec.classification
     doc.uploaded_by = owner.id
+    metadata = dict(doc.custom_metadata or {})
+    metadata["visibility"] = GRANT_VISIBILITY
+    doc.custom_metadata = metadata
     await db.flush()
     return doc
+
+
+async def _upsert_gemini(db) -> User:
+    user = (
+        await db.execute(select(User).where(User.email == GEMINI_EMAIL))
+    ).scalar_one_or_none()
+    if user is None:
+        user = User(
+            email=GEMINI_EMAIL,
+            username=GEMINI_USERNAME,
+            hashed_password=get_password_hash(GEMINI_PASSWORD),
+        )
+        db.add(user)
+    user.full_name = "Gemini"
+    user.role = UserRole.MANAGER
+    user.department = "Demo"
+    user.manager_id = None
+    user.is_active = True
+    user.is_verified = True
+    user.hashed_password = get_password_hash(GEMINI_PASSWORD)
+    await db.flush()
+    return user
+
+
+async def _grant_read(db, document: Document, grantee: User, granter: User) -> None:
+    existing = (
+        await db.execute(
+            select(DocumentPermission).where(
+                DocumentPermission.document_id == document.id,
+                DocumentPermission.user_id == grantee.id,
+                DocumentPermission.permission_type == "read",
+            )
+        )
+    ).scalar_one_or_none()
+    if existing is None:
+        db.add(
+            DocumentPermission(
+                document_id=document.id,
+                user_id=grantee.id,
+                permission_type="read",
+                granted_by=granter.id,
+                reason="Gemini demo corpus",
+            )
+        )
+        await db.flush()
 
 
 async def seed() -> None:
@@ -219,10 +275,14 @@ async def seed() -> None:
             "Operations",
             manager_id=manager.id,
         )
+        gemini = await _upsert_gemini(db)
         owners = {MANAGER_EMAIL: manager, ANALYST_EMAIL: analyst}
         docs = [
             await _upsert_document(db, spec, owners[spec.owner]) for spec in DEMO_DOCS
         ]
+        for doc in docs:
+            granter = manager if doc.uploaded_by == manager.id else analyst
+            await _grant_read(db, doc, gemini, granter)
         await db.commit()
         for doc in docs:
             await db.refresh(doc)
@@ -257,7 +317,9 @@ async def seed() -> None:
         )
 
     print(
-        f"Users: {MANAGER_EMAIL} (Manager, id={manager.id}), {ANALYST_EMAIL} (Analyst, id={analyst.id})"
+        f"Users: {MANAGER_EMAIL} (Manager, id={manager.id}), "
+        f"{ANALYST_EMAIL} (Analyst, id={analyst.id}), "
+        f"{GEMINI_EMAIL} (Manager, id={gemini.id})"
     )
     for title, doc_id, classification, owner_id in rows:
         print(f"  {classification:<10} owner={owner_id:<5} {doc_id}  {title}")
@@ -281,7 +343,9 @@ async def purge() -> None:
         users = (
             (
                 await db.execute(
-                    select(User).where(User.email.in_([MANAGER_EMAIL, ANALYST_EMAIL]))
+                    select(User).where(
+                        User.email.in_([MANAGER_EMAIL, ANALYST_EMAIL, GEMINI_EMAIL])
+                    )
                 )
             )
             .scalars()
