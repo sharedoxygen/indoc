@@ -1,0 +1,13 @@
+# ngrok Traffic Policy for the public inDoc MCP endpoint.
+# Only the MCP path reaches the indoc-mcp container; everything else is
+# rejected at the ngrok edge before it touches this machine.
+#
+#   ngrok http 8010 --url https://research.sharedoxygen.com \
+#     --traffic-policy-file deploy/ngrok/indoc-mcp-policy.yml
+on_http_request:
+  - expressions:
+      - "req.url.path != '/mcp'"
+    actions:
+      - type: deny
+        config:
+          status_code: 404

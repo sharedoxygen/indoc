@@ -1,0 +1,17 @@
+# Build context allowlist for Dockerfile.mcp (BuildKit per-Dockerfile ignore).
+*
+!requirements-mcp.txt
+!pytest.ini
+!config/
+!app/
+!tests/mcp_server/
+
+# Never bake secrets or runtime data into the image.
+app/keys
+app/data
+app/tmp
+app/celerybeat-schedule.db
+**/__pycache__
+**/*.pyc
+.env
+.env.*
