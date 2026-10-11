@@ -63,8 +63,9 @@ Demo access model (inDoc rules, unchanged):
 - Those excerpts, the question, and the answer are processed by Gemini on the
   **regional** `us-central1` endpoint (never `global`, which gives no residency
   guarantee) and are stored by Agent Platform Sessions as session events.
-- The demo creates sessions with a 1-hour TTL and deletes them when it finishes.
-  The default TTL is 365 days.
+- The demo deletes each session as soon as its run finishes, and creates it
+  with a 24-hour TTL as a safety net (the platform minimum; shorter TTLs are
+  rejected). The default TTL is 365 days.
 - The user's MCP token is stored in session state for the life of the session.
   It expires within 60 minutes and only grants read access to that user's scope.
 - Prompt and response capture in traces stays off
@@ -98,9 +99,12 @@ make adk-deploy        # Agent Runtime (min instances 0, max 2)
 make adk-demo-deployed RESOURCE=projects/<n>/locations/us-central1/reasoningEngines/<id>
 ```
 
-The demo exits non-zero unless: the manager's answer cites restricted
-documents by id, the analyst's answer and tool results contain no restricted
-ids or contract text, and both agents searched inDoc.
+The demo exits non-zero unless: the manager's answer cites documents the
+analyst cannot read, the analyst's answer and tool results contain none of
+those ids or contract text, and both agents searched inDoc. "Cannot read" is
+not assumed: after both runs, every document id either agent saw is read over
+MCP with the analyst's token and inDoc decides (audited as client
+`demo-verifier`).
 
 ## Known limitations
 

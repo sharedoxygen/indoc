@@ -25,7 +25,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 QUESTION = "What are the termination terms in our vendor contracts?"
 APP_NAME = "indoc_research_agent"
-SESSION_TTL = "3600s"
+# Agent Platform Sessions rejects TTLs under 24 hours; sessions are also
+# deleted as soon as each run finishes.
+SESSION_TTL = "86400s"
 UUID_RE = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
 RESTRICTED_MARKERS = ["Halvorsen", "Brightline", "ninety (90)", "fifteen percent"]
 USERS = [
@@ -115,20 +117,49 @@ async def run_deployed(question: str, resource: str, project: str, region: str) 
     return transcripts
 
 
-def evaluate(manager: Transcript, analyst: Transcript) -> List[Dict[str, Any]]:
-    manager_search_ids = {
-        doc_id
-        for result in manager.tool_results
-        if result["name"] == "search_documents"
-        for doc_id in UUID_RE.findall(result["text"])
-    }
-    cited = sorted(set(UUID_RE.findall(manager.answer)) & manager_search_ids)
+def _analyst_can_read(mcp_url: str, analyst_token: str, document_id: str) -> bool:
+    """Ask inDoc itself, over MCP with the analyst's token, whether a document is readable."""
+    import httpx
+
+    response = httpx.post(
+        mcp_url,
+        json={
+            "jsonrpc": "2.0",
+            "id": str(uuid.uuid4()),
+            "method": "tools/call",
+            "params": {"name": "read_document", "arguments": {"document_id": document_id}},
+        },
+        headers={
+            "Authorization": f"Bearer {analyst_token}",
+            "Accept": "application/json, text/event-stream",
+            "X-Indoc-Client": "demo-verifier",
+        },
+        timeout=30,
+    )
+    response.raise_for_status()
+    content = response.json()["result"].get("content") or []
+    text = "\n".join(block.get("text", "") for block in content)
+    return "is not available to you" not in text
+
+
+def restricted_from_analyst(transcripts: List[Transcript], mcp_url: str, analyst_token: str) -> List[str]:
+    """Every document id either agent saw that inDoc refuses to the analyst."""
+    seen = set()
+    for transcript in transcripts:
+        seen.update(UUID_RE.findall(transcript.answer))
+        for result in transcript.tool_results:
+            seen.update(UUID_RE.findall(result["text"]))
+    return sorted(doc_id for doc_id in seen if not _analyst_can_read(mcp_url, analyst_token, doc_id))
+
+
+def evaluate(manager: Transcript, analyst: Transcript, restricted: List[str]) -> List[Dict[str, Any]]:
+    cited = sorted(set(UUID_RE.findall(manager.answer)) & set(restricted))
     analyst_seen = analyst.answer + "\n".join(r["text"] for r in analyst.tool_results)
-    leaked_ids = sorted(doc_id for doc_id in manager_search_ids if doc_id in analyst_seen)
+    leaked_ids = sorted(doc_id for doc_id in restricted if doc_id in analyst_seen)
     leaked_markers = [m for m in RESTRICTED_MARKERS if m.lower() in analyst_seen.lower()]
     return [
         {
-            "check": "Manager answer cites restricted documents by id",
+            "check": "Manager answer cites documents the analyst cannot read",
             "passed": bool(cited),
             "evidence": ", ".join(cited) or "no cited ids",
         },
@@ -145,7 +176,9 @@ def evaluate(manager: Transcript, analyst: Transcript) -> List[Dict[str, Any]]:
     ]
 
 
-def render_report(args, transcripts: List[Transcript], checks: List[Dict[str, Any]], started: datetime) -> str:
+def render_report(
+    args, transcripts: List[Transcript], checks: List[Dict[str, Any]], started: datetime, restricted: List[str]
+) -> str:
     import google.adk
 
     lines = [
@@ -163,6 +196,12 @@ def render_report(args, transcripts: List[Transcript], checks: List[Dict[str, An
     lines += ["", f"Question asked by both users: **{args.question}**", "", "## Checks", ""]
     lines += ["| Check | Result | Evidence |", "|---|---|---|"]
     lines += [f"| {c['check']} | {'PASS' if c['passed'] else 'FAIL'} | {c['evidence']} |" for c in checks]
+    lines += [
+        "",
+        "Restricted ids are not assumed: after both runs, every document id either agent saw is read "
+        "over MCP with the analyst's token, and inDoc's answer decides (verifier calls are audited "
+        f"with client `demo-verifier`). Refused to the analyst: {', '.join(restricted) or 'none'}.",
+    ]
     for t in transcripts:
         lines += ["", f"## {t.label.capitalize()} ({t.email})", "", "Tool calls:", ""]
         lines += [f"- `{c['name']}` {c['args']}" for c in t.tool_calls] or ["- none"]
@@ -189,8 +228,9 @@ def main() -> None:
     else:
         transcripts = asyncio.run(run_deployed(args.question, args.resource, args.project, args.region))
 
-    checks = evaluate(*transcripts)
-    report = render_report(args, transcripts, checks, started)
+    restricted = restricted_from_analyst(transcripts, os.environ["INDOC_MCP_URL"], _read_token(USERS[1][2]))
+    checks = evaluate(*transcripts, restricted)
+    report = render_report(args, transcripts, checks, started, restricted)
     Path(args.output).write_text(report)
     print(report)
     sys.exit(0 if all(c["passed"] for c in checks) else 1)

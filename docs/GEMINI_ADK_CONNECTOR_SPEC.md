@@ -2,7 +2,7 @@
 
 Owner: Jeffrey Collins. Written 10 Oct 2026. Classification: feature (new integration, additive).
 
-Status (11 Oct 2026, branch `feature/gemini-adk-connector`): Phases 1 and 2 built and verified; Phase 3 pending the public tunnel. Decisions that changed during the build are recorded in section 16 and folded into the sections below. Operator guide: `integrations/google-adk/README.md`.
+Status (11 Oct 2026, branch `feature/gemini-adk-connector`): Phases 1–3 built and verified. Deployed to Agent Runtime as `projects/508662352118/locations/us-central1/reasoningEngines/45608017198055424`; the deployed two-user demo passed all checks (`integrations/google-adk/DEMO_RESULTS.md`). Decisions that changed during the build are recorded in section 16 and folded into the sections below. Operator guide: `integrations/google-adk/README.md`.
 
 ## 1. Outcome
 
@@ -52,7 +52,7 @@ inDoc MCP server (new service, real MCP protocol, read-only tools)
 inDoc data (Postgres, Elasticsearch, Qdrant) on Jeffrey's infrastructure
 ```
 
-Data residency: documents stay in inDoc. Tool outputs leave: snippets (300 chars, up to 15 per search) and excerpts (up to 4,000 chars per read). They are processed by Gemini on the regional endpoint for region R (never `global`) and stored by Agent Platform Sessions as session events (default TTL 365 days; the demo sets 1 hour and deletes sessions afterwards). The user's MCP token sits in session state for the session's life. Stated in the README.
+Data residency: documents stay in inDoc. Tool outputs leave: snippets (300 chars, up to 15 per search) and excerpts (up to 4,000 chars per read). They are processed by Gemini on the regional endpoint for region R (never `global`) and stored by Agent Platform Sessions as session events (default TTL 365 days; the demo deletes each session when its run finishes and sets a 24-hour TTL as a safety net, the platform minimum). The user's MCP token sits in session state for the session's life. Stated in the README.
 
 Network: Agent Runtime reaches the MCP server through ngrok (`research.sharedoxygen.com`). An edge Traffic Policy denies every path except `/mcp`. The container publishes on 127.0.0.1 only.
 
@@ -129,7 +129,7 @@ Synthetic only. Seeded by `tools/seed_mcp_demo.py` (idempotent; indexes Elastics
 1. `make mcp-up`; `make mcp-tunnel` exposes only `/mcp` with TLS at `https://research.sharedoxygen.com/mcp`.
 2. `make adk-deploy` runs `adk deploy agent_engine` from the `indoc-adk` image. Project, region, `INDOC_MCP_URL`, and `GEMINI_MODEL` come from `indoc_agent/.env`; `indoc_agent/.agent_engine_config.json` sets `min_instances=0`, `max_instances=2` (the platform default of 1 bills continuously).
 3. Telemetry is enabled by the deploy default with message-content capture off.
-4. `make adk-demo-deployed RESOURCE=...` creates one session per user with `state={"indoc_access_token": ...}` and a 1-hour TTL, asks the demo question, deletes the sessions, and writes `DEMO_RESULTS.md`.
+4. `make adk-demo-deployed RESOURCE=...` creates one session per user with `state={"indoc_access_token": ...}` and a 24-hour TTL (the platform rejects shorter TTLs), asks the demo question, deletes the sessions, and writes `DEMO_RESULTS.md`.
 
 Prerequisites (Jeffrey): Google Cloud project with billing; Agent Platform API enabled; region R chosen where both the Gemini model and Agent Runtime are available; `gcloud auth application-default login`; budget alert on the project.
 
@@ -178,7 +178,7 @@ All server tests run the real app under uvicorn and call it with the official `m
 ## 14. Decisions (resolved 10–11 Oct 2026)
 
 - Google Cloud project `indoc-511303`, region R = `us-central1`, Agent Platform API enabled.
-- Tunnel: ngrok, `research.sharedoxygen.com`, `/mcp` only. Open: the localAgent project's ngrok agent also claims this hostname when it runs, so only one can be online at a time. A dedicated hostname would remove the conflict.
+- Tunnel: ngrok, `research.sharedoxygen.com`, `/mcp` only. The localAgent project's ngrok agent also claims this hostname; it was stopped for the demo (11 Oct). Only one can be online at a time; a dedicated hostname would remove the conflict.
 - Model: `gemini-2.5-flash` (regional availability; see section 6).
 - Runtimes: Docker for the MCP server and the ADK tooling; the `indoc` env and `requirements.txt` are unchanged.
 
@@ -198,3 +198,5 @@ All server tests run the real app under uvicorn and call it with the official `m
 | "Documents never leave inDoc" | Excerpts leave, are processed regionally, and stored in sessions with a TTL | Accuracy |
 | Rate limit 30/min | 60/min per HTTP request | ADK sends `tools/list` per model step |
 | Cloudflare Tunnel | ngrok with an edge path policy | Existing hostname and account |
+| Session TTL 1 hour | 24-hour TTL plus deletion after each run | Agent Platform Sessions rejects TTLs under 24 hours (surfaced by the runtime as a generic 500) |
+| Demo assumes which ids are restricted | inDoc decides: every id either agent saw is read with the analyst's token | The manager can also see the analyst's documents |

@@ -624,6 +624,10 @@ adk-demo-deployed: adk-build ## Two-user demo against Agent Runtime: make adk-de
 adk-deploy: adk-build ## Deploy the agent to Agent Runtime (reads indoc_agent/.env)
 	docker run --rm --user "$$(id -u):$$(id -g)" \
 		-e GOOGLE_APPLICATION_CREDENTIALS=/run/adc.json -v "$(ADC_FILE):/run/adc.json:ro" \
-		-v "$(ADK_DIR)/indoc_agent:/workspace/indoc_agent:ro" \
-		indoc-adk adk deploy agent_engine --display_name="inDoc Research Agent" \
-		--description="Gemini agent over inDoc via MCP with per-user access enforcement" indoc_agent
+		-v "$(ADK_DIR)/indoc_agent:/src/indoc_agent:ro" \
+		indoc-adk sh -c 'cp -r /src/indoc_agent /tmp/indoc_agent && cd /tmp && \
+			adk deploy agent_engine \
+			--project="$(shell sed -n 's/^GOOGLE_CLOUD_PROJECT=//p' $(ADK_DIR)/indoc_agent/.env)" \
+			--region="$(shell sed -n 's/^GOOGLE_CLOUD_LOCATION=//p' $(ADK_DIR)/indoc_agent/.env)" \
+			--display_name="inDoc Research Agent" \
+			--description="Gemini agent over inDoc via MCP with per-user access enforcement" indoc_agent'
