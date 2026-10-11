@@ -182,6 +182,45 @@ services:
       - ./data/uploads:/app/uploads
     restart: unless-stopped
 
+  # Read-only MCP endpoint for external agents (Google ADK). Published on
+  # loopback only; expose /mcp publicly through the tunnel, never this port.
+  indoc-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile.mcp
+    container_name: indoc-mcp
+    ports:
+      - "127.0.0.1:8010:8010"
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_HOST=host.docker.internal
+      - REDIS_URL=redis://host.docker.internal:6379/2
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+      - QDRANT_URL=http://qdrant:6333
+      - OLLAMA_BASE_URL=http://host.docker.internal:11434
+      - DEBUG=false
+      - MCP_ALLOWED_HOSTS=${MCP_ALLOWED_HOSTS:-localhost:*,127.0.0.1:*,indoc-mcp:8010,research.sharedoxygen.com}
+      - MCP_RATE_LIMIT_PER_MIN=${MCP_RATE_LIMIT_PER_MIN:-60}
+      - MCP_TOKEN_MAX_TTL_MINUTES=${MCP_TOKEN_MAX_TTL_MINUTES:-60}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - elasticsearch
+      - qdrant
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8010/healthz', timeout=3)",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
 volumes:
   elasticsearch_data:
   qdrant_data:
