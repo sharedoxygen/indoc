@@ -576,3 +576,54 @@ start: ## Alias for 'make dev' (start development)
 	@echo "$(BLUE)[$$(date '+%Y-%m-%d %H:%M:%S')] Starting development stack$(NC)"
 	@$(MAKE) dev
 	@echo "$(GREEN)[$$(date '+%Y-%m-%d %H:%M:%S')] Start complete$(NC)"
+
+##@ Gemini ADK Connector (MCP server + agent)
+
+ADK_DIR:=$(ROOT_DIR)/integrations/google-adk
+MCP_PUBLIC_URL?=https://research.sharedoxygen.com
+ADC_FILE:=$(HOME)/.config/gcloud/application_default_credentials.json
+
+.PHONY: mcp-up mcp-down mcp-test mcp-seed mcp-purge mcp-token mcp-tunnel adk-build adk-test adk-demo-local adk-demo-deployed adk-deploy
+
+mcp-up: ## Build and start the read-only MCP server (127.0.0.1:8010)
+	docker compose up -d --build indoc-mcp
+
+mcp-down: ## Stop the MCP server
+	docker compose stop indoc-mcp
+
+mcp-test: ## Run MCP server tests inside the indoc-mcp image
+	docker compose run --rm --no-deps \
+		-v "$(ROOT_DIR)/app:/app/app:ro" -v "$(ROOT_DIR)/tests/mcp_server:/app/tests/mcp_server:ro" \
+		-e JWT_SECRET_KEY=test-secret-key-for-mcp-tests \
+		indoc-mcp python -m pytest -o addopts="-q -p no:cacheprovider" --confcutdir=tests/mcp_server tests/mcp_server
+
+mcp-seed: ## Seed + index the synthetic two-user demo dataset (idempotent)
+	$(CONDA_RUN) python tools/seed_mcp_demo.py
+
+mcp-purge: ## Remove demo documents, deactivate demo users (audit rows kept)
+	$(CONDA_RUN) python tools/seed_mcp_demo.py --purge
+
+mcp-token: ## Mint an MCP token: make mcp-token EMAIL=... [TTL=60]
+	@$(CONDA_RUN) python -m app.mcp_server.mint_token --email "$(EMAIL)" --ttl "$(or $(TTL),60)"
+
+mcp-tunnel: ## Expose only /mcp at MCP_PUBLIC_URL via ngrok (foreground)
+	ngrok http 8010 --url "$(MCP_PUBLIC_URL)" --traffic-policy-file deploy/ngrok/indoc-mcp-policy.yml
+
+adk-build: ## Build the indoc-adk tooling image
+	docker build -t indoc-adk "$(ADK_DIR)"
+
+adk-test: adk-build ## Run agent unit tests inside indoc-adk
+	docker run --rm indoc-adk python -m pytest -q -p no:cacheprovider tests
+
+adk-demo-local: adk-build ## Two-user demo, agent local, MCP on the compose network
+	"$(ADK_DIR)/scripts/run_demo.sh" local
+
+adk-demo-deployed: adk-build ## Two-user demo against Agent Runtime: make adk-demo-deployed RESOURCE=projects/...
+	"$(ADK_DIR)/scripts/run_demo.sh" deployed "$(RESOURCE)"
+
+adk-deploy: adk-build ## Deploy the agent to Agent Runtime (reads indoc_agent/.env)
+	docker run --rm --user "$$(id -u):$$(id -g)" \
+		-e GOOGLE_APPLICATION_CREDENTIALS=/run/adc.json -v "$(ADC_FILE):/run/adc.json:ro" \
+		-v "$(ADK_DIR)/indoc_agent:/workspace/indoc_agent:ro" \
+		indoc-adk adk deploy agent_engine --display_name="inDoc Research Agent" \
+		--description="Gemini agent over inDoc via MCP with per-user access enforcement" indoc_agent

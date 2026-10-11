@@ -1,0 +1,41 @@
+# inDoc MCP server (read-only Model Context Protocol endpoint).
+# Shares app/ with the main API; dependencies come from requirements-mcp.txt.
+FROM python:3.11-slim
+
+WORKDIR /app
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    HF_HOME=/opt/hf-cache
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libpq5 \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements-mcp.txt .
+RUN pip install --index-url https://download.pytorch.org/whl/cpu torch==2.8.0 \
+    && pip install -r requirements-mcp.txt
+
+# Bake the query-embedding model used by Qdrant search so runtime needs no download.
+RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('sentence-transformers/multi-qa-MiniLM-L6-cos-v1')" \
+    && chmod -R a+rX /opt/hf-cache
+ENV HF_HUB_OFFLINE=1
+
+COPY app ./app
+COPY config ./config
+COPY pytest.ini ./pytest.ini
+COPY tests/mcp_server ./tests/mcp_server
+
+# app.core.security creates ./keys on import; the MCP server never uses field
+# encryption, so it gets a private container-local directory, not the platform key.
+RUN useradd --create-home --uid 10001 mcp \
+    && install -d -m 700 -o mcp -g mcp /app/keys
+USER mcp
+ENV PYTHONPATH=/app
+
+EXPOSE 8010
+
+CMD ["uvicorn", "--factory", "app.mcp_server.server:create_app", \
+     "--host", "0.0.0.0", "--port", "8010", \
+     "--proxy-headers", "--forwarded-allow-ips", "*"]

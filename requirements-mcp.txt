@@ -1,0 +1,52 @@
+# inDoc MCP server runtime (Docker image built from Dockerfile.mcp).
+# Kept separate from requirements.txt: the MCP SDK requires anyio>=4.5, which
+# the main app's fastapi==0.104.1 excludes. App-side pins below match
+# requirements.txt / the indoc env wherever the MCP SDK allows it.
+# torch is installed from the PyTorch CPU index in Dockerfile.mcp first.
+
+# MCP protocol + HTTP
+mcp==1.30.0
+fastapi==0.115.14
+starlette==0.46.2
+uvicorn[standard]==0.34.3
+httpx==0.28.1
+anyio==4.15.1
+sse-starlette==3.0.3
+
+# Settings / auth (same pins as requirements.txt)
+pydantic==2.11.7
+pydantic-settings==2.10.1
+python-dotenv==1.0.0
+PyYAML==6.0.3
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+bcrypt==4.0.1
+email-validator==2.1.0
+
+# Database
+sqlalchemy==2.0.23
+asyncpg==0.29.0
+psycopg2-binary==2.9.9
+
+# Search (scope-enforced hybrid search used by AgentTools)
+redis==5.0.1
+elasticsearch[async]==8.11.0
+qdrant-client==1.7.3
+sentence-transformers==5.1.1
+torch==2.8.0
+transformers==4.55.4
+tokenizers==0.21.4
+huggingface-hub==0.35.3
+numpy==1.26.4
+scikit-learn==1.7.1
+grpcio==1.75.1
+urllib3==2.5.0
+
+# Utilities imported by app modules
+python-dateutil==2.8.2
+pytz==2023.3
+
+# Testing
+pytest==7.4.3
+pytest-asyncio==0.21.1
+aiosqlite==0.19.0
