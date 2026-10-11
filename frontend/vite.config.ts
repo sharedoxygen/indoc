@@ -7,6 +7,7 @@ export default defineConfig({
   server: {
     port: 5193, // 5173 often taken by other local apps
     host: '0.0.0.0',
+    allowedHosts: ['research.sharedoxygen.com'],
     proxy: {
       '/api': {
         target: 'http://localhost:8001',

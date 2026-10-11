@@ -1,12 +1,15 @@
 """
 Database models for inDoc
 """
-from app.models.user import User
-from app.models.document import Document, DocumentChunk
+
 from app.models.audit import AuditLog
-from app.models.metadata import Metadata, Annotation
 from app.models.conversation import Conversation, Message
-from app.models.role import Role, Permission, UserRole as UserRoleModel, RolePermission
+from app.models.document import Document, DocumentChunk
+from app.models.document_permission import DocumentPermission
+from app.models.metadata import Annotation, Metadata
+from app.models.role import Permission, Role, RolePermission
+from app.models.role import UserRole as UserRoleModel
+from app.models.user import User
 
 __all__ = [
     "User",
@@ -21,4 +24,5 @@ __all__ = [
     "Permission",
     "UserRoleModel",
     "RolePermission",
+    "DocumentPermission",
 ]
