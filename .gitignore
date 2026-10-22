@@ -185,3 +185,18 @@ monitoring/data/
 dmypy.json
 .pyre/
 
+# ============================================================================
+# CRITICAL: PRIVATE LOCAL TOOLING (NEVER COMMIT)
+# Agent/IDE state and the local publish map are machine-private.
+# Root dotfiles are ignored by default. The public repo contract is allowlisted:
+#   .gitignore, .github/, .gitleaks.toml, .pre-commit-config.yaml, .env.example
+# Nested project files stay tracked (docs/.nojekyll, **/.dockerignore,
+# **/.gitignore, **/.env.example).
+# ============================================================================
+/.*
+!/.gitignore
+!/.github/
+!/.github/**
+!/.gitleaks.toml
+!/.pre-commit-config.yaml
+!/.env.example
