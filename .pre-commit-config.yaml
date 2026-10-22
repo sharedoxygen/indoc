@@ -129,6 +129,6 @@ repos:
       - id: prevent-secret-filenames
         name: Block secret filenames from being committed
         entry: |
-          bash -c 'if git diff --cached --name-only | grep -E "(^|/)\.env$|(^|/)\.env\.(local|production|development|staging)$|(^|/)config/local\.yaml$|setup_aws_credentials|CREDENTIALS|SECURITY_INCIDENT" | grep -v "\.env\.example" >/dev/null; then echo "Refusing to commit secret filename (.env, local.yaml, credentials, incident notes)."; exit 1; fi'
+          bash -c 'if git diff --cached --name-only --diff-filter=ACMR | grep -E "(^|/)\.env$|(^|/)\.env\.(local|production|development|staging)$|(^|/)config/local\.yaml$|setup_aws_credentials|CREDENTIALS|SECURITY_INCIDENT|(^|/)\.cursor(/|$)|(^|/)\.claude(/|$)|(^|/)\.codex(/|$)|(^|/)\.windsurf(/|$)|(^|/)\.continue(/|$)|(^|/)\.gemini(/|$)|(^|/)\.amazonq(/|$)|(^|/)\.aider|(^|/)\.pafpublish\.json$" | grep -v "\.env\.example" >/dev/null; then echo "Refusing to commit secret or private local tooling (.env, .cursor, .claude, .pafpublish.json, credentials)."; exit 1; fi'
         language: system
         pass_filenames: false
