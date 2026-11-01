@@ -22,7 +22,14 @@ import {
   Stop as StopIcon,
 } from "@mui/icons-material";
 import { motion } from "framer-motion";
-import { useAgentStream } from "../../hooks/useAgentStream";
+import { useResearchDesk } from "../../hooks/useAgentStream";
+import {
+  clearBriefs,
+  runResearch,
+  setDraftGoal,
+  setMaxSteps,
+  stopResearch,
+} from "../../research/researchDeskSession";
 import HelpTip from "../HelpTip";
 import AgentTheater from "./AgentTheater";
 import BriefBoard, { type AgentRunRecord } from "./BriefBoard";
@@ -30,46 +37,26 @@ import { AGENT_HELP } from "./agentHelp";
 
 export type { AgentRunRecord };
 
-const RUNS_KEY = "indoc.agent.runs";
-
 interface AgentModePanelProps {
-  documentIds: string[];
-  onFinalAnswer?: (goal: string, answer: string, run: AgentRunRecord) => void;
   onAskFollowUp?: (run: AgentRunRecord) => void;
 }
 
-function loadRuns(): AgentRunRecord[] {
-  try {
-    const raw = sessionStorage.getItem(RUNS_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveRuns(runs: AgentRunRecord[]) {
-  sessionStorage.setItem(RUNS_KEY, JSON.stringify(runs.slice(0, 20)));
-}
-
 export const AgentModePanel: React.FC<AgentModePanelProps> = ({
-  documentIds,
-  onFinalAnswer,
   onAskFollowUp,
 }) => {
   const theme = useTheme();
   const stacked = useMediaQuery(theme.breakpoints.down("md"));
-  const agent = useAgentStream();
-  const [goal, setGoal] = useState("");
-  const [maxSteps, setMaxSteps] = useState(6);
-  const [priorRuns, setPriorRuns] = useState<AgentRunRecord[]>(() =>
-    loadRuns(),
-  );
-  const [focusRunId, setFocusRunId] = useState<string | null>(null);
+  const desk = useResearchDesk();
+  const agent = desk.stream;
+  const goal = desk.draftGoal;
+  const setGoal = setDraftGoal;
+  const maxSteps = desk.maxSteps;
+  const documentIds = desk.documentIds;
+  const priorRuns = desk.priorRuns;
+  const focusRunId = desk.focusRunId;
   const [mobileTab, setMobileTab] = useState(0);
   const [reasoningOpen, setReasoningOpen] = useState(false);
-  const lastHandledRef = useRef<string | null>(null);
+  const statusRef = useRef(agent.status);
   const running = agent.status === "running" || agent.status === "connecting";
   const isLive = running;
 
@@ -97,40 +84,16 @@ export const AgentModePanel: React.FC<AgentModePanelProps> = ({
   const handleLaunch = async () => {
     const trimmed = goal.trim();
     if (!trimmed || running) return;
-    lastHandledRef.current = null;
-    await agent.run({ goal: trimmed, documentIds, maxSteps });
+    await runResearch({ goal: trimmed, documentIds, maxSteps });
   };
 
   useEffect(() => {
-    if (agent.status !== "completed" || !agent.finalAnswer) return;
-    const dedupeKey = `${agent.goal}::${agent.finalAnswer.slice(0, 80)}::${agent.iterations}`;
-    if (lastHandledRef.current === dedupeKey) return;
-    lastHandledRef.current = dedupeKey;
-
-    const run: AgentRunRecord = {
-      id: `${Date.now()}`,
-      goal: agent.goal,
-      answer: agent.finalAnswer,
-      at: new Date().toISOString(),
-      steps: agent.steps.length || agent.iterations,
-    };
-    setFocusRunId(run.id);
-    if (stacked) setMobileTab(0);
-    setPriorRuns((prev) => {
-      const next = [run, ...prev].slice(0, 20);
-      saveRuns(next);
-      return next;
-    });
-    onFinalAnswer?.(agent.goal, agent.finalAnswer, run);
-  }, [
-    agent.status,
-    agent.finalAnswer,
-    agent.goal,
-    agent.iterations,
-    agent.steps.length,
-    onFinalAnswer,
-    stacked,
-  ]);
+    const previous = statusRef.current;
+    statusRef.current = agent.status;
+    if (previous !== "completed" && agent.status === "completed" && stacked) {
+      setMobileTab(0);
+    }
+  }, [agent.status, stacked]);
 
   useEffect(() => {
     if (
@@ -143,12 +106,6 @@ export const AgentModePanel: React.FC<AgentModePanelProps> = ({
       setReasoningOpen(false);
     }
   }, [agent.status]);
-
-  const clearBriefs = () => {
-    setPriorRuns([]);
-    setFocusRunId(null);
-    sessionStorage.removeItem(RUNS_KEY);
-  };
 
   const consolePane = (
     <Box sx={{ height: "100%", minHeight: 0, minWidth: 0, overflow: "hidden" }}>
@@ -274,7 +231,7 @@ export const AgentModePanel: React.FC<AgentModePanelProps> = ({
                   variant="outlined"
                   color="inherit"
                   startIcon={<StopIcon />}
-                  onClick={agent.stop}
+                  onClick={stopResearch}
                   sx={{ borderRadius: 1.5, textTransform: "none" }}
                 >
                   Stop
