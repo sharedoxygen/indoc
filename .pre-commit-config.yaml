@@ -50,6 +50,7 @@ repos:
       - id: check-yaml
         exclude: ^(frontend/node_modules/|\.github/)
       - id: check-json
+        exclude: ^frontend/tsconfig.*\.json$
       - id: check-added-large-files
         args: ['--maxkb=10000']  # 10MB max
       - id: check-merge-conflict

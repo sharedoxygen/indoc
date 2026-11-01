@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Box,
   Typography,
@@ -31,6 +31,16 @@ import DocumentDetailsDrawer from "../components/DocumentDetailsDrawer";
 import AgentModePanel, {
   AgentRunRecord,
 } from "../components/agent/AgentModePanel";
+import { useResearchDesk } from "../hooks/useAgentStream";
+import {
+  acknowledgeBriefNotice,
+  setConversationId,
+  setCorpus,
+  setFollowUpBrief,
+  setFollowUpDraft,
+  setFollowUpOpen,
+  unsealResearchDesk,
+} from "../research/researchDeskSession";
 import { AGENT_HELP } from "../components/agent/agentHelp";
 import HelpTip from "../components/HelpTip";
 import { useGetDocumentsQuery } from "../store/api";
@@ -75,15 +85,12 @@ const ChatPage: React.FC = () => {
   const theme = useTheme();
   const dark = theme.palette.mode === "dark";
   const { enqueueSnackbar } = useSnackbar();
-  const [selectedDocuments, setSelectedDocuments] = useState<string[]>([]);
-  const [selectedConversationId, setSelectedConversationId] = useState<
-    string | undefined
-  >();
+  const desk = useResearchDesk();
+  const selectedDocuments = desk.documentIds;
+  const selectedConversationId = desk.conversationId ?? undefined;
+  const followUpOpen = desk.followUpOpen;
+  const followUpBrief = desk.followUpBrief;
   const [historyOpen, setHistoryOpen] = useState(false);
-  const [followUpOpen, setFollowUpOpen] = useState(false);
-  const [followUpBrief, setFollowUpBrief] = useState<AgentRunRecord | null>(
-    null,
-  );
   const [detailsDrawerOpen, setDetailsDrawerOpen] = useState(false);
   const [selectedDocumentForDetails, setSelectedDocumentForDetails] =
     useState<any>(null);
@@ -95,7 +102,6 @@ const ChatPage: React.FC = () => {
     "created_at" | "filename" | "file_type" | "file_size" | "updated_at"
   >("created_at");
   const [sortOrder] = useState<"asc" | "desc">("desc");
-  const autoSelectedRef = useRef(false);
 
   const debouncedSearch = useDebounce(search, 500);
 
@@ -120,15 +126,39 @@ const ChatPage: React.FC = () => {
   );
 
   useEffect(() => {
-    if (
-      !autoSelectedRef.current &&
-      availableDocuments.length > 0 &&
-      selectedDocuments.length === 0
-    ) {
-      setSelectedDocuments(availableDocuments.map((doc: any) => doc.uuid));
-      autoSelectedRef.current = true;
+    unsealResearchDesk();
+  }, []);
+
+  useEffect(() => {
+    const notice = desk.pendingBriefNotice;
+    if (!notice) return;
+    if (acknowledgeBriefNotice(notice.id)) {
+      enqueueSnackbar("Brief ready", { variant: "success" });
     }
-  }, [availableDocuments, selectedDocuments.length]);
+  }, [desk.pendingBriefNotice, enqueueSnackbar]);
+
+  useEffect(() => {
+    if (desk.scopeMode !== "all" || refineOpen) return;
+    if (search.trim() !== "" || fileType !== "all") return;
+    if (
+      desk.stream.status === "running" ||
+      desk.stream.status === "connecting"
+    ) {
+      return;
+    }
+    if (availableDocuments.length === 0) return;
+    setCorpus(
+      availableDocuments.map((doc: any) => doc.uuid as string),
+      "all",
+    );
+  }, [
+    availableDocuments,
+    desk.scopeMode,
+    desk.stream.status,
+    fileType,
+    refineOpen,
+    search,
+  ]);
 
   const usingAllIndexed =
     availableDocuments.length > 0 &&
@@ -149,7 +179,12 @@ const ChatPage: React.FC = () => {
   };
 
   const applyRefine = () => {
-    setSelectedDocuments(draftSelection);
+    const selectingAll =
+      search.trim() === "" &&
+      availableDocuments.length > 0 &&
+      draftSelection.length === availableDocuments.length &&
+      availableDocuments.every((doc: any) => draftSelection.includes(doc.uuid));
+    setCorpus(draftSelection, selectingAll ? "all" : "custom");
     setRefineOpen(false);
     enqueueSnackbar(
       draftSelection.length === availableDocuments.length
@@ -160,7 +195,7 @@ const ChatPage: React.FC = () => {
   };
 
   const useAllIndexed = () => {
-    setSelectedDocuments(allIndexedIds);
+    setCorpus(allIndexedIds, "all");
   };
 
   const selectAllIndexedInDraft = () => {
@@ -192,7 +227,8 @@ const ChatPage: React.FC = () => {
 
   const openFollowUp = (run: AgentRunRecord) => {
     setFollowUpBrief(run);
-    setSelectedConversationId(undefined);
+    setConversationId(null);
+    setFollowUpDraft("");
     setFollowUpOpen(true);
     setHistoryOpen(false);
   };
@@ -434,14 +470,7 @@ const ChatPage: React.FC = () => {
 
       {/* Research stage — full width */}
       <Box sx={{ position: "relative", zIndex: 1, flex: 1, minHeight: 0 }}>
-        <AgentModePanel
-          documentIds={selectedDocuments}
-          onFinalAnswer={(_goal, _answer, run) => {
-            enqueueSnackbar("Brief ready", { variant: "success" });
-            setFollowUpBrief(run);
-          }}
-          onAskFollowUp={openFollowUp}
-        />
+        <AgentModePanel onAskFollowUp={openFollowUp} />
       </Box>
 
       {/* Refine dialog — pleasant picker, not a permanent sidebar */}
@@ -796,7 +825,9 @@ const ChatPage: React.FC = () => {
           <DocumentChat
             documentIds={selectedDocuments}
             conversationId={selectedConversationId}
-            onNewConversation={(id) => setSelectedConversationId(id)}
+            onNewConversation={(id) => setConversationId(id)}
+            restoredDraft={desk.followUpDraft}
+            onDraftChange={setFollowUpDraft}
             contextBanner={
               followUpBrief
                 ? `Follow-up on Research Desk brief: “${followUpBrief.goal}”. Ground answers in the scoped documents.`
@@ -835,7 +866,7 @@ const ChatPage: React.FC = () => {
         <Divider sx={{ mb: 2 }} />
         <ChatHistory
           onConversationSelect={(id) => {
-            setSelectedConversationId(id);
+            setConversationId(id);
             setFollowUpOpen(true);
             setHistoryOpen(false);
           }}
