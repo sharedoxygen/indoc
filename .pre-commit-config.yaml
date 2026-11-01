@@ -36,6 +36,7 @@ repos:
     rev: v4.0.0-alpha.8
     hooks:
       - id: prettier
+        language_version: system
         types_or: [javascript, jsx, ts, tsx, json, yaml, markdown]
         files: ^frontend/src/.*\.(ts|tsx|js|jsx|json)$
         exclude: ^frontend/node_modules/
@@ -79,9 +80,8 @@ repos:
       - id: no-hardcoded-colors
         name: No Hardcoded Colors (Theme tokens only)
         entry: |
-          bash -c 'if grep -rn --include="*.tsx" --include="*.ts" -E "(color:\s*['\''\"](#[0-9a-fA-F]{3,8}|rgb\(|rgba\())" frontend/src/components frontend/src/pages 2>/dev/null; then echo "Hardcoded colors found - use theme tokens from theme.ts"; exit 1; fi'
+          bash -c 'status=0; for f in "$@"; do if grep -nE "(color:\s*['\''\"](#[0-9a-fA-F]{3,8}|rgb\(|rgba\())" "$f"; then status=1; fi; done; if [ "$status" -ne 0 ]; then echo "Hardcoded colors found - use theme tokens from theme.ts"; exit 1; fi' --
         language: system
-        pass_filenames: false
         files: ^frontend/src/(components|pages)/.*\.(tsx|ts)$
 
       # Check for hallucinated module imports (Guide §3.4, §11)
