@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Box,
   Typography,
@@ -24,15 +24,17 @@ import {
   DialogContent,
   DialogActions,
   LinearProgress,
-} from '@mui/material'
-import { DocumentChat } from '../components/DocumentChat'
-import ChatHistory from '../components/ChatHistory'
-import DocumentDetailsDrawer from '../components/DocumentDetailsDrawer'
-import AgentModePanel, { AgentRunRecord } from '../components/agent/AgentModePanel'
-import { AGENT_HELP } from '../components/agent/agentHelp'
-import HelpTip from '../components/HelpTip'
-import { useGetDocumentsQuery } from '../store/api'
-import { format } from 'date-fns'
+} from "@mui/material";
+import { DocumentChat } from "../components/DocumentChat";
+import ChatHistory from "../components/ChatHistory";
+import DocumentDetailsDrawer from "../components/DocumentDetailsDrawer";
+import AgentModePanel, {
+  AgentRunRecord,
+} from "../components/agent/AgentModePanel";
+import { AGENT_HELP } from "../components/agent/agentHelp";
+import HelpTip from "../components/HelpTip";
+import { useGetDocumentsQuery } from "../store/api";
+import { format } from "date-fns";
 import {
   Chat as ChatIcon,
   History as HistoryIcon,
@@ -40,27 +42,29 @@ import {
   Tune as TuneIcon,
   DoneAll as DoneAllIcon,
   LibraryBooks as LibraryIcon,
-} from '@mui/icons-material'
-import FileTypeIcon, { getFileColor } from '../components/FileTypeIcon'
-import { Search as SearchIcon } from '@mui/icons-material'
-import { useDebounce } from '../hooks/useDebounce'
-import { AnimatePresence, motion } from 'framer-motion'
-import { useSnackbar } from 'notistack'
+} from "@mui/icons-material";
+import FileTypeIcon, { getFileColor } from "../components/FileTypeIcon";
+import { Search as SearchIcon } from "@mui/icons-material";
+import { useDebounce } from "../hooks/useDebounce";
+import { AnimatePresence, motion } from "framer-motion";
+import { useSnackbar } from "notistack";
 
 const glass = (dark: boolean) =>
   dark
     ? {
-        background: 'linear-gradient(180deg, rgba(22,28,38,0.92) 0%, rgba(12,16,22,0.88) 100%)',
-        border: '1px solid rgba(255,255,255,0.08)',
-        boxShadow: '0 18px 50px rgba(0,0,0,0.35)',
-        backdropFilter: 'blur(18px)',
+        background:
+          "linear-gradient(180deg, rgba(22,28,38,0.92) 0%, rgba(12,16,22,0.88) 100%)",
+        border: "1px solid rgba(255,255,255,0.08)",
+        boxShadow: "0 18px 50px rgba(0,0,0,0.35)",
+        backdropFilter: "blur(18px)",
       }
     : {
-        background: 'linear-gradient(180deg, rgba(255,255,255,0.92) 0%, rgba(247,249,252,0.88) 100%)',
-        border: '1px solid rgba(15,23,42,0.08)',
-        boxShadow: '0 18px 40px rgba(15,23,42,0.08)',
-        backdropFilter: 'blur(18px)',
-      }
+        background:
+          "linear-gradient(180deg, rgba(255,255,255,0.92) 0%, rgba(247,249,252,0.88) 100%)",
+        border: "1px solid rgba(15,23,42,0.08)",
+        boxShadow: "0 18px 40px rgba(15,23,42,0.08)",
+        backdropFilter: "blur(18px)",
+      };
 
 /**
  * Research Desk — research-first shell.
@@ -68,27 +72,32 @@ const glass = (dark: boolean) =>
  * not a permanent checkbox wall.
  */
 const ChatPage: React.FC = () => {
-  const theme = useTheme()
-  const dark = theme.palette.mode === 'dark'
-  const { enqueueSnackbar } = useSnackbar()
-  const [selectedDocuments, setSelectedDocuments] = useState<string[]>([])
-  const [selectedConversationId, setSelectedConversationId] = useState<string | undefined>()
-  const [historyOpen, setHistoryOpen] = useState(false)
-  const [followUpOpen, setFollowUpOpen] = useState(false)
-  const [followUpBrief, setFollowUpBrief] = useState<AgentRunRecord | null>(null)
-  const [detailsDrawerOpen, setDetailsDrawerOpen] = useState(false)
-  const [selectedDocumentForDetails, setSelectedDocumentForDetails] = useState<any>(null)
-  const [refineOpen, setRefineOpen] = useState(false)
-  const [draftSelection, setDraftSelection] = useState<string[]>([])
-  const [search, setSearch] = useState('')
-  const [fileType, setFileType] = useState<'all' | string>('all')
-  const [sortBy, setSortBy] = useState<'created_at' | 'filename' | 'file_type' | 'file_size' | 'updated_at'>(
-    'created_at'
-  )
-  const [sortOrder] = useState<'asc' | 'desc'>('desc')
-  const autoSelectedRef = useRef(false)
+  const theme = useTheme();
+  const dark = theme.palette.mode === "dark";
+  const { enqueueSnackbar } = useSnackbar();
+  const [selectedDocuments, setSelectedDocuments] = useState<string[]>([]);
+  const [selectedConversationId, setSelectedConversationId] = useState<
+    string | undefined
+  >();
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [followUpOpen, setFollowUpOpen] = useState(false);
+  const [followUpBrief, setFollowUpBrief] = useState<AgentRunRecord | null>(
+    null,
+  );
+  const [detailsDrawerOpen, setDetailsDrawerOpen] = useState(false);
+  const [selectedDocumentForDetails, setSelectedDocumentForDetails] =
+    useState<any>(null);
+  const [refineOpen, setRefineOpen] = useState(false);
+  const [draftSelection, setDraftSelection] = useState<string[]>([]);
+  const [search, setSearch] = useState("");
+  const [fileType, setFileType] = useState<"all" | string>("all");
+  const [sortBy, setSortBy] = useState<
+    "created_at" | "filename" | "file_type" | "file_size" | "updated_at"
+  >("created_at");
+  const [sortOrder] = useState<"asc" | "desc">("desc");
+  const autoSelectedRef = useRef(false);
 
-  const debouncedSearch = useDebounce(search, 500)
+  const debouncedSearch = useDebounce(search, 500);
 
   const { data, isLoading } = useGetDocumentsQuery({
     skip: 0,
@@ -97,167 +106,183 @@ const ChatPage: React.FC = () => {
     file_type: fileType,
     sort_by: sortBy,
     sort_order: sortOrder,
-    status: 'indexed',
-  })
+    status: "indexed",
+  });
 
   const availableDocuments = useMemo(
-    () => (data?.documents || []).filter((d: any) => d.status === 'indexed'),
-    [data]
-  )
+    () => (data?.documents || []).filter((d: any) => d.status === "indexed"),
+    [data],
+  );
 
   const allIndexedIds = useMemo(
     () => availableDocuments.map((d: any) => d.uuid as string),
-    [availableDocuments]
-  )
+    [availableDocuments],
+  );
 
   useEffect(() => {
-    if (!autoSelectedRef.current && availableDocuments.length > 0 && selectedDocuments.length === 0) {
-      setSelectedDocuments(availableDocuments.map((doc: any) => doc.uuid))
-      autoSelectedRef.current = true
+    if (
+      !autoSelectedRef.current &&
+      availableDocuments.length > 0 &&
+      selectedDocuments.length === 0
+    ) {
+      setSelectedDocuments(availableDocuments.map((doc: any) => doc.uuid));
+      autoSelectedRef.current = true;
     }
-  }, [availableDocuments, selectedDocuments.length])
+  }, [availableDocuments, selectedDocuments.length]);
 
   const usingAllIndexed =
     availableDocuments.length > 0 &&
     selectedDocuments.length >= availableDocuments.length &&
-    availableDocuments.every((d: any) => selectedDocuments.includes(d.uuid))
+    availableDocuments.every((d: any) => selectedDocuments.includes(d.uuid));
 
   const selectedPreviews = useMemo(() => {
-    const byId = new Map(availableDocuments.map((d: any) => [d.uuid, d]))
+    const byId = new Map(availableDocuments.map((d: any) => [d.uuid, d]));
     return selectedDocuments
       .map((id) => byId.get(id))
       .filter(Boolean)
-      .slice(0, 4) as any[]
-  }, [availableDocuments, selectedDocuments])
+      .slice(0, 4) as any[];
+  }, [availableDocuments, selectedDocuments]);
 
   const openRefine = () => {
-    setDraftSelection(selectedDocuments)
-    setRefineOpen(true)
-  }
+    setDraftSelection(selectedDocuments);
+    setRefineOpen(true);
+  };
 
   const applyRefine = () => {
-    setSelectedDocuments(draftSelection)
-    setRefineOpen(false)
+    setSelectedDocuments(draftSelection);
+    setRefineOpen(false);
     enqueueSnackbar(
       draftSelection.length === availableDocuments.length
-        ? 'Scope: all indexed documents'
-        : `Scope: ${draftSelection.length} document${draftSelection.length === 1 ? '' : 's'}`,
-      { variant: 'info' }
-    )
-  }
+        ? "Scope: all indexed documents"
+        : `Scope: ${draftSelection.length} document${draftSelection.length === 1 ? "" : "s"}`,
+      { variant: "info" },
+    );
+  };
 
   const useAllIndexed = () => {
-    setSelectedDocuments(allIndexedIds)
-  }
+    setSelectedDocuments(allIndexedIds);
+  };
 
   const selectAllIndexedInDraft = () => {
-    setDraftSelection(allIndexedIds)
-  }
+    setDraftSelection(allIndexedIds);
+  };
 
   const toggleDraft = (docId: string) => {
     setDraftSelection((prev) =>
-      prev.includes(docId) ? prev.filter((id) => id !== docId) : [...prev, docId]
-    )
-  }
+      prev.includes(docId)
+        ? prev.filter((id) => id !== docId)
+        : [...prev, docId],
+    );
+  };
 
   const toggleDraftShown = () => {
-    const visibleIds = availableDocuments.map((d: any) => d.uuid as string)
-    const allShown = visibleIds.length > 0 && visibleIds.every((id) => draftSelection.includes(id))
+    const visibleIds = availableDocuments.map((d: any) => d.uuid as string);
+    const allShown =
+      visibleIds.length > 0 &&
+      visibleIds.every((id) => draftSelection.includes(id));
     if (allShown) {
-      const visible = new Set(visibleIds)
-      setDraftSelection((prev) => prev.filter((id) => !visible.has(id)))
+      const visible = new Set(visibleIds);
+      setDraftSelection((prev) => prev.filter((id) => !visible.has(id)));
     } else {
-      setDraftSelection((prev) => Array.from(new Set([...prev, ...visibleIds])))
+      setDraftSelection((prev) =>
+        Array.from(new Set([...prev, ...visibleIds])),
+      );
     }
-  }
+  };
 
   const openFollowUp = (run: AgentRunRecord) => {
-    setFollowUpBrief(run)
-    setSelectedConversationId(undefined)
-    setFollowUpOpen(true)
-    setHistoryOpen(false)
-  }
+    setFollowUpBrief(run);
+    setSelectedConversationId(undefined);
+    setFollowUpOpen(true);
+    setHistoryOpen(false);
+  };
 
-  const draftShownSelected = availableDocuments.filter((d: any) => draftSelection.includes(d.uuid)).length
+  const draftShownSelected = availableDocuments.filter((d: any) =>
+    draftSelection.includes(d.uuid),
+  ).length;
   const scopeProgress =
     availableDocuments.length > 0
-      ? Math.round((selectedDocuments.length / Math.max(availableDocuments.length, 1)) * 100)
-      : 0
+      ? Math.round(
+          (selectedDocuments.length / Math.max(availableDocuments.length, 1)) *
+            100,
+        )
+      : 0;
 
   return (
     <Box
       sx={{
-        height: 'calc(100vh - 64px)',
-        display: 'flex',
-        flexDirection: 'column',
+        height: "calc(100vh - 64px)",
+        display: "flex",
+        flexDirection: "column",
         mx: { xs: -2, md: -3 },
         mt: { xs: -2, md: -3 },
         px: { xs: 2, md: 3 },
         pt: { xs: 2, md: 2.5 },
         pb: 2,
-        position: 'relative',
-        overflow: 'hidden',
+        position: "relative",
+        overflow: "hidden",
         gap: 1.25,
       }}
     >
-      <Box
-        aria-hidden
-        sx={{
-          position: 'absolute',
-          inset: 0,
-          pointerEvents: 'none',
-          background: dark
-            ? 'radial-gradient(900px 480px at 20% -5%, rgba(56,189,248,0.14), transparent 55%), radial-gradient(700px 400px at 90% 0%, rgba(99,102,241,0.12), transparent 50%)'
-            : 'radial-gradient(900px 480px at 20% -5%, rgba(14,165,233,0.1), transparent 55%), radial-gradient(700px 400px at 90% 0%, rgba(99,102,241,0.08), transparent 50%)',
-        }}
-      />
-
       {/* Compact masthead + corpus scope */}
       <Paper
         component={motion.div}
         initial={{ opacity: 0, y: 6 }}
         animate={{ opacity: 1, y: 0 }}
         sx={{
-          position: 'relative',
+          position: "relative",
           zIndex: 1,
           px: 1.75,
-          py: 1.15,
+          py: 1,
           borderRadius: 2,
-          ...glass(dark),
+          border: "1px solid",
+          borderColor: "divider",
+          bgcolor: "background.paper",
+          boxShadow: "none",
           flexShrink: 0,
         }}
       >
         <Stack
-          direction={{ xs: 'column', md: 'row' }}
+          direction={{ xs: "column", md: "row" }}
           spacing={1.25}
-          alignItems={{ md: 'center' }}
+          alignItems={{ md: "center" }}
           justifyContent="space-between"
           sx={{ minWidth: 0 }}
         >
-          <Stack direction="row" spacing={1.25} alignItems="center" sx={{ minWidth: 0, flex: 1 }}>
+          <Stack
+            direction="row"
+            spacing={1.25}
+            alignItems="center"
+            sx={{ minWidth: 0, flex: 1 }}
+          >
             <Box
               sx={{
                 width: 36,
                 height: 36,
                 borderRadius: 1.5,
-                display: 'grid',
-                placeItems: 'center',
+                display: "grid",
+                placeItems: "center",
                 background: dark
-                  ? 'linear-gradient(145deg, rgba(56,189,248,0.2), rgba(99,102,241,0.15))'
-                  : 'linear-gradient(145deg, rgba(14,165,233,0.15), rgba(99,102,241,0.12))',
-                color: 'primary.main',
+                  ? "linear-gradient(145deg, rgba(56,189,248,0.2), rgba(99,102,241,0.15))"
+                  : "linear-gradient(145deg, rgba(14,165,233,0.15), rgba(99,102,241,0.12))",
+                color: "primary.main",
                 flexShrink: 0,
               }}
             >
               <LibraryIcon sx={{ fontSize: 20 }} />
             </Box>
             <Box sx={{ minWidth: 0, flex: 1 }}>
-              <Stack direction="row" spacing={1} alignItems="baseline" sx={{ minWidth: 0 }}>
+              <Stack
+                direction="row"
+                spacing={1}
+                alignItems="baseline"
+                sx={{ minWidth: 0 }}
+              >
                 <Typography
                   variant="subtitle1"
                   sx={{
                     fontWeight: 750,
-                    letterSpacing: '-0.02em',
+                    letterSpacing: "-0.02em",
                     lineHeight: 1.2,
                     flexShrink: 0,
                   }}
@@ -270,42 +295,60 @@ const ChatPage: React.FC = () => {
                   variant="body2"
                   color="text.secondary"
                   sx={{
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
                     minWidth: 0,
                   }}
                 >
                   <HelpTip title={AGENT_HELP.scope} underline={false}>
                     {isLoading
-                      ? 'Loading corpus…'
+                      ? "Loading corpus…"
                       : usingAllIndexed
                         ? `Entire corpus · ${selectedDocuments.length} docs`
-                        : `Custom · ${selectedDocuments.length}/${availableDocuments.length || '—'} docs`}
+                        : `Custom · ${selectedDocuments.length}/${availableDocuments.length || "—"} docs`}
                   </HelpTip>
                 </Typography>
               </Stack>
               {!usingAllIndexed && selectedPreviews.length > 0 && (
-                <Stack direction="row" spacing={0.5} sx={{ mt: 0.6, minWidth: 0 }} useFlexGap flexWrap="wrap">
+                <Stack
+                  direction="row"
+                  spacing={0.5}
+                  sx={{ mt: 0.6, minWidth: 0 }}
+                  useFlexGap
+                  flexWrap="wrap"
+                >
                   {selectedPreviews.slice(0, 3).map((doc: any) => (
                     <Chip
                       key={doc.uuid}
                       size="small"
                       avatar={
-                        <Avatar sx={{ bgcolor: getFileColor(doc.file_type), width: 16, height: 16 }}>
-                          <FileTypeIcon fileType={doc.file_type} iconProps={{ sx: { fontSize: 10 } }} />
+                        <Avatar
+                          sx={{
+                            bgcolor: getFileColor(doc.file_type),
+                            width: 16,
+                            height: 16,
+                          }}
+                        >
+                          <FileTypeIcon
+                            fileType={doc.file_type}
+                            iconProps={{ sx: { fontSize: 10 } }}
+                          />
                         </Avatar>
                       }
                       label={doc.title || doc.filename}
                       onClick={() => {
-                        setSelectedDocumentForDetails(doc)
-                        setDetailsDrawerOpen(true)
+                        setSelectedDocumentForDetails(doc);
+                        setDetailsDrawerOpen(true);
                       }}
                       sx={{
                         maxWidth: 140,
                         height: 22,
                         borderRadius: 1,
-                        '& .MuiChip-label': { overflow: 'hidden', textOverflow: 'ellipsis' },
+                        "& .MuiChip-label": {
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                        },
                       }}
                     />
                   ))}
@@ -322,20 +365,27 @@ const ChatPage: React.FC = () => {
             </Box>
           </Stack>
 
-          <Stack direction="row" spacing={0.75} alignItems="center" flexShrink={0} flexWrap="wrap" useFlexGap>
-            <Box sx={{ width: 88, display: { xs: 'none', sm: 'block' } }}>
+          <Stack
+            direction="row"
+            spacing={0.75}
+            alignItems="center"
+            flexShrink={0}
+            flexWrap="wrap"
+            useFlexGap
+          >
+            <Box sx={{ width: 88, display: { xs: "none", sm: "block" } }}>
               <LinearProgress
                 variant="determinate"
                 value={scopeProgress}
                 sx={{
                   height: 3,
                   borderRadius: 2,
-                  bgcolor: dark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
-                  '& .MuiLinearProgress-bar': {
+                  bgcolor: dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)",
+                  "& .MuiLinearProgress-bar": {
                     borderRadius: 2,
                     background: usingAllIndexed
-                      ? 'linear-gradient(90deg, #22c55e, #06b6d4)'
-                      : 'linear-gradient(90deg, #3b82f6, #06b6d4)',
+                      ? "linear-gradient(90deg, #22c55e, #06b6d4)"
+                      : "linear-gradient(90deg, #3b82f6, #06b6d4)",
                   },
                 }}
               />
@@ -345,7 +395,11 @@ const ChatPage: React.FC = () => {
                 size="small"
                 startIcon={<DoneAllIcon />}
                 onClick={useAllIndexed}
-                sx={{ borderRadius: 1.5, textTransform: 'none', fontWeight: 650 }}
+                sx={{
+                  borderRadius: 1.5,
+                  textTransform: "none",
+                  fontWeight: 650,
+                }}
               >
                 Use all
               </Button>
@@ -355,7 +409,7 @@ const ChatPage: React.FC = () => {
               variant="outlined"
               startIcon={<TuneIcon />}
               onClick={openRefine}
-              sx={{ borderRadius: 1.5, textTransform: 'none', fontWeight: 700 }}
+              sx={{ borderRadius: 1.5, textTransform: "none", fontWeight: 700 }}
             >
               Scope
             </Button>
@@ -365,7 +419,11 @@ const ChatPage: React.FC = () => {
                 variant="outlined"
                 startIcon={<HistoryIcon />}
                 onClick={() => setHistoryOpen(true)}
-                sx={{ borderRadius: 1.5, textTransform: 'none', fontWeight: 650 }}
+                sx={{
+                  borderRadius: 1.5,
+                  textTransform: "none",
+                  fontWeight: 650,
+                }}
               >
                 Follow-ups
               </Button>
@@ -375,12 +433,12 @@ const ChatPage: React.FC = () => {
       </Paper>
 
       {/* Research stage — full width */}
-      <Box sx={{ position: 'relative', zIndex: 1, flex: 1, minHeight: 0 }}>
+      <Box sx={{ position: "relative", zIndex: 1, flex: 1, minHeight: 0 }}>
         <AgentModePanel
           documentIds={selectedDocuments}
           onFinalAnswer={(_goal, _answer, run) => {
-            enqueueSnackbar('Brief ready — see Briefs panel', { variant: 'success' })
-            setFollowUpBrief(run)
+            enqueueSnackbar("Brief ready", { variant: "success" });
+            setFollowUpBrief(run);
           }}
           onAskFollowUp={openFollowUp}
         />
@@ -395,20 +453,28 @@ const ChatPage: React.FC = () => {
         PaperProps={{
           sx: {
             borderRadius: 3,
-            overflow: 'hidden',
+            overflow: "hidden",
             ...glass(dark),
-            maxHeight: '82vh',
+            maxHeight: "82vh",
           },
         }}
       >
         <DialogTitle sx={{ pb: 1 }}>
-          <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+          <Stack
+            direction="row"
+            justifyContent="space-between"
+            alignItems="flex-start"
+          >
             <Box>
-              <Typography variant="h6" sx={{ fontWeight: 750, letterSpacing: '-0.02em' }}>
+              <Typography
+                variant="h6"
+                sx={{ fontWeight: 750, letterSpacing: "-0.02em" }}
+              >
                 Refine corpus
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Choose what the research agent can use. Defaults to everything indexed.
+                Choose what the research agent can use. Defaults to everything
+                indexed.
               </Typography>
             </Box>
             <IconButton onClick={() => setRefineOpen(false)} size="small">
@@ -417,7 +483,11 @@ const ChatPage: React.FC = () => {
           </Stack>
         </DialogTitle>
         <DialogContent dividers sx={{ px: 2.5, py: 2 }}>
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ mb: 2 }}>
+          <Stack
+            direction={{ xs: "column", sm: "row" }}
+            spacing={1}
+            sx={{ mb: 2 }}
+          >
             <TextField
               size="small"
               fullWidth
@@ -434,7 +504,11 @@ const ChatPage: React.FC = () => {
             />
             <FormControl size="small" sx={{ minWidth: 110 }}>
               <InputLabel>Type</InputLabel>
-              <Select label="Type" value={fileType} onChange={(e) => setFileType(e.target.value as any)}>
+              <Select
+                label="Type"
+                value={fileType}
+                onChange={(e) => setFileType(e.target.value as any)}
+              >
                 <MenuItem value="all">All</MenuItem>
                 <MenuItem value="pdf">PDF</MenuItem>
                 <MenuItem value="txt">TXT</MenuItem>
@@ -444,7 +518,11 @@ const ChatPage: React.FC = () => {
             </FormControl>
             <FormControl size="small" sx={{ minWidth: 120 }}>
               <InputLabel>Sort</InputLabel>
-              <Select label="Sort" value={sortBy} onChange={(e) => setSortBy(e.target.value as any)}>
+              <Select
+                label="Sort"
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as any)}
+              >
                 <MenuItem value="created_at">Created</MenuItem>
                 <MenuItem value="updated_at">Updated</MenuItem>
                 <MenuItem value="filename">Filename</MenuItem>
@@ -452,22 +530,41 @@ const ChatPage: React.FC = () => {
                 <MenuItem value="file_size">Size</MenuItem>
               </Select>
             </FormControl>
-            <Button size="small" onClick={toggleDraftShown} sx={{ textTransform: 'none', whiteSpace: 'nowrap' }}>
-              {draftShownSelected === availableDocuments.length && availableDocuments.length > 0
-                ? 'Clear shown'
-                : 'Select shown'}
+            <Button
+              size="small"
+              onClick={toggleDraftShown}
+              sx={{ textTransform: "none", whiteSpace: "nowrap" }}
+            >
+              {draftShownSelected === availableDocuments.length &&
+              availableDocuments.length > 0
+                ? "Clear shown"
+                : "Select shown"}
             </Button>
           </Stack>
 
-          <Stack direction="row" spacing={1} sx={{ mb: 1.5 }} alignItems="center">
-            <Chip size="small" label={`${draftSelection.length} selected`} color="primary" sx={{ fontWeight: 700 }} />
-            <Chip size="small" label={`${availableDocuments.length} shown`} sx={{ fontWeight: 600 }} />
+          <Stack
+            direction="row"
+            spacing={1}
+            sx={{ mb: 1.5 }}
+            alignItems="center"
+          >
+            <Chip
+              size="small"
+              label={`${draftSelection.length} selected`}
+              color="primary"
+              sx={{ fontWeight: 700 }}
+            />
+            <Chip
+              size="small"
+              label={`${availableDocuments.length} shown`}
+              sx={{ fontWeight: 600 }}
+            />
             <Box sx={{ flex: 1 }} />
             <Button
               size="small"
               startIcon={<DoneAllIcon />}
               onClick={selectAllIndexedInDraft}
-              sx={{ textTransform: 'none' }}
+              sx={{ textTransform: "none" }}
             >
               Select all indexed
             </Button>
@@ -475,11 +572,11 @@ const ChatPage: React.FC = () => {
 
           <Box
             sx={{
-              display: 'grid',
-              gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+              display: "grid",
+              gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
               gap: 1,
-              maxHeight: '48vh',
-              overflow: 'auto',
+              maxHeight: "48vh",
+              overflow: "auto",
               pr: 0.5,
             }}
           >
@@ -487,10 +584,12 @@ const ChatPage: React.FC = () => {
               {isLoading ? (
                 <Typography color="text.secondary">Loading…</Typography>
               ) : availableDocuments.length === 0 ? (
-                <Typography color="text.secondary">No indexed documents match.</Typography>
+                <Typography color="text.secondary">
+                  No indexed documents match.
+                </Typography>
               ) : (
                 availableDocuments.map((doc: any) => {
-                  const checked = draftSelection.includes(doc.uuid)
+                  const checked = draftSelection.includes(doc.uuid);
                   return (
                     <Box
                       key={doc.uuid}
@@ -500,25 +599,30 @@ const ChatPage: React.FC = () => {
                       animate={{ opacity: 1, y: 0 }}
                       onClick={() => toggleDraft(doc.uuid)}
                       sx={{
-                        display: 'flex',
+                        display: "flex",
                         gap: 1.25,
-                        alignItems: 'flex-start',
+                        alignItems: "flex-start",
                         p: 1.25,
                         borderRadius: 2,
-                        cursor: 'pointer',
-                        border: '1px solid',
-                        borderColor: checked ? 'primary.main' : 'divider',
+                        cursor: "pointer",
+                        border: "1px solid",
+                        borderColor: checked ? "primary.main" : "divider",
                         bgcolor: checked
                           ? dark
-                            ? 'rgba(25,118,210,0.14)'
-                            : 'rgba(25,118,210,0.07)'
+                            ? "rgba(25,118,210,0.14)"
+                            : "rgba(25,118,210,0.07)"
                           : dark
-                            ? 'rgba(255,255,255,0.02)'
-                            : 'rgba(255,255,255,0.55)',
-                        transition: 'border-color 0.15s ease, background 0.15s ease',
-                        '&:hover': {
-                          borderColor: checked ? 'primary.main' : 'primary.light',
-                          bgcolor: dark ? 'rgba(255,255,255,0.04)' : 'rgba(25,118,210,0.04)',
+                            ? "rgba(255,255,255,0.02)"
+                            : "rgba(255,255,255,0.55)",
+                        transition:
+                          "border-color 0.15s ease, background 0.15s ease",
+                        "&:hover": {
+                          borderColor: checked
+                            ? "primary.main"
+                            : "primary.light",
+                          bgcolor: dark
+                            ? "rgba(255,255,255,0.04)"
+                            : "rgba(25,118,210,0.04)",
                         },
                       }}
                     >
@@ -527,8 +631,8 @@ const ChatPage: React.FC = () => {
                         size="small"
                         sx={{ p: 0.25, mt: 0.15 }}
                         onClick={(e) => {
-                          e.stopPropagation()
-                          toggleDraft(doc.uuid)
+                          e.stopPropagation();
+                          toggleDraft(doc.uuid);
                         }}
                       />
                       <Avatar
@@ -540,7 +644,10 @@ const ChatPage: React.FC = () => {
                           fontSize: 12,
                         }}
                       >
-                        <FileTypeIcon fileType={doc.file_type} iconProps={{ sx: { fontSize: 16 } }} />
+                        <FileTypeIcon
+                          fileType={doc.file_type}
+                          iconProps={{ sx: { fontSize: 16 } }}
+                        />
                       </Avatar>
                       <Box sx={{ minWidth: 0, flex: 1 }}>
                         <Typography
@@ -548,45 +655,59 @@ const ChatPage: React.FC = () => {
                           sx={{
                             fontWeight: 650,
                             lineHeight: 1.3,
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
                           }}
                         >
                           {doc.title || doc.filename}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
-                          {(doc.file_type || 'file').toUpperCase()} ·{' '}
-                          {format(new Date(doc.created_at), 'MMM d, yyyy')}
+                          {(doc.file_type || "file").toUpperCase()} ·{" "}
+                          {format(new Date(doc.created_at), "MMM d, yyyy")}
                         </Typography>
                         <Button
                           size="small"
-                          sx={{ mt: 0.25, px: 0, minWidth: 0, textTransform: 'none', fontSize: 11 }}
+                          sx={{
+                            mt: 0.25,
+                            px: 0,
+                            minWidth: 0,
+                            textTransform: "none",
+                            fontSize: 11,
+                          }}
                           onClick={(e) => {
-                            e.stopPropagation()
-                            setSelectedDocumentForDetails(doc)
-                            setDetailsDrawerOpen(true)
+                            e.stopPropagation();
+                            setSelectedDocumentForDetails(doc);
+                            setDetailsDrawerOpen(true);
                           }}
                         >
                           Details
                         </Button>
                       </Box>
                     </Box>
-                  )
+                  );
                 })
               )}
             </AnimatePresence>
           </Box>
         </DialogContent>
         <DialogActions sx={{ px: 2.5, py: 1.5 }}>
-          <Button onClick={() => setRefineOpen(false)} sx={{ textTransform: 'none' }}>
+          <Button
+            onClick={() => setRefineOpen(false)}
+            sx={{ textTransform: "none" }}
+          >
             Cancel
           </Button>
           <Button
             variant="contained"
             onClick={applyRefine}
             disabled={draftSelection.length === 0}
-            sx={{ borderRadius: 999, textTransform: 'none', fontWeight: 700, px: 2.5 }}
+            sx={{
+              borderRadius: 999,
+              textTransform: "none",
+              fontWeight: 700,
+              px: 2.5,
+            }}
           >
             Apply scope ({draftSelection.length})
           </Button>
@@ -598,27 +719,38 @@ const ChatPage: React.FC = () => {
         open={followUpOpen}
         onClose={() => setFollowUpOpen(false)}
         sx={{
-          '& .MuiDrawer-paper': {
-            width: { xs: '100%', sm: 420, md: 460 },
+          "& .MuiDrawer-paper": {
+            width: { xs: "100%", sm: 420, md: 460 },
             p: 0,
-            display: 'flex',
-            flexDirection: 'column',
+            display: "flex",
+            flexDirection: "column",
             ...glass(dark),
           },
         }}
       >
-        <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
-          <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
+        <Box sx={{ p: 2, borderBottom: "1px solid", borderColor: "divider" }}>
+          <Stack
+            direction="row"
+            alignItems="center"
+            justifyContent="space-between"
+            spacing={1}
+          >
             <Box sx={{ minWidth: 0 }}>
               <Typography
                 variant="subtitle1"
-                sx={{ fontWeight: 750, display: 'flex', alignItems: 'center', gap: 0.75 }}
+                sx={{
+                  fontWeight: 750,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 0.75,
+                }}
               >
                 <ChatIcon fontSize="small" color="primary" />
                 Ask follow-up
               </Typography>
               <Typography variant="caption" color="text.secondary" noWrap>
-                {followUpBrief?.goal || 'Conversational Q&A over the same scoped corpus'}
+                {followUpBrief?.goal ||
+                  "Conversational Q&A over the same scoped corpus"}
               </Typography>
             </Box>
             <Stack direction="row" spacing={0.5}>
@@ -631,13 +763,31 @@ const ChatPage: React.FC = () => {
             </Stack>
           </Stack>
           {followUpBrief && (
-            <Paper variant="outlined" sx={{ mt: 1.25, p: 1.25, borderRadius: 1.5, bgcolor: 'action.hover' }}>
-              <Typography variant="caption" sx={{ fontWeight: 700, color: 'success.main', letterSpacing: 0.6 }}>
+            <Paper
+              variant="outlined"
+              sx={{
+                mt: 1.25,
+                p: 1.25,
+                borderRadius: 1.5,
+                bgcolor: "action.hover",
+              }}
+            >
+              <Typography
+                variant="caption"
+                sx={{
+                  fontWeight: 700,
+                  color: "success.main",
+                  letterSpacing: 0.6,
+                }}
+              >
                 BRIEF CONTEXT
               </Typography>
-              <Typography variant="body2" sx={{ mt: 0.35, whiteSpace: 'pre-wrap' }}>
+              <Typography
+                variant="body2"
+                sx={{ mt: 0.35, whiteSpace: "pre-wrap" }}
+              >
                 {followUpBrief.answer.slice(0, 420)}
-                {followUpBrief.answer.length > 420 ? '…' : ''}
+                {followUpBrief.answer.length > 420 ? "…" : ""}
               </Typography>
             </Paper>
           )}
@@ -653,7 +803,9 @@ const ChatPage: React.FC = () => {
                 : undefined
             }
             initialDraft={
-              followUpBrief ? `Regarding the research brief on “${followUpBrief.goal}”: ` : undefined
+              followUpBrief
+                ? `Regarding the research brief on “${followUpBrief.goal}”: `
+                : undefined
             }
           />
         </Box>
@@ -663,9 +815,16 @@ const ChatPage: React.FC = () => {
         anchor="right"
         open={historyOpen}
         onClose={() => setHistoryOpen(false)}
-        sx={{ '& .MuiDrawer-paper': { width: 400, p: 2, ...glass(dark) } }}
+        sx={{ "& .MuiDrawer-paper": { width: 400, p: 2, ...glass(dark) } }}
       >
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            mb: 2,
+          }}
+        >
           <Typography variant="h6" sx={{ fontWeight: 700 }}>
             Follow-up history
           </Typography>
@@ -676,9 +835,9 @@ const ChatPage: React.FC = () => {
         <Divider sx={{ mb: 2 }} />
         <ChatHistory
           onConversationSelect={(id) => {
-            setSelectedConversationId(id)
-            setFollowUpOpen(true)
-            setHistoryOpen(false)
+            setSelectedConversationId(id);
+            setFollowUpOpen(true);
+            setHistoryOpen(false);
           }}
           selectedConversationId={selectedConversationId}
         />
@@ -688,15 +847,17 @@ const ChatPage: React.FC = () => {
         open={detailsDrawerOpen}
         document={selectedDocumentForDetails}
         onClose={() => {
-          setDetailsDrawerOpen(false)
-          setSelectedDocumentForDetails(null)
+          setDetailsDrawerOpen(false);
+          setSelectedDocumentForDetails(null);
         }}
         onEdit={() => undefined}
-        onDownload={(doc) => window.open(`/api/v1/files/${doc.uuid}/download`, '_blank')}
+        onDownload={(doc) =>
+          window.open(`/api/v1/files/${doc.uuid}/download`, "_blank")
+        }
         onShare={() => undefined}
       />
     </Box>
-  )
-}
+  );
+};
 
-export default ChatPage
+export default ChatPage;

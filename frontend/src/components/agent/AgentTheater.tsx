@@ -1,26 +1,69 @@
-import React, { useEffect, useState } from 'react'
-import { Box, Chip, Stack, Typography } from '@mui/material'
-import HelpTip from '../HelpTip'
-import AgentTheaterScene from './AgentTheaterScene'
-import AgentInstrumentCluster from './AgentInstrumentCluster'
-import { AGENT_HELP } from './agentHelp'
-import type { AgentPhase, AgentStep, AgentStreamStatus } from '../../hooks/useAgentStream'
+import React, { useEffect, useState } from "react";
+import { Box, Button, Collapse, Paper, Typography } from "@mui/material";
+import { ExpandMore as ExpandMoreIcon } from "@mui/icons-material";
+import AgentTheaterScene from "./AgentTheaterScene";
+import AgentInstrumentCluster from "./AgentInstrumentCluster";
+import type {
+  AgentPhase,
+  AgentStep,
+  AgentStreamStatus,
+} from "../../hooks/useAgentStream";
 
 interface AgentTheaterProps {
-  status: AgentStreamStatus
-  phase: AgentPhase
-  tools: string[]
-  steps: AgentStep[]
-  holding: boolean
-  finalAnswer: string | null
-  maxSteps: number
-  iterations: number
-  stoppedReason: string | null
-  error: string | null
-  goal?: string
-  activeAction?: string | null
-  activeThought?: string | null
-  startedAt?: number | null
+  status: AgentStreamStatus;
+  phase: AgentPhase;
+  tools: string[];
+  steps: AgentStep[];
+  holding: boolean;
+  finalAnswer: string | null;
+  maxSteps: number;
+  iterations: number;
+  stoppedReason: string | null;
+  error: string | null;
+  goal?: string;
+  activeAction?: string | null;
+  activeThought?: string | null;
+  startedAt?: number | null;
+  /** `dock` sits under the brief. `console` is the full instrument view on a narrow screen. */
+  presentation?: "dock" | "console";
+  reasoningOpen?: boolean;
+  onToggleReasoning?: () => void;
+}
+
+export function useConsoleClock(
+  status: AgentStreamStatus,
+  startedAt: number | null | undefined,
+  maxSteps: number,
+  stepCount: number,
+  phase: AgentPhase,
+) {
+  const [elapsed, setElapsed] = useState(0);
+  const isLive = status === "running" || status === "connecting";
+
+  useEffect(() => {
+    if (!isLive || !startedAt) {
+      setElapsed(0);
+      return;
+    }
+    const tick = () =>
+      setElapsed(Math.max(0, Math.floor((Date.now() - startedAt) / 1000)));
+    tick();
+    const id = window.setInterval(tick, 200);
+    return () => window.clearInterval(id);
+  }, [isLive, startedAt]);
+
+  const hardProgress =
+    maxSteps > 0 ? Math.min(100, (stepCount / maxSteps) * 100) : 0;
+  const softBoost =
+    isLive && stepCount === 0
+      ? Math.min(16, elapsed * 1.8)
+      : isLive && phase === "planning"
+        ? Math.min(9, 2 + (elapsed % 10))
+        : 0;
+  const progress =
+    status === "completed" ? 100 : Math.min(99, hardProgress + softBoost);
+
+  return { elapsed, progress, isLive };
 }
 
 export const AgentTheater: React.FC<AgentTheaterProps> = ({
@@ -31,126 +74,133 @@ export const AgentTheater: React.FC<AgentTheaterProps> = ({
   holding,
   finalAnswer,
   maxSteps,
-  iterations,
-  stoppedReason,
   error,
-  goal,
   activeAction,
   activeThought,
   startedAt,
+  presentation = "dock",
+  reasoningOpen = false,
+  onToggleReasoning,
 }) => {
-  const [elapsed, setElapsed] = useState(0)
-  const isLive = status === 'running' || status === 'connecting'
+  const { elapsed, progress, isLive } = useConsoleClock(
+    status,
+    startedAt,
+    maxSteps,
+    steps.length,
+    phase,
+  );
 
-  useEffect(() => {
-    if (!isLive || !startedAt) {
-      setElapsed(0)
-      return
-    }
-    const tick = () => setElapsed(Math.max(0, Math.floor((Date.now() - startedAt) / 1000)))
-    tick()
-    const id = window.setInterval(tick, 200)
-    return () => window.clearInterval(id)
-  }, [isLive, startedAt])
+  const scene = (
+    <AgentTheaterScene
+      status={status}
+      phase={phase}
+      tools={tools}
+      steps={steps}
+      holding={holding}
+      finalAnswer={finalAnswer}
+      activeAction={activeAction}
+      activeThought={activeThought}
+      elapsed={elapsed}
+      maxSteps={maxSteps}
+      variant={presentation === "dock" ? "dock" : "stage"}
+    />
+  );
 
-  const hardProgress = maxSteps > 0 ? Math.min(100, (steps.length / maxSteps) * 100) : 0
-  const softBoost =
-    isLive && steps.length === 0
-      ? Math.min(16, elapsed * 1.8)
-      : isLive && phase === 'planning'
-        ? Math.min(9, 2 + (elapsed % 10))
-        : 0
-  const progress = status === 'completed' ? 100 : Math.min(99, hardProgress + softBoost)
-
-  return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', gap: 1, minHeight: 0 }}>
-      <Stack
-        direction="row"
-        alignItems="center"
-        justifyContent="space-between"
-        gap={1}
-        sx={{ minWidth: 0, flexShrink: 0 }}
-      >
-        <Box sx={{ minWidth: 0, flex: 1 }}>
-          <Typography
-            variant="caption"
-            sx={{ color: 'text.secondary', letterSpacing: 0.7, fontWeight: 750, textTransform: 'uppercase' }}
-          >
-            <HelpTip title={AGENT_HELP.controlTower}>Console</HelpTip>
-          </Typography>
-          <Typography
-            variant="body2"
-            title={goal || undefined}
+  const cluster = (
+    <AgentInstrumentCluster
+      status={status}
+      phase={phase}
+      steps={steps}
+      tools={tools}
+      maxSteps={maxSteps}
+      elapsed={elapsed}
+      progress={progress}
+      activeAction={activeAction}
+      density={presentation === "dock" ? "rail" : "panel"}
+      framed={presentation !== "dock"}
+      headerAction={
+        presentation === "dock" ? (
+          <Button
+            size="small"
+            onClick={onToggleReasoning}
+            aria-expanded={reasoningOpen}
+            aria-controls="research-reasoning"
+            endIcon={
+              <ExpandMoreIcon
+                sx={{
+                  transform: reasoningOpen ? "rotate(180deg)" : "none",
+                  transition: "transform 0.15s ease",
+                }}
+              />
+            }
             sx={{
-              color: 'text.secondary',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
+              textTransform: "none",
+              fontWeight: 700,
+              color: isLive ? "primary.main" : "text.secondary",
+              flexShrink: 0,
             }}
           >
-            {goal || 'Run an objective to watch instruments and reasoning'}
+            {isLive ? "Reasoning · live" : "Reasoning"}
+          </Button>
+        ) : undefined
+      }
+    />
+  );
+
+  if (presentation === "console") {
+    return (
+      <Box
+        sx={{
+          height: "100%",
+          minHeight: 0,
+          display: "flex",
+          flexDirection: "column",
+          gap: 1,
+          overflow: "auto",
+        }}
+      >
+        {cluster}
+        <Box sx={{ flex: 1, minHeight: 360 }}>{scene}</Box>
+        {error && (
+          <Typography
+            color="error"
+            variant="body2"
+            sx={{ flexShrink: 0, wordBreak: "break-word" }}
+          >
+            {error}
           </Typography>
-        </Box>
-        <Stack direction="row" spacing={0.75} alignItems="center" flexShrink={0}>
-          {isLive && (
-            <Chip
-              size="small"
-              color={phase === 'tool' ? 'warning' : 'info'}
-              label={phase === 'tool' ? 'Tool' : 'Planning'}
-              sx={{ fontWeight: 750, height: 22 }}
-            />
-          )}
-          {stoppedReason && (
-            <Chip
-              size="small"
-              label={stoppedReason}
-              variant="outlined"
-              sx={{ height: 22, maxWidth: 120, '& .MuiChip-label': { overflow: 'hidden', textOverflow: 'ellipsis' } }}
-            />
-          )}
-          <Chip
-            size="small"
-            variant="outlined"
-            label={`${iterations || steps.length}/${maxSteps}`}
-            sx={{ fontVariantNumeric: 'tabular-nums', height: 22 }}
-          />
-        </Stack>
-      </Stack>
-
-      {/* Dominant live graphics — always visible */}
-      <AgentInstrumentCluster
-        status={status}
-        phase={phase}
-        steps={steps}
-        tools={tools}
-        maxSteps={maxSteps}
-        elapsed={elapsed}
-        progress={progress}
-        activeAction={activeAction}
-      />
-
-      <Box sx={{ flex: 1, minHeight: 0, minWidth: 0 }}>
-        <AgentTheaterScene
-          status={status}
-          phase={phase}
-          tools={tools}
-          steps={steps}
-          holding={holding}
-          finalAnswer={finalAnswer}
-          activeAction={activeAction}
-          activeThought={activeThought}
-          elapsed={elapsed}
-          maxSteps={maxSteps}
-        />
+        )}
       </Box>
+    );
+  }
 
-      {error && (
-        <Typography color="error" variant="body2" sx={{ flexShrink: 0, wordBreak: 'break-word' }}>
-          {error}
-        </Typography>
-      )}
-    </Box>
-  )
-}
+  return (
+    <Paper
+      sx={{
+        flexShrink: 0,
+        borderRadius: 2,
+        border: "1px solid",
+        borderColor: "divider",
+        overflow: "hidden",
+        bgcolor: "background.paper",
+      }}
+    >
+      {cluster}
+      <Collapse in={reasoningOpen}>
+        <Box
+          id="research-reasoning"
+          sx={{
+            height: 220,
+            borderTop: "1px solid",
+            borderColor: "divider",
+            minHeight: 0,
+          }}
+        >
+          {scene}
+        </Box>
+      </Collapse>
+    </Paper>
+  );
+};
 
-export default AgentTheater
+export default AgentTheater;

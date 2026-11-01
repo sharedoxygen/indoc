@@ -1,48 +1,61 @@
-import React, { useId, useMemo } from 'react'
-import { Box, Typography, useTheme } from '@mui/material'
-import { motion, useReducedMotion } from 'framer-motion'
-import type { InstrumentBaseProps } from './types'
-import { clampRatio, formatInstrumentValue, useInstrumentColor } from './useInstrumentColor'
-import { buildTicks, describeSemiArc, polar } from './instrumentGeometry'
+import React, { useId, useMemo } from "react";
+import { Box, Typography, useTheme } from "@mui/material";
+import { motion, useReducedMotion } from "framer-motion";
+import type { InstrumentBaseProps } from "./types";
+import {
+  clampRatio,
+  formatInstrumentValue,
+  useInstrumentColor,
+} from "./useInstrumentColor";
+import { buildTicks, describeSemiArc, polar } from "./instrumentGeometry";
 import {
   CapJewel,
   InstrumentDefs,
   instrumentPalette,
-} from './InstrumentChrome'
-import { InstrumentTooltip } from './InstrumentHelp'
+} from "./InstrumentChrome";
+import { InstrumentTooltip } from "./InstrumentHelp";
 
 /** Semi-circular precision meter with numbered graduations and tip marker. */
-export const ArcMeter: React.FC<InstrumentBaseProps & { subtitle?: string; displayValue?: string }> = ({
+export const ArcMeter: React.FC<
+  InstrumentBaseProps & {
+    subtitle?: string;
+    displayValue?: string;
+    layout?: "stack" | "inline";
+    showScaleNumbers?: boolean;
+  }
+> = ({
   value,
   max = 100,
   min = 0,
   label,
   subtitle,
-  unit = '',
+  unit = "",
   precision = 0,
   size = 110,
-  status = 'idle',
+  status = "idle",
   animate = true,
   color,
   displayValue,
   help,
+  layout = "stack",
+  showScaleNumbers = true,
 }) => {
-  const theme = useTheme()
-  const reduceMotion = useReducedMotion()
-  const stroke = useInstrumentColor(status, color)
-  const uid = useId().replace(/:/g, '')
-  const ratio = clampRatio(value, min, max)
-  const cx = size / 2
-  const cy = size * 0.6
-  const r = size * 0.38
-  const track = describeSemiArc(cx, cy, r, 0, 180)
-  const valuePath = describeSemiArc(cx, cy, r, 0, 180 * ratio)
-  const dark = theme.palette.mode === 'dark'
-  const p = instrumentPalette(dark)
-  const tip = polar(cx, cy, r - 6, 180 * ratio, -180)
-  const compact = size < 130
-  const faceH = size * 0.68
-  const readout = displayValue ?? formatInstrumentValue(value, precision, unit)
+  const theme = useTheme();
+  const reduceMotion = useReducedMotion();
+  const stroke = useInstrumentColor(status, color);
+  const uid = useId().replace(/:/g, "");
+  const ratio = clampRatio(value, min, max);
+  const cx = size / 2;
+  const cy = size * 0.6;
+  const r = size * 0.38;
+  const track = describeSemiArc(cx, cy, r, 0, 180);
+  const valuePath = describeSemiArc(cx, cy, r, 0, 180 * ratio);
+  const dark = theme.palette.mode === "dark";
+  const p = instrumentPalette(dark);
+  const tip = polar(cx, cy, r - 6, 180 * ratio, -180);
+  const compact = size < 130;
+  const faceH = size * 0.68;
+  const readout = displayValue ?? formatInstrumentValue(value, precision, unit);
 
   const ticks = useMemo(
     () =>
@@ -52,8 +65,8 @@ export const ArcMeter: React.FC<InstrumentBaseProps & { subtitle?: string; displ
         r,
         startAngle: 0,
         sweep: 180,
-        count: compact ? 20 : 30,
-        majorEvery: compact ? 5 : 5,
+        count: !showScaleNumbers ? 40 : compact ? 20 : 30,
+        majorEvery: 5,
         zeroAt: -180,
         labelMin: min,
         labelMax: max,
@@ -61,24 +74,39 @@ export const ArcMeter: React.FC<InstrumentBaseProps & { subtitle?: string; displ
         labelR: r - (compact ? 13 : 11),
         labelEveryMajors: compact ? 2 : 1,
       }),
-    [cx, cy, r, min, max, compact]
-  )
+    [cx, cy, r, min, max, compact, showScaleNumbers],
+  );
+
+  const inline = layout === "inline";
 
   return (
     <InstrumentTooltip help={help}>
       <Box
         sx={{
-          width: size,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          userSelect: 'none',
-          cursor: help ? 'help' : 'default',
+          width: inline ? "100%" : size,
+          display: "flex",
+          flexDirection: inline ? "row" : "column",
+          alignItems: "center",
+          gap: inline ? 1.25 : 0,
+          minWidth: 0,
+          userSelect: "none",
+          cursor: help ? "help" : "default",
         }}
-        aria-label={label ? `${label} meter` : 'Arc meter'}
+        aria-label={label ? `${label} meter` : "Arc meter"}
       >
-        <Box sx={{ position: 'relative', width: size, height: faceH }}>
-          <svg width={size} height={faceH} viewBox={`0 0 ${size} ${size * 0.72}`}>
+        <Box
+          sx={{
+            position: "relative",
+            width: size,
+            height: faceH,
+            flexShrink: 0,
+          }}
+        >
+          <svg
+            width={size}
+            height={faceH}
+            viewBox={`0 0 ${size} ${size * 0.72}`}
+          >
             <InstrumentDefs uid={uid} dark={dark} />
 
             <path
@@ -97,7 +125,13 @@ export const ArcMeter: React.FC<InstrumentBaseProps & { subtitle?: string; displ
               strokeWidth={5.5}
               strokeLinecap="butt"
             />
-            <path d={track} fill="none" stroke={p.edge} strokeWidth={1.15} strokeLinecap="butt" />
+            <path
+              d={track}
+              fill="none"
+              stroke={p.edge}
+              strokeWidth={1.15}
+              strokeLinecap="butt"
+            />
 
             {ticks.map((t, i) => (
               <g key={i}>
@@ -109,20 +143,23 @@ export const ArcMeter: React.FC<InstrumentBaseProps & { subtitle?: string; displ
                   stroke={t.major ? p.tick : p.tickMinor}
                   strokeWidth={t.major ? 1 : 0.4}
                 />
-                {t.label != null && t.lx != null && t.ly != null && (
-                  <text
-                    x={t.lx}
-                    y={t.ly}
-                    fill={p.tick}
-                    fontSize={Math.max(8, size * 0.06)}
-                    textAnchor="middle"
-                    dominantBaseline="middle"
-                    fontFamily="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace"
-                    opacity={0.75}
-                  >
-                    {t.label}
-                  </text>
-                )}
+                {showScaleNumbers &&
+                  t.label != null &&
+                  t.lx != null &&
+                  t.ly != null && (
+                    <text
+                      x={t.lx}
+                      y={t.ly}
+                      fill={p.tick}
+                      fontSize={Math.max(8, size * 0.06)}
+                      textAnchor="middle"
+                      dominantBaseline="middle"
+                      fontFamily="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace"
+                      opacity={0.75}
+                    >
+                      {t.label}
+                    </text>
+                  )}
               </g>
             ))}
 
@@ -132,9 +169,13 @@ export const ArcMeter: React.FC<InstrumentBaseProps & { subtitle?: string; displ
               stroke={stroke}
               strokeWidth={1.7}
               strokeLinecap="butt"
-              initial={animate && !reduceMotion ? { pathLength: 0, opacity: 0.5 } : false}
+              initial={
+                animate && !reduceMotion
+                  ? { pathLength: 0, opacity: 0.5 }
+                  : false
+              }
               animate={{ pathLength: 1, opacity: 1 }}
-              transition={{ duration: reduceMotion ? 0 : 0.7, ease: 'easeOut' }}
+              transition={{ duration: reduceMotion ? 0 : 0.7, ease: "easeOut" }}
             />
 
             <line
@@ -147,21 +188,41 @@ export const ArcMeter: React.FC<InstrumentBaseProps & { subtitle?: string; displ
               strokeLinecap="round"
               filter={`url(#needle-sh-${uid})`}
             />
-            <circle cx={tip.x} cy={tip.y} r={2} fill={stroke} stroke="#f4f7fa" strokeWidth={0.4} />
+            <circle
+              cx={tip.x}
+              cy={tip.y}
+              r={2}
+              fill={stroke}
+              stroke="#f4f7fa"
+              strokeWidth={0.4}
+            />
             <CapJewel uid={uid} cx={cx} cy={cy} accent={stroke} r={3.2} />
           </svg>
         </Box>
 
-        <Box sx={{ mt: 0.6, px: 0.5, textAlign: 'center', width: '100%' }}>
+        <Box
+          sx={{
+            mt: inline ? 0 : 0.6,
+            px: 0.5,
+            textAlign: inline ? "left" : "center",
+            width: inline ? "auto" : "100%",
+            minWidth: 0,
+            flex: inline ? 1 : undefined,
+          }}
+        >
           <Typography
             sx={{
               fontWeight: 700,
-              fontSize: Math.max(15, size * 0.15),
+              fontSize: inline ? 20 : Math.max(15, size * 0.15),
               lineHeight: 1.15,
-              fontVariantNumeric: 'tabular-nums',
-              letterSpacing: '-0.03em',
-              fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
-              color: 'text.primary',
+              fontVariantNumeric: "tabular-nums",
+              letterSpacing: "-0.03em",
+              fontFamily:
+                "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+              color: "text.primary",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
             }}
           >
             {readout}
@@ -170,11 +231,11 @@ export const ArcMeter: React.FC<InstrumentBaseProps & { subtitle?: string; displ
             <Typography
               sx={{
                 mt: 0.3,
-                color: 'text.secondary',
+                color: "text.secondary",
                 fontWeight: 750,
-                textTransform: 'uppercase',
+                textTransform: "uppercase",
                 letterSpacing: 0.8,
-                fontSize: Math.max(11, size * 0.08),
+                fontSize: inline ? 11 : Math.max(11, size * 0.08),
                 lineHeight: 1.2,
               }}
             >
@@ -185,7 +246,7 @@ export const ArcMeter: React.FC<InstrumentBaseProps & { subtitle?: string; displ
             <Typography
               sx={{
                 mt: 0.15,
-                color: 'text.disabled',
+                color: "text.disabled",
                 fontSize: Math.max(11, size * 0.07),
                 lineHeight: 1.25,
                 fontWeight: 600,
@@ -197,7 +258,7 @@ export const ArcMeter: React.FC<InstrumentBaseProps & { subtitle?: string; displ
         </Box>
       </Box>
     </InstrumentTooltip>
-  )
-}
+  );
+};
 
-export default ArcMeter
+export default ArcMeter;
