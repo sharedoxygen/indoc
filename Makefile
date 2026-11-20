@@ -1,3 +1,4 @@
+
 # inDoc SaaS Platform - Production-Ready Makefile
 # Version: 2.0
 # Date: 2025-10-13
