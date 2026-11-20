@@ -12,7 +12,8 @@
 	logs monitor ps \
 	conda-env conda-install local-e2e local-stop \
 	test-backend test-frontend e2e-test seed-data \
-	db-shell db-backup format lint \
+	db-shell db-backup format lint quality \
+	git-promote git-full \
 	publish-worktree-ensure
 
 # Default target
@@ -656,6 +657,18 @@ adk-demo-local: adk-build ## Two-user demo, agent local, MCP on the compose netw
 
 adk-demo-deployed: adk-build ## Two-user demo against Agent Runtime: make adk-demo-deployed RESOURCE=projects/...
 	"$(ADK_DIR)/scripts/run_demo.sh" deployed "$(RESOURCE)"
+
+quality: ## CI gate: byte-compile and autonomous-agent tests
+	$(CONDA_RUN) python -m compileall -q app tests tools
+	$(CONDA_RUN) sh -c 'export PYTHONPATH=$$PWD/app:$$PWD:$$PYTHONPATH && pytest tests/test_agent_service.py -q --noconftest --no-cov -p no:cacheprovider'
+
+git-promote: ## Align development, publish, main, and in-progress to the work tip and push
+	@chmod +x scripts/git-promote.sh
+	@./scripts/git-promote.sh
+
+git-full: ## Ship path: commit WIP, quality, promote, summary, verify
+	@chmod +x scripts/git-full.sh scripts/git-promote.sh
+	@./scripts/git-full.sh $(GIT_FULL_ARGS)
 
 adk-deploy: adk-build ## Deploy the agent to Agent Runtime (reads indoc_agent/.env)
 	docker run --rm --user "$$(id -u):$$(id -g)" \
