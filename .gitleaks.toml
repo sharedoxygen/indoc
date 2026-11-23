@@ -7,6 +7,12 @@ title = "inDoc gitleaks config"
 [extend]
 useDefault = true
 
+[[rules]]
+id = "hardcoded-credential-fallback"
+description = "Shell or compose fallback that embeds a password, secret, or access key"
+regex = '''(?i)(?:PASSWORD|SECRET|API_KEY|ACCESS_KEY)[A-Za-z0-9_]*\}?:-[A-Za-z0-9_!@#%^&*+=.,]{8,}'''
+keywords = ["password", "secret", "api_key", "access_key"]
+
 [allowlist]
 description = "Templates, synthetic data, and CI-only test values — not real secrets"
 paths = [

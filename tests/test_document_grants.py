@@ -57,7 +57,7 @@ async def test_read_grant_admits_grantee_and_respects_clearance(
         email="gemini@example.com",
         username="gemini",
         full_name="Gemini",
-        hashed_password=get_password_hash("X"),
+        hashed_password=get_password_hash("test-only"),
         role=UserRole.MANAGER,
         is_active=True,
         is_verified=True,

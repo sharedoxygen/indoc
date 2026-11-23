@@ -66,7 +66,7 @@ inDoc is designed for controlled, private deployments. It provides the technical
 
 - "Which patient records mention ‘beta‑blocker’ and were created before 2000?"
   - Searches scanned medical PDFs (via OCR), filters by drug name and date, and returns a count plus a list of matching files.
- 
+
 - "How many unique customers appear across all sales invoices, and what is the total revenue per region?"
   - Aggregates data from thousands of invoice PDFs/Excel files, deduplicates customer IDs, and summarizes revenue by geographic region.
 
@@ -92,15 +92,15 @@ These are just a few of the real, executive‑level questions you can ask — ac
 graph TB
     %% User Layer
     User["👤 User<br/>Natural Language Questions"]
-    
+
     %% Frontend Layer
     subgraph Frontend["🎨 Frontend Layer"]
         UI["React 18 + TypeScript<br/>Material-UI Components<br/>Redux State Management"]
     end
-    
+
     %% API Gateway
     API["⚡ FastAPI Gateway<br/>REST + WebSocket<br/>JWT Auth + RBAC"]
-    
+
     %% Intelligence Layer
     subgraph Intelligence["🧠 AI Intelligence Layer"]
         Intent["Intent<br/>Detection"]
@@ -109,7 +109,7 @@ graph TB
         LLM2["🌐 OpenAI<br/>(Fallback)"]
         Grounding["✓ Answer<br/>Grounding"]
     end
-    
+
     %% Search Layer
     subgraph Search["🔍 Hybrid Search Engine"]
         direction LR
@@ -117,53 +117,53 @@ graph TB
         Qdrant["Qdrant<br/>🎯 Semantic Search<br/>Vector Embeddings"]
         Rerank["🎖️ Reranker<br/>Fusion + Boost"]
     end
-    
+
     %% Data Layer
     subgraph Data["💾 Data & Processing Layer"]
         PG["PostgreSQL<br/>Documents & Users<br/>Conversations"]
         Redis["Redis<br/>Cache & Sessions<br/>Job Queue"]
         Celery["Celery<br/>Document Processing<br/>Embeddings<br/>Indexing"]
     end
-    
-    %% Storage Layer  
+
+    %% Storage Layer
     subgraph Storage["📁 Storage Layer"]
         Local["Local FileSystem<br/>Primary Storage"]
         S3["S3 Compatible<br/>Object Storage<br/>(Optional)"]
     end
-    
+
     %% Flow
     User -->|"Ask Question"| UI
     UI -->|"HTTP/WS"| API
     API -->|"Route"| Intent
-    
+
     Intent -->|"Analytics"| PG
     Intent -->|"Document Query"| Search
-    
+
     ES -.->|"Keyword Results"| Rerank
     Qdrant -.->|"Semantic Results"| Rerank
     Rerank -->|"Top K Docs"| Context
-    
+
     Context -->|"Build Prompt"| LLM1
     LLM1 -.->|"Failover"| LLM2
     LLM1 -->|"Response"| Grounding
     LLM2 -.->|"Response"| Grounding
-    
+
     Grounding -->|"Verified Answer"| API
     API -->|"Stream/Return"| UI
     UI -->|"Display"| User
-    
+
     %% Background Processing
     API -->|"Upload"| Storage
     Storage -->|"Process"| Celery
     Celery -->|"Extract Text"| PG
     Celery -->|"Index Keywords"| ES
     Celery -->|"Generate Embeddings"| Qdrant
-    
+
     %% Data Connections
     API -.->|"Query"| PG
     API -.->|"Cache"| Redis
     Celery -.->|"Jobs"| Redis
-    
+
     %% Styling
     classDef frontend fill:#1976d2,stroke:#1565c0,stroke-width:3px,color:#fff
     classDef api fill:#00897b,stroke:#00695c,stroke-width:3px,color:#fff
@@ -171,7 +171,7 @@ graph TB
     classDef search fill:#f57c00,stroke:#ef6c00,stroke-width:3px,color:#fff
     classDef data fill:#0288d1,stroke:#0277bd,stroke-width:3px,color:#fff
     classDef storage fill:#5e35b1,stroke:#512da8,stroke-width:3px,color:#fff
-    
+
     class UI frontend
     class API api
     class Intent,Context,LLM1,LLM2,Grounding ai
@@ -191,12 +191,12 @@ graph TB
 
 ## Tech Stack
 
-**Frontend:** React 18 • TypeScript • Material-UI • Redux  
-**Backend:** FastAPI • Python 3.11 • Async  
-**Search:** Elasticsearch + Qdrant (hybrid)  
-**LLM:** Ollama (local) + OpenAI (fallback)  
-**MCP:** SearchProvider • RetrievalProvider • ToolProvider  
-**Data:** PostgreSQL • Redis • Celery  
+**Frontend:** React 18 • TypeScript • Material-UI • Redux
+**Backend:** FastAPI • Python 3.11 • Async
+**Search:** Elasticsearch + Qdrant (hybrid)
+**LLM:** Ollama (local) + OpenAI (fallback)
+**MCP:** SearchProvider • RetrievalProvider • ToolProvider
+**Data:** PostgreSQL • Redis • Celery
 **Deploy:** Docker Compose
 
 ---
@@ -211,11 +211,11 @@ graph TB
 
 ## Requirements
 
-- **Docker** & Docker Compose (recommended)  
+- **Docker** & Docker Compose (recommended)
   OR
 - **Python 3.11+**, **Node 18+**, **PostgreSQL**, **Redis**, **Elasticsearch**, **Qdrant**
 
-**RAM:** 8GB minimum, 16GB recommended  
+**RAM:** 8GB minimum, 16GB recommended
 **Storage:** 10GB + your documents
 
 ---
@@ -230,10 +230,7 @@ cd indoc
 make dev
 ```
 
-Open **http://localhost:5173** and login with demo credentials:
-- **Admin:** `admin@indoc.local` / `Admin123!`
-- **Manager:** `manager@indoc.local` / `Manager123!`
-- **Analyst:** `analyst@indoc.local` / `Analyst123!`
+Open **http://localhost:5173**. Account passwords come from the environment and are not stored in this repository.
 
 ---
 

@@ -15,15 +15,17 @@ Access model (inDoc RBAC/ABAC, unchanged):
                                      own 3 INTERNAL documents
 
 The manager and analyst passwords are random and unrecorded: the agent uses
-MCP tokens. gemini@indoc.local / X is the human login for this
-corpus. Demo documents are visibility=grant, so they stay out of the personal
-library unless the caller owns them or holds a read grant. gemini holds a
+MCP tokens. gemini@indoc.local is the human login; set GEMINI_PASSWORD in the
+environment and do not commit it. Demo documents are visibility=grant, so they
+stay out of the personal library unless the caller owns them or holds a read
+grant. gemini holds a
 read grant on every demo document. --purge removes the documents and their
 index entries and deactivates the users; their audit rows are retained.
 """
 import argparse
 import asyncio
 import hashlib
+import os
 import secrets
 import sys
 from dataclasses import dataclass
@@ -50,7 +52,15 @@ MANAGER_EMAIL = "manager.demo@example.com"
 ANALYST_EMAIL = "analyst.demo@example.com"
 GEMINI_EMAIL = "gemini@indoc.local"
 GEMINI_USERNAME = "gemini"
-GEMINI_PASSWORD = "X"
+
+
+def _gemini_password() -> str:
+    password = os.environ.get("GEMINI_PASSWORD", "").strip()
+    if not password:
+        raise SystemExit(
+            "GEMINI_PASSWORD is required to seed the demo login. Do not commit it."
+        )
+    return password
 
 
 @dataclass(frozen=True)
@@ -225,7 +235,7 @@ async def _upsert_gemini(db) -> User:
         user = User(
             email=GEMINI_EMAIL,
             username=GEMINI_USERNAME,
-            hashed_password=get_password_hash(GEMINI_PASSWORD),
+            hashed_password=get_password_hash(_gemini_password()),
         )
         db.add(user)
     user.full_name = "Gemini"
@@ -234,7 +244,7 @@ async def _upsert_gemini(db) -> User:
     user.manager_id = None
     user.is_active = True
     user.is_verified = True
-    user.hashed_password = get_password_hash(GEMINI_PASSWORD)
+    user.hashed_password = get_password_hash(_gemini_password())
     await db.flush()
     return user
 

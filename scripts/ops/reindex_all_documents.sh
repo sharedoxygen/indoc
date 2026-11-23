@@ -18,11 +18,16 @@ if ! curl -s "$API_URL/health" > /dev/null 2>&1; then
     exit 1
 fi
 
+if [ -z "${ADMIN_PASSWORD:-}" ]; then
+    echo "ADMIN_PASSWORD is required. Do not commit it."
+    exit 1
+fi
+
 # Login as admin
 echo "1. Logging in as admin..."
 TOKEN=$(curl -s -X POST "$API_URL/api/v1/auth/login" \
   --form 'username=admin' \
-  --form 'password=Admin123!' | \
+  --form "password=${ADMIN_PASSWORD}" | \
   python3 -c 'import sys,json; print(json.load(sys.stdin).get("access_token",""))')
 
 if [ -z "$TOKEN" ]; then
@@ -90,4 +95,3 @@ echo "Next steps:"
 echo "  - Test search in UI"
 echo "  - Test chat functionality"
 echo "  - Verify ZX-10R documents are findable"
-

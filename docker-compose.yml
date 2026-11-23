@@ -131,7 +131,7 @@ services:
     ports:
       - "3030:3000" # Changed from 3000:3000 to avoid conflict
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
       - GF_PLUGINS_PREINSTALL_SYNC=redis-datasource
       # Embed inside inDoc Monitoring page — one app login for viewers
       - GF_SECURITY_ALLOW_EMBEDDING=true

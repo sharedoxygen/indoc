@@ -147,7 +147,7 @@ dev: ## Start full development stack (local processes, hot reload)
 	@echo "   • Frontend:    http://localhost:$(DEV_FE_PORT)"
 	@echo "   • API:         http://localhost:$(DEV_API_PORT)"
 	@echo "   • API Docs:    http://localhost:$(DEV_API_PORT)/api/v1/docs"
-	@echo "   • Grafana:     http://localhost:3030 (admin/admin)"
+	@echo "   • Grafana:     http://localhost:3030"
 	@echo "   • Prometheus:  http://localhost:9090"
 	@echo ""
 	@echo "$(YELLOW)🛑 To stop: make stop$(NC)"
@@ -295,15 +295,14 @@ saas-local: ## Simulate SaaS from publish worktree (exclusive vs make dev)
 	echo "   • Backend API:       http://localhost:$(SAAS_API_PORT)"; \
 	echo "   • API Docs:          http://localhost:$(SAAS_API_PORT)/api/v1/docs"; \
 	echo "   • Frontend port:     $(SAAS_FE_PORT) (reserved; not started by compose)"; \
-	echo "   • Grafana:           http://localhost:3030 (admin/admin)"; \
+	echo "   • Grafana:           http://localhost:3030"; \
 	echo "   • Prometheus:        http://localhost:9090"; \
 	echo "   • Qdrant Dashboard:  http://localhost:6333/dashboard"; \
 	echo ""; \
 	echo "$(YELLOW)💾 Database:$(NC) PostgreSQL @ localhost:5432 (bare metal)"; \
 	echo "$(YELLOW)📦 Cache:$(NC)    Redis @ localhost:6379 (bare metal)"; \
 	echo ""; \
-	echo "$(BLUE)📝 Default Credentials:$(NC)"; \
-	echo "   • Admin:  admin / X"; \
+	echo "$(BLUE)📝 Credentials:$(NC) set in the environment. Not printed."; \
 	echo ""; \
 	echo "$(YELLOW)🛑 To stop: make stop$(NC)"; \
 	echo ""

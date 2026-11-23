@@ -39,6 +39,13 @@ credentials/
 setup_aws_credentials.md
 config/local.yaml
 backend/config/local.yaml
+# Wrangler / Cloudflare local secrets and state (any directory)
+wrangler.toml
+wrangler.json
+wrangler.jsonc
+.wrangler/
+.dev.vars
+.dev.vars.*
 
 # ============================================================================
 # CRITICAL: BACKUPS & DATABASES (NEVER COMMIT)
