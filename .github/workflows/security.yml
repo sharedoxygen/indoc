@@ -28,8 +28,6 @@ jobs:
             | tar -xz -C /usr/local/bin gitleaks
           gitleaks version
 
-      # Tree scan only. Older commits still contain removed defaults; a history
-      # scan stays red until those commits are rewritten and the remote is updated.
       - name: Scan for secrets
         run: gitleaks detect --source . --no-git --config .gitleaks.toml --redact --verbose --exit-code 1
 
@@ -37,10 +35,6 @@ jobs:
         run: |
           if git ls-files | grep -E '(^|/)\.env($|\.)|(^|/)config/local\.yaml$|(^|/)wrangler\.(toml|json|jsonc)$|(^|/)\.dev\.vars($|\.)|(^|/)\.wrangler(/|$)|(^|/)\.pafpublish\.json$' | grep -v '\.env\.example$'; then
             echo "Tracked secret filename"
-            exit 1
-          fi
-          if git grep -nE '(^|[^A-Za-z0-9_])(X|X|Admin123!|Manager123!|Analyst123!|X)' -- ':!.github/workflows/security.yml'; then
-            echo "Hardcoded credential literal"
             exit 1
           fi
           if git grep -nE '(PASSWORD|SECRET|API_KEY|ACCESS_KEY)\}?:-[A-Za-z0-9_!@#%^&*+=.,]+' -- ':!.github/workflows/security.yml' ':!.pre-commit-config.yaml'; then

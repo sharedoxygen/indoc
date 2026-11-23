@@ -1,36 +1,40 @@
 """
 Main FastAPI application
 """
-from fastapi import FastAPI, Request, Depends, HTTPException, status, WebSocket, WebSocketDisconnect
-from fastapi.responses import JSONResponse
-from fastapi.exceptions import RequestValidationError
-from starlette.exceptions import HTTPException as StarletteHTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.middleware.trustedhost import TrustedHostMiddleware
+
+import logging
+import os
+import time
 from contextlib import asynccontextmanager
 from datetime import datetime
-import logging
-import time
 
-from app.core.config import settings
+from fastapi import Depends, FastAPI, Request, WebSocket, WebSocketDisconnect
+from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from fastapi.responses import JSONResponse
+from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.exceptions import HTTPException as StarletteHTTPException
+
+from app.api.deps import get_current_user, get_db
 from app.api.v1.api import api_router
+from app.core.cache import cache_service
+from app.core.config import settings
+from app.core.monitoring import MonitoringRoute, metrics_endpoint
+from app.core.secrets_vault import VaultProvider, init_secrets_vault
+from app.core.siem_export import SIEMProvider, get_siem_exporter, init_siem_exporter
 from app.db.session import async_engine
-from app.models.base import Base
 from app.middleware.audit import AuditMiddleware
+from app.middleware.rate_limiting import RateLimitMiddleware, rate_limiter
+from app.middleware.security_headers import SecurityHeadersMiddleware
 from app.middleware.telemetry import TelemetryMiddleware
-from app.core.monitoring import metrics_endpoint, MonitoringRoute
+
 # from app.api.v1.endpoints import chat, bulk_upload  # Temporarily disabled
 from app.middleware.timeout import RequestTimeoutMiddleware
-from app.middleware.security_headers import SecurityHeadersMiddleware
-from app.middleware.rate_limiting import RateLimitMiddleware, rate_limiter
-from app.core.cache import cache_service
-from app.core.siem_export import init_siem_exporter, get_siem_exporter, SIEMProvider
+from app.models.base import Base
+from app.models.user import User
 from app.services.search.elasticsearch_service import close_elasticsearch_service
 from app.services.search.qdrant_service import close_qdrant_service
-from app.core.secrets_vault import init_secrets_vault, VaultProvider
-from app.api.deps import get_db, get_current_user
-from app.models.user import User
-from sqlalchemy.ext.asyncio import AsyncSession
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -40,40 +44,36 @@ logger = logging.getLogger(__name__)
 async def _validate_security_config():
     """
     Validate critical security configuration on startup
-    
+
     FAIL-FAST if required security config is missing or insecure
     Per Review C2.1: Prevent production deployment with empty/weak secrets
     """
     errors = []
-    
+
     # 1. JWT Secret Key validation
     if not settings.JWT_SECRET_KEY or len(settings.JWT_SECRET_KEY) < 32:
         if settings.ENVIRONMENT == "production":
             errors.append("JWT_SECRET_KEY must be at least 32 characters in production")
         elif not settings.JWT_SECRET_KEY:
-            # In development, generate a random key
-            import secrets
-            generated_key = secrets.token_urlsafe(64)
-            logger.warning(f"⚠️ No JWT_SECRET_KEY configured, generated temporary key for development")
-            logger.warning(f"⚠️ Set JWT_SECRET_KEY in .env for production!")
-            # Note: We can't modify settings directly as it's frozen
-            # This is a warning only in dev mode
-    
+            logger.warning("No JWT_SECRET_KEY configured. Set JWT_SECRET_KEY in .env.")
+
     # 2. Database credentials validation
     if settings.ENVIRONMENT == "production":
-        if settings.POSTGRES_PASSWORD == "X":
-            errors.append("Production database still using development password!")
+        if not settings.POSTGRES_PASSWORD or len(settings.POSTGRES_PASSWORD) < 16:
+            errors.append(
+                "Production database password is missing or shorter than 16 characters"
+            )
         if settings.POSTGRES_USER == "indoc_user":
             logger.warning("⚠️ Using default database username in production")
-    
+
     # 3. Redis validation
     if "localhost" in settings.REDIS_URL and settings.ENVIRONMENT == "production":
         logger.warning("⚠️ Redis configured for localhost in production environment")
-    
+
     # 4. Encryption key validation
     if settings.ENABLE_FIELD_ENCRYPTION and not settings.FIELD_ENCRYPTION_KEY:
         errors.append("Field encryption enabled but FIELD_ENCRYPTION_KEY not set")
-    
+
     # Fail fast if critical errors found
     if errors:
         logger.error("🔴 CRITICAL SECURITY CONFIGURATION ERRORS:")
@@ -82,8 +82,10 @@ async def _validate_security_config():
         logger.error("")
         logger.error("Application startup ABORTED for security reasons.")
         logger.error("Fix configuration in .env or config/local.yaml and restart.")
-        raise RuntimeError(f"Security configuration validation failed: {'; '.join(errors)}")
-    
+        raise RuntimeError(
+            f"Security configuration validation failed: {'; '.join(errors)}"
+        )
+
     logger.info("✅ Security configuration validated")
 
 
@@ -92,10 +94,10 @@ async def lifespan(app: FastAPI):
     """Manage application lifecycle"""
     # Startup
     logger.info("Starting inDoc application...")
-    
+
     # CRITICAL SECURITY: Fail-fast JWT validation (AI Guide + Review C2.1)
     await _validate_security_config()
-    
+
     # Ensure storage directories exist (moved from settings validator)
     try:
         settings.TEMP_REPO_PATH.mkdir(parents=True, exist_ok=True)
@@ -103,19 +105,21 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Failed to initialize storage directories: {e}")
         raise
-    
+
     # Initialize cache service
     await cache_service.connect()
-    
+
     # Initialize secrets vault
     if settings.VAULT_ENABLED:
         vault_config = {
             "vault_url": settings.VAULT_URL,
             "vault_token": settings.VAULT_TOKEN,
         }
-        init_secrets_vault(provider=VaultProvider(settings.VAULT_PROVIDER), config=vault_config)
+        init_secrets_vault(
+            provider=VaultProvider(settings.VAULT_PROVIDER), config=vault_config
+        )
         logger.info(f"Secrets vault initialized: provider={settings.VAULT_PROVIDER}")
-    
+
     # Initialize SIEM exporter
     if settings.SIEM_ENABLED:
         siem_config = {
@@ -131,9 +135,11 @@ async def lifespan(app: FastAPI):
             "cloudwatch_log_stream": settings.SIEM_CLOUDWATCH_LOG_STREAM,
             "cloudwatch_region": settings.SIEM_CLOUDWATCH_REGION,
         }
-        init_siem_exporter(provider=SIEMProvider(settings.SIEM_PROVIDER), config=siem_config)
+        init_siem_exporter(
+            provider=SIEMProvider(settings.SIEM_PROVIDER), config=siem_config
+        )
         logger.info(f"SIEM exporter initialized: provider={settings.SIEM_PROVIDER}")
-    
+
     # Create database tables if they don't exist
     try:
         async with async_engine.begin() as conn:
@@ -153,10 +159,12 @@ async def lifespan(app: FastAPI):
         if settings.ENVIRONMENT == "production":
             raise
         else:
-            logger.warning("Continuing with invalid configuration in non-production environment")
-    
+            logger.warning(
+                "Continuing with invalid configuration in non-production environment"
+            )
+
     yield
-    
+
     # Shutdown
     logger.info("Shutting down inDoc application...")
     siem_exporter = get_siem_exporter()
@@ -175,7 +183,7 @@ app = FastAPI(
     openapi_url=f"{settings.API_PREFIX}/openapi.json",
     docs_url=f"{settings.API_PREFIX}/docs",
     redoc_url=f"{settings.API_PREFIX}/redoc",
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
 # Enable per-route Prometheus metrics collection for all endpoints
@@ -207,18 +215,16 @@ app.add_middleware(
 )
 
 # Configure trusted hosts for production security
-import os
-ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1,test,testserver").split(",")
+ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1,test,testserver").split(
+    ","
+)
 if settings.ENVIRONMENT == "production":
     ALLOWED_HOSTS = [host.strip() for host in ALLOWED_HOSTS if host.strip()]
 else:
     # In development/testing, allow test hosts
     ALLOWED_HOSTS = [host.strip() for host in ALLOWED_HOSTS if host.strip()] + ["*"]
 
-app.add_middleware(
-    TrustedHostMiddleware,
-    allowed_hosts=ALLOWED_HOSTS
-)
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=ALLOWED_HOSTS)
 
 # Add custom middleware
 app.add_middleware(AuditMiddleware)
@@ -232,7 +238,12 @@ app.add_middleware(RateLimitMiddleware, limiter=rate_limiter)
 app.include_router(api_router, prefix=settings.API_PREFIX)
 
 # Prometheus metrics endpoint
-app.add_api_route(f"{settings.API_PREFIX}/metrics", metrics_endpoint, methods=["GET"], tags=["Monitoring"])
+app.add_api_route(
+    f"{settings.API_PREFIX}/metrics",
+    metrics_endpoint,
+    methods=["GET"],
+    tags=["Monitoring"],
+)
 
 # Include WebSocket endpoints - temporarily disabled
 # app.include_router(chat.router, prefix=f"{settings.API_PREFIX}/chat", tags=["chat"])
@@ -243,6 +254,7 @@ app.add_api_route(f"{settings.API_PREFIX}/metrics", metrics_endpoint, methods=["
 # connections so the UI shows Connected and can still fall back to polling.
 processing_clients: set[WebSocket] = set()
 
+
 @app.websocket("/ws/processing")
 async def processing_ws(websocket: WebSocket, token: str | None = None):
     try:
@@ -251,7 +263,7 @@ async def processing_ws(websocket: WebSocket, token: str | None = None):
         while True:
             data = await websocket.receive_text()
             # Minimal protocol: respond to ping with pong
-            if data and 'ping' in data:
+            if data and "ping" in data:
                 await websocket.send_text('{"type":"pong"}')
     except WebSocketDisconnect:
         pass
@@ -262,6 +274,7 @@ async def processing_ws(websocket: WebSocket, token: str | None = None):
         if websocket in processing_clients:
             processing_clients.remove(websocket)
 
+
 # Root endpoint
 @app.get("/")
 async def root():
@@ -269,8 +282,9 @@ async def root():
         "name": settings.APP_NAME,
         "version": settings.APP_VERSION,
         "status": "running",
-        "api_docs": f"{settings.API_PREFIX}/docs"
+        "api_docs": f"{settings.API_PREFIX}/docs",
     }
+
 
 # Enhanced health check for production monitoring
 @app.get("/health")
@@ -280,17 +294,17 @@ async def health_check():
         "status": "healthy",
         "version": settings.APP_VERSION,
         "environment": settings.ENVIRONMENT,
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.utcnow().isoformat(),
     }
 
 
 @app.get("/health/detailed")
 async def detailed_health_check(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)
 ):
     """Detailed health check for monitoring systems"""
     import time
+
     start_time = time.time()
 
     health_status = {
@@ -298,14 +312,17 @@ async def detailed_health_check(
         "version": settings.APP_VERSION,
         "environment": settings.ENVIRONMENT,
         "timestamp": datetime.utcnow().isoformat(),
-        "services": {}
+        "services": {},
     }
 
     # Database health check
     try:
         result = await db.execute("SELECT 1")
         result.scalar_one()
-        health_status["services"]["database"] = {"status": "healthy", "response_time": time.time() - start_time}
+        health_status["services"]["database"] = {
+            "status": "healthy",
+            "response_time": time.time() - start_time,
+        }
     except Exception as e:
         health_status["status"] = "unhealthy"
         health_status["services"]["database"] = {"status": "unhealthy", "error": str(e)}
@@ -326,6 +343,7 @@ async def detailed_health_check(
 
     return health_status
 
+
 # Test endpoint
 @app.get("/test-auth")
 async def test_auth():
@@ -345,7 +363,9 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
     )
 
     # Don't expose internal details in production
-    error_detail = exc.detail if settings.ENVIRONMENT != "production" else "Request failed"
+    error_detail = (
+        exc.detail if settings.ENVIRONMENT != "production" else "Request failed"
+    )
 
     return JSONResponse(
         status_code=exc.status_code,
@@ -354,8 +374,8 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
             "status_code": exc.status_code,
             "path": request.url.path,
             "error_id": error_id,
-            "timestamp": datetime.utcnow().isoformat()
-        }
+            "timestamp": datetime.utcnow().isoformat(),
+        },
     )
 
 
@@ -373,11 +393,9 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     # Serialize validation errors without non-serializable data
     serialized_errors = []
     for err in exc.errors():
-        serialized_errors.append({
-            "loc": err.get("loc"),
-            "msg": err.get("msg"),
-            "type": err.get("type")
-        })
+        serialized_errors.append(
+            {"loc": err.get("loc"), "msg": err.get("msg"), "type": err.get("type")}
+        )
 
     return JSONResponse(
         status_code=422,
@@ -385,8 +403,8 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
             "detail": serialized_errors,
             "path": request.url.path,
             "error_id": error_id,
-            "timestamp": datetime.utcnow().isoformat()
-        }
+            "timestamp": datetime.utcnow().isoformat(),
+        },
     )
 
 
@@ -424,6 +442,6 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
             "detail": error_message,
             "path": request.url.path,
             "error_id": error_id,
-            "timestamp": datetime.utcnow().isoformat()
-        }
+            "timestamp": datetime.utcnow().isoformat(),
+        },
     )
